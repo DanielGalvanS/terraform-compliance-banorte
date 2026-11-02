@@ -1,0 +1,37 @@
+/* Design tokens — single source of truth for color and elevation. */
+
+:root {
+  --navy-950: #18202c;
+  --navy-900: #252f3d;
+  --navy-800: #364253;
+  --navy-700: #4b586a;
+  --blue-600: #ef2945;
+  --blue-500: #f0445d;
+  --blue-100: #fde9ed;
+  --blue-50: #fff6f7;
+  --data-blue-600: #0877e6;
+  --data-blue-500: #168cff;
+  --data-blue-200: #a9d5ff;
+  --slate-900: #162235;
+  --slate-700: #435166;
+  --slate-600: #607086;
+  --slate-500: #7c899b;
+  --slate-400: #9faabc;
+  --slate-300: #cdd5df;
+  --slate-200: #e2e8ef;
+  --slate-100: #edf1f6;
+  --slate-50: #f7f9fc;
+  --white: #fff;
+  --red-700: #a91424;
+  --red-600: #cf2639;
+  --red-100: #fde8eb;
+  --red-50: #fff5f6;
+  --orange-600: #dc6515;
+  --orange-100: #fff0e3;
+  --yellow-700: #956500;
+  --yellow-100: #fff4cc;
+  --green-700: #087249;
+  --green-600: #0a9360;
+  --green-100: #dff7ec;
+  --shadow: 0 1px 2px rgba(8, 27, 52, .04), 0 4px 14px rgba(8, 27, 52, .04);
+}

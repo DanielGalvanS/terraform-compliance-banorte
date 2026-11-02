@@ -1,0 +1,12 @@
+/* Breakpoints shared across the shell and feature pages. */
+
+@media (max-width: 1180px) {
+  .login-page { grid-template-columns: minmax(460px, .9fr) minmax(500px, 1.1fr); }
+  .login-visual { padding: 34px 38px; }
+  .login-intro h1 { font-size: 40px; }
+  .login-access { padding-left: 45px; padding-right: 45px; }
+  .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+  .global-search { width: 190px; }
+  .topbar { padding: 0 20px; }
+  main { padding-left: 22px; padding-right: 22px; }
+}

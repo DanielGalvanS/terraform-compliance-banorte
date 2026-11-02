@@ -1,0 +1,31 @@
+/* Decision cycle, timeline, autonomy and permissions. */
+
+.agent-cycle { margin-bottom: 12px; }
+.legend { display: flex; gap: 12px; font-size: 8px; color: var(--slate-500); }
+.legend span { display: flex; align-items: center; gap: 4px; }
+.legend i { width: 6px; height: 6px; border-radius: 50%; background: var(--slate-400); }
+.legend i.ai { background: var(--blue-600); }
+.legend i.human { background: var(--orange-600); }
+.cycle-flow { display: flex; padding: 14px 18px 23px; }
+.cycle-node { flex: 1; min-width: 0; height: 58px; border: 1px solid var(--slate-200); background: var(--slate-50); display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; text-align: center; border-radius: 6px; margin-right: 14px; }
+.cycle-node > span { font-size: 7px; color: var(--slate-500); }
+.cycle-node > strong { font-size: 8px; max-width: 80px; margin-top: 4px; }
+.cycle-node > .icon { position: absolute; right: -15px; color: var(--slate-400); }
+.cycle-node.ai { border-color: #f4b6c0; background: var(--blue-50); color: var(--blue-600); }
+.cycle-node.human { border-color: #f4c69f; background: var(--orange-100); color: var(--orange-600); }
+.agent-layout { display: grid; grid-template-columns: 1.4fr .75fr; gap: 12px; }
+.timeline-item { display: grid; grid-template-columns: 17px 40px 1fr auto; gap: 9px; padding: 11px 18px; }
+.timeline-marker { position: relative; }
+.timeline-marker span { width: 8px; height: 8px; border: 2px solid var(--blue-600); border-radius: 50%; display: block; margin-top: 2px; background: white; position: relative; z-index: 1; }
+.timeline-marker i { position: absolute; top: 9px; left: 3px; bottom: -18px; border-left: 1px solid var(--slate-300); }
+.timeline-item time { color: var(--slate-500); font-size: 8px; padding-top: 2px; }
+.timeline-item strong, .timeline-item small { display: block; font-size: 9px; }
+.timeline-item small { color: var(--slate-500); margin-top: 4px; font-size: 8px; }
+.timeline-item p { margin: 5px 0 0; font-size: 8px; color: var(--slate-600); }
+.agent-side { display: flex; flex-direction: column; gap: 12px; }
+.autonomy-table th, .autonomy-table td { padding: 9px 11px; }
+.permission-list { list-style: none; padding: 0 17px 13px; margin: 0; }
+.permission-list li { display: flex; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--slate-100); color: var(--slate-700); font-size: 9px; }
+.permission-list .icon { color: var(--green-700); }
+.permission-list li.denied { color: var(--slate-500); }
+.permission-list li.denied .icon { color: var(--red-600); }

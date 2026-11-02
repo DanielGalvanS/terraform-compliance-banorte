@@ -1,0 +1,7 @@
+/* Filter bar, selects and clear action. */
+
+.filter-bar { min-height: 58px; padding: 9px 13px; display: flex; align-items: end; gap: 10px; }
+.filter-bar > span { display: flex; gap: 6px; align-items: center; align-self: center; font-weight: 700; margin-right: 5px; }
+.filter-bar label, .test-config > label, .report-builder label { display: flex; flex-direction: column; gap: 4px; color: var(--slate-500); font-size: 8px; }
+select, .modal input { height: 29px; border: 1px solid var(--slate-300); border-radius: 5px; background: white; padding: 0 25px 0 8px; color: var(--slate-700); outline: none; font-size: 9px; }
+.clear-filter { border: 0; background: none; color: var(--blue-600); font-size: 9px; padding: 8px; margin-left: auto; }

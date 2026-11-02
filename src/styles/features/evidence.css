@@ -1,0 +1,38 @@
+/* Report builder, evidence log, coverage ring and exceptions summary. */
+
+.report-builder { min-height: 72px; background: var(--blue-600); color: white; border-radius: 9px; margin-bottom: 12px; padding: 12px 16px; display: flex; align-items: center; gap: 13px; }
+.report-builder > div { display: flex; gap: 10px; align-items: center; margin-right: auto; }
+.report-builder strong, .report-builder small { display: block; }
+.report-builder small { color: #ffe5e9; font-size: 8px; margin-top: 3px; }
+.report-builder label { color: #ffd0d7; }
+.report-builder select { min-width: 115px; background: #c91d38; border-color: #f57b8d; color: white; }
+.evidence-grid { display: grid; grid-template-columns: 1fr 260px; gap: 12px; margin-bottom: 12px; }
+.evidence-log { overflow: hidden; }
+.coverage-ring { width: 150px; height: 150px; position: relative; margin: 3px auto; }
+.coverage-ring svg { transform: rotate(-90deg); }
+.coverage-ring circle { fill: none; stroke: var(--slate-100); stroke-width: 8; }
+.coverage-ring circle.progress { stroke: var(--green-600); stroke-linecap: round; }
+.coverage-ring > div { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.coverage-ring strong { font-size: 20px; }
+.coverage-ring small { color: var(--slate-500); font-size: 8px; margin-top: 4px; }
+.coverage-list { padding: 5px 20px 14px; }
+.coverage-list span { display: flex; align-items: center; gap: 7px; padding: 5px 0; font-size: 8px; color: var(--slate-600); }
+.coverage-list strong { margin-left: auto; color: var(--slate-900); }
+.coverage-list i { width: 6px; height: 6px; border-radius: 50%; }
+.coverage-list .green { background: var(--green-600); }
+.coverage-list .yellow { background: #d99d0b; }
+.coverage-list .red { background: var(--red-600); }
+.exception-grid { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--slate-200); }
+.exception { padding: 14px 17px; border-right: 1px solid var(--slate-200); }
+.exception:last-child { border: 0; }
+.exception > div { display: flex; justify-content: space-between; align-items: center; }
+.exception > strong, .exception > span { display: block; margin-top: 9px; }
+.exception > span { color: var(--blue-600); font-size: 8px; }
+.exception dl { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin: 12px 0 0; font-size: 8px; }
+.exception dt { color: var(--slate-500); }
+.exception dd { margin: 0; text-align: right; }
+.export-options { display: flex; gap: 9px; margin-top: 16px; }
+.export-options label { border: 1px solid var(--slate-200); border-radius: 7px; padding: 12px; flex: 1; display: flex; gap: 7px; font-size: 9px; }
+.export-options label:has(input:checked) { border-color: var(--blue-600); background: var(--blue-50); }
+.export-options small, .export-options strong { display: block; }
+.export-options small { color: var(--slate-500); margin-top: 4px; font-size: 7px; }

@@ -1,0 +1,55 @@
+/* PR list, stepper, logs and verdict. */
+
+.pipeline-layout { display: grid; grid-template-columns: 270px 1fr; gap: 13px; align-items: start; }
+.pr-list { overflow: hidden; }
+.icon-button { border: 0; background: transparent; width: 28px; height: 28px; display: grid; place-items: center; color: var(--slate-500); border-radius: 5px; }
+.icon-button:hover { background: var(--slate-100); }
+.pr-item { border: 0; border-top: 1px solid var(--slate-100); background: white; padding: 13px 15px; display: block; width: 100%; text-align: left; position: relative; }
+.pr-item.active { background: var(--blue-50); box-shadow: inset 3px 0 var(--blue-600); }
+.pr-item > strong, .pr-item > small { display: block; }
+.pr-item > strong { font-size: 10px; line-height: 1.4; margin: 7px 0; }
+.pr-item > small { color: var(--slate-500); font-size: 8px; }
+.pr-item > .badge { position: absolute; bottom: 10px; right: 11px; }
+.pr-id { display: flex; align-items: center; gap: 6px; color: var(--blue-600); font-size: 10px; font-weight: 700; }
+.pr-id .badge { margin-left: auto; }
+.pipeline-main { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.pr-summary { padding: 16px 18px; display: flex; justify-content: space-between; }
+.pr-summary h2 { margin-top: 7px; }
+.pr-summary p { margin: 6px 0 0; color: var(--slate-600); font-size: 10px; }
+.pr-summary code, td code { color: var(--navy-800); font-size: 10px; }
+.commit-box { border-left: 1px solid var(--slate-200); padding-left: 18px; min-width: 100px; }
+.commit-box small, .commit-box code { display: block; }
+.commit-box small { color: var(--slate-400); font-size: 8px; margin-bottom: 6px; }
+.stepper-card { overflow: hidden; }
+.stepper { display: flex; padding: 12px 18px 19px; overflow: hidden; }
+.step { flex: 1; min-width: 70px; text-align: center; font-size: 8px; color: var(--slate-500); }
+.step-line { height: 22px; display: flex; align-items: center; }
+.step-line:before, .step-line:after { content: ""; height: 2px; background: var(--slate-200); flex: 1; }
+.step:first-child .step-line:before, .step:last-child .step-line:after { opacity: 0; }
+.step-line span { width: 21px; height: 21px; flex: 0 0 21px; border: 2px solid var(--slate-300); border-radius: 50%; display: grid; place-items: center; font-weight: 700; }
+.step.ok .step-line span { background: var(--green-600); border-color: var(--green-600); color: white; }
+.step.warning .step-line span { background: var(--yellow-100); border-color: var(--yellow-700); color: var(--yellow-700); }
+.step.blocked .step-line span { background: var(--red-600); border-color: var(--red-600); color: white; }
+.step.ok .step-line:before, .step.ok .step-line:after { background: var(--green-600); }
+.step strong, .step small { display: block; }
+.step strong { margin-top: 5px; color: var(--slate-700); font-size: 8px; white-space: nowrap; }
+.step small { margin-top: 3px; font-size: 8px; }
+.logs { border-top: 1px solid var(--slate-200); }
+.log-row > button { width: 100%; border: 0; border-bottom: 1px solid var(--slate-100); background: white; padding: 9px 17px; display: flex; align-items: center; text-align: left; gap: 8px; font-size: 10px; }
+.log-row button small { margin-left: auto; color: var(--slate-500); }
+.log-row button .icon { transform: rotate(90deg); }
+.status-ring { width: 8px; height: 8px; border: 2px solid var(--slate-400); border-radius: 50%; }
+.status-ring.ok { border-color: var(--green-600); background: var(--green-600); }
+.status-ring.blocked { border-color: var(--red-600); background: var(--red-600); }
+.status-ring.warning { border-color: var(--yellow-700); background: var(--yellow-100); }
+
+.verdict { display: grid; grid-template-columns: 42px 1fr 100px; gap: 13px; padding: 17px; background: var(--red-50); border-color: #f3c9cf; }
+.verdict-icon { width: 40px; height: 40px; display: grid; place-items: center; color: var(--red-600); background: var(--red-100); border-radius: 8px; }
+.verdict-body h2 { color: var(--red-700); margin-top: 3px; }
+.verdict-body p { color: var(--slate-700); font-size: 10px; line-height: 1.6; margin-bottom: 12px; }
+.verdict-actions { display: flex; gap: 7px; }
+.confidence { border-left: 1px solid #f3c9cf; padding-left: 15px; text-align: center; }
+.confidence small, .confidence strong, .confidence span { display: block; }
+.confidence small { font-size: 7px; color: var(--slate-500); }
+.confidence strong { font-size: 23px; margin: 7px 0; }
+.confidence span { font-size: 8px; color: var(--slate-500); }

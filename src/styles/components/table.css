@@ -1,0 +1,13 @@
+/* Table card, tag list and inline search. */
+
+.table-card { overflow: hidden; }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th { padding: 9px 14px; text-align: left; background: var(--slate-50); border-top: 1px solid var(--slate-200); border-bottom: 1px solid var(--slate-200); color: var(--slate-500); font-size: 8px; text-transform: uppercase; letter-spacing: .6px; }
+td { padding: 11px 14px; border-bottom: 1px solid var(--slate-100); font-size: 9px; color: var(--slate-700); }
+tr:last-child td { border-bottom: 0; }
+.tag-list { display: flex; gap: 4px; flex-wrap: wrap; }
+.tag-list span { padding: 3px 5px; border-radius: 4px; background: var(--slate-100); font-size: 7px; font-family: "JetBrains Mono", monospace; }
+.tag-list .missing { background: var(--red-100); color: var(--red-700); border: 1px dashed #eea9b2; }
+.mini-search { width: 190px; height: 29px; border: 1px solid var(--slate-200); border-radius: 6px; display: flex; align-items: center; gap: 5px; padding: 0 8px; color: var(--slate-400); }
+.mini-search input { border: 0; outline: 0; width: 100%; font-size: 9px; }
