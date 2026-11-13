@@ -1,0 +1,69 @@
+name: Validar Terraform
+
+# Se ejecuta en cada pull request que toque infraestructura. Es el primer
+# filtro: formato y sintaxis, antes de gastar tiempo en políticas o en un plan.
+on:
+  pull_request:
+    paths:
+      - 'infra/**'
+      - '.github/workflows/validate.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'infra/**'
+
+# Mínimo privilegio: este workflow solo necesita leer el código.
+permissions:
+  contents: read
+
+# Versiones fijas, como exige el reto. Subirlas es un cambio explícito.
+env:
+  TERRAFORM_VERSION: '1.16.4'
+
+jobs:
+  formato:
+    name: Formato
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: terraform fmt
+        run: terraform fmt -recursive -check -diff infra/
+
+  validar:
+    name: Sintaxis
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      # Un init sin backend no necesita credenciales de GCP: solo descarga el
+      # proveedor para poder comprobar la sintaxis y los tipos.
+      - name: terraform validate en cada módulo y ambiente
+        run: |
+          set -euo pipefail
+          hubo_error=0
+          for dir in infra/modules/*/ infra/environments/*/; do
+            # Un directorio sin .tf todavía no es una configuración.
+            # find en vez de un glob: su resultado no depende del shell.
+            [ -n "$(find "${dir}" -maxdepth 1 -name '*.tf' -print -quit)" ] || continue
+            echo "::group::${dir}"
+            if terraform -chdir="${dir}" init -backend=false -input=false -no-color \
+               && terraform -chdir="${dir}" validate -no-color; then
+              echo "::endgroup::"
+            else
+              echo "::endgroup::"
+              echo "::error title=terraform validate::Falló en ${dir}"
+              hubo_error=1
+            fi
+          done
+          exit "${hubo_error}"

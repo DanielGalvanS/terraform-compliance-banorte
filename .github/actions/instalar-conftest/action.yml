@@ -1,0 +1,32 @@
+name: Instalar conftest
+description: Descarga conftest en una versión fija y comprueba su integridad.
+
+inputs:
+  version:
+    description: Versión de conftest a instalar.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Descargar y verificar
+      shell: bash
+      run: |
+        set -euo pipefail
+        version="${{ inputs.version }}"
+        base="https://github.com/open-policy-agent/conftest/releases/download/v${version}"
+        archivo="conftest_${version}_Linux_x86_64.tar.gz"
+
+        tmp="$(mktemp -d)"
+        cd "${tmp}"
+        curl --fail --silent --show-error --location --retry 3 -O "${base}/${archivo}"
+        curl --fail --silent --show-error --location --retry 3 -O "${base}/checksums.txt"
+
+        # Comprueba que la descarga coincide con el manifiesto de la release.
+        # Protege contra una descarga corrupta o truncada, no contra una release
+        # comprometida: ambos archivos vienen del mismo origen.
+        grep " ${archivo}\$" checksums.txt | sha256sum --check --status
+
+        tar -xzf "${archivo}" conftest
+        install -m 0755 conftest /usr/local/bin/conftest
+        conftest --version

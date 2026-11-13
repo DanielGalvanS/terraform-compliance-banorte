@@ -1,0 +1,93 @@
+name: Políticas
+
+# La compuerta de cumplimiento. Evalúa el catálogo de controles y falla el
+# pull request ante cualquier violación.
+#
+# Corre dentro del runner, no contra un servicio remoto. Si dependiera de la
+# red, un servicio caído dejaría pasar cambios; la regla del reto es la
+# contraria: si el evaluador falla, se bloquea y se notifica.
+on:
+  pull_request:
+    paths:
+      - 'infra/**'
+      - '.github/workflows/policies.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'infra/**'
+
+permissions:
+  contents: read
+
+env:
+  CONFTEST_VERSION: '0.71.1'
+
+jobs:
+  pruebas:
+    name: Pruebas del catálogo
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/instalar-conftest
+        with:
+          version: ${{ env.CONFTEST_VERSION }}
+
+      # Las políticas se prueban a sí mismas antes de juzgar nada: una política
+      # sin pruebas en verde no puede bloquear a nadie.
+      - name: conftest verify
+        run: conftest verify --policy infra/policies/rego
+
+  compuerta:
+    name: Compuerta sobre los planes de ejemplo
+    runs-on: ubuntu-24.04
+    needs: pruebas
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/instalar-conftest
+        with:
+          version: ${{ env.CONFTEST_VERSION }}
+
+      # CP-08: un plan conforme pasa.
+      - name: Plan conforme debe aprobar
+        run: |
+          set -euo pipefail
+          infra/pipelines/scripts/policy_check.sh \
+            infra/policies/fixtures/plan_conforme.json veredicto_conforme.json
+
+      # CP-05, CP-06, CP-07 y CP-16: un plan con violaciones se bloquea.
+      # Aquí se invierte la expectativa: el script DEBE fallar.
+      - name: Plan con violaciones debe bloquear
+        run: |
+          set -euo pipefail
+          if infra/pipelines/scripts/policy_check.sh \
+               infra/policies/fixtures/plan_violaciones.json veredicto_violaciones.json; then
+            echo "::error title=Compuerta rota::El plan con violaciones fue aprobado"
+            exit 1
+          fi
+          echo "La compuerta bloqueó el plan con violaciones, como se espera."
+
+      # CP-15: si el evaluador no puede opinar, nunca autoriza.
+      - name: Falla segura cuando el evaluador no puede evaluar
+        run: |
+          set -euo pipefail
+          echo 'esto no es un plan' > plan_corrupto.json
+          if infra/pipelines/scripts/policy_check.sh plan_corrupto.json veredicto_error.json; then
+            echo "::error title=Falla insegura::Un plan ilegible fue aprobado"
+            exit 1
+          fi
+          resultado="$(python3 -c 'import json;print(json.load(open("veredicto_error.json"))["resultado"])')"
+          [[ "${resultado}" == "error" ]] || {
+            echo "::error::Se esperaba resultado 'error' y se obtuvo '${resultado}'"
+            exit 1
+          }
+          echo "El evaluador bloqueó ante una entrada ilegible, como se espera."
+
+      - name: Publicar veredictos
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: veredictos-ejemplo
+          path: veredicto_*.json
+          retention-days: 30
