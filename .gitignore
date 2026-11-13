@@ -25,3 +25,6 @@ service-account*.json
 
 # El lock de proveedores se versiona en environments/, no en módulos reutilizables.
 infra/modules/**/.terraform.lock.hcl
+
+# Salida de la compuerta de políticas: se genera en cada ejecución del pipeline.
+veredicto.json

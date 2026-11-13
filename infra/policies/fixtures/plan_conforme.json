@@ -1,0 +1,88 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.16.4",
+  "resource_changes": [
+    {
+      "address": "module.firewall.google_compute_firewall.permitir_ssh_iap",
+      "type": "google_compute_firewall",
+      "name": "permitir_ssh_iap",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "name": "mdc-dev-permitir-ssh-iap",
+          "direction": "INGRESS",
+          "priority": 1000,
+          "source_ranges": ["35.235.240.0/20"],
+          "target_tags": ["ssh-iap"],
+          "allow": [{ "protocol": "tcp", "ports": ["22"] }]
+        }
+      }
+    },
+    {
+      "address": "module.firewall.google_compute_firewall.permitir_interno",
+      "type": "google_compute_firewall",
+      "name": "permitir_interno",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "name": "mdc-dev-permitir-interno",
+          "direction": "INGRESS",
+          "priority": 1100,
+          "source_ranges": ["10.10.1.0/24"],
+          "allow": [{ "protocol": "tcp", "ports": ["443"] }]
+        }
+      }
+    },
+    {
+      "address": "module.sql.google_sql_database_instance.principal",
+      "type": "google_sql_database_instance",
+      "name": "principal",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "name": "sql-mdc-dev-01",
+          "database_version": "POSTGRES_15",
+          "encryption_key_name": "projects/mdc-dev/locations/us-central1/keyRings/mdc/cryptoKeys/sql",
+          "settings": [
+            {
+              "tier": "db-g1-small",
+              "ip_configuration": [
+                {
+                  "ipv4_enabled": false,
+                  "private_network": "projects/mdc-dev/global/networks/mdc-dev"
+                }
+              ],
+              "user_labels": {
+                "duenio": "plataforma",
+                "ambiente": "dev",
+                "clasificacion_datos": "confidencial",
+                "centro_costos": "cc-1042",
+                "marco_aplicable": "lfpdppp"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "address": "module.compute.google_compute_instance.pruebas",
+      "type": "google_compute_instance",
+      "name": "pruebas",
+      "change": {
+        "actions": ["create"],
+        "after": {
+          "name": "vm-mdc-dev-01",
+          "machine_type": "e2-micro",
+          "tags": ["ssh-iap"],
+          "labels": {
+            "duenio": "plataforma",
+            "ambiente": "dev",
+            "clasificacion_datos": "interno",
+            "centro_costos": "cc-1042",
+            "marco_aplicable": "cis-gcp"
+          }
+        }
+      }
+    }
+  ]
+}
