@@ -1,4 +1,24 @@
+# Node
 node_modules
 dist
-.DS_Store
 *.local
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+# Los .tfvars llevan valores reales (project IDs, rangos); solo se versiona el ejemplo.
+*.tfvars
+!*.tfvars.example
+# El lock de proveedores SÍ se versiona: fija las versiones (convención del reto).
+!.terraform.lock.hcl
+
+# Credenciales: nunca deben entrar al repo
+*.json.key
+service-account*.json
+.env
+.env.*
+
+# macOS
+.DS_Store
