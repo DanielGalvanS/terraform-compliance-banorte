@@ -7,13 +7,24 @@
       "type": "google_compute_firewall",
       "name": "allow_ssh",
       "change": {
-        "actions": ["create"],
+        "actions": [
+          "create"
+        ],
         "after": {
           "name": "fw-allow-ssh",
           "direction": "INGRESS",
           "priority": 1000,
-          "source_ranges": ["0.0.0.0/0"],
-          "allow": [{ "protocol": "tcp", "ports": ["22"] }]
+          "source_ranges": [
+            "0.0.0.0/0"
+          ],
+          "allow": [
+            {
+              "protocol": "tcp",
+              "ports": [
+                "22"
+              ]
+            }
+          ]
         }
       }
     },
@@ -22,13 +33,21 @@
       "type": "google_compute_firewall",
       "name": "allow_all",
       "change": {
-        "actions": ["create"],
+        "actions": [
+          "create"
+        ],
         "after": {
           "name": "fw-allow-all",
           "direction": "INGRESS",
           "priority": 1200,
-          "source_ranges": ["0.0.0.0/0"],
-          "allow": [{ "protocol": "all" }]
+          "source_ranges": [
+            "0.0.0.0/0"
+          ],
+          "allow": [
+            {
+              "protocol": "all"
+            }
+          ]
         }
       }
     },
@@ -37,14 +56,20 @@
       "type": "google_sql_database_instance",
       "name": "publica",
       "change": {
-        "actions": ["create"],
+        "actions": [
+          "create"
+        ],
         "after": {
           "name": "sql-mdc-dev-02",
           "database_version": "POSTGRES_15",
           "settings": [
             {
               "tier": "db-g1-small",
-              "ip_configuration": [{ "ipv4_enabled": true }]
+              "ip_configuration": [
+                {
+                  "ipv4_enabled": true
+                }
+              ]
             }
           ]
         }
@@ -55,11 +80,29 @@
       "type": "google_compute_instance",
       "name": "sin_etiquetas",
       "change": {
-        "actions": ["create"],
+        "actions": [
+          "create"
+        ],
         "after": {
           "name": "vm-mdc-dev-02",
           "machine_type": "e2-micro",
-          "labels": { "duenio": "plataforma", "ambiente": "dev" }
+          "labels": {
+            "duenio": "plataforma",
+            "ambiente": "dev"
+          }
+        }
+      }
+    },
+    {
+      "address": "google_secret_manager_secret.sin_etiquetas",
+      "type": "google_secret_manager_secret",
+      "name": "sin_etiquetas",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "secret_id": "api-key"
         }
       }
     }
