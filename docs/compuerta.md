@@ -30,6 +30,7 @@ validación por debajo de los 5 minutos que exige el reto.
 | `validate.yml` | PR que toca `infra/` | `terraform fmt` y `validate` | No |
 | `policies.yml` | PR que toca `infra/` | Prueba el catálogo y lo ejerce contra los planes de ejemplo | No |
 | `plan.yml` | PR que toca `infra/` | `terraform plan` real, veredicto y comentario en el PR | Sí |
+| `apply.yml` | A mano, por ambiente | Plan, aprobación humana y despliegue | Sí |
 
 `plan.yml` se salta solo mientras no exista la variable
 `GCP_WORKLOAD_IDENTITY_PROVIDER`. Así el repositorio no se llena de ejecuciones
@@ -78,3 +79,55 @@ La credencial es el token OIDC que GitHub emite en cada ejecución y que caduca
 sola.
 
 **Nunca** se debe guardar un archivo JSON de cuenta de servicio como secret.
+
+
+## El despliegue: por qué no se vuelve a planear
+
+`apply.yml` tiene dos trabajos. El primero planea y pasa la compuerta; el
+segundo aplica. Entre los dos se interpone el *environment* de GitHub, que es
+donde esperan los revisores.
+
+El segundo trabajo **no vuelve a planear**. Descarga el archivo de plan que ya
+pasó la compuerta y lo aplica tal cual.
+
+La razón es que el estado de la nube pudo cambiar entre la aprobación y el
+despliegue. Si se replaneara, se aplicaría un plan que nadie revisó —puede
+incluir recursos nuevos, o destruir algo que apareció en medio—. Aplicar el
+archivo guardado es lo que hace que la aprobación signifique algo.
+
+### La huella
+
+El trabajo que planea calcula el SHA-256 del plan y lo publica como salida. El
+que aplica lo recalcula sobre el archivo descargado y se niega a continuar si
+no coincide. Si alguien sustituyera el artefacto entre la aprobación y el
+despliegue, el apply se detiene.
+
+### Verificación posterior
+
+Después del apply se corre `terraform plan -detailed-exitcode`. Un plan vacío
+significa que la nube quedó como dice el código. Cualquier diferencia es drift
+inmediato y el despliegue se marca como fallido.
+
+## Los environments de GitHub
+
+Los revisores obligatorios se configuran en **Settings → Environments**, no en
+el archivo del workflow. Es deliberado: un revisor que se pudiera quitar con un
+commit no sería un control.
+
+| Environment | Revisores | Por qué |
+| --- | --- | --- |
+| `dev` | Ninguno | Severidad baja y media se auto-aprueban |
+| `qa` | 1 | Cambios revisados antes de la validación formal |
+| `produccion` | 2 | Producción nunca se aplica sin aprobación humana |
+
+En `produccion` conviene además marcar *Prevent self-review*, para que quien
+lanza el despliegue no pueda aprobarse a sí mismo.
+
+### Variables adicionales
+
+| Variable | Contenido |
+| --- | --- |
+| `GCP_SERVICE_ACCOUNT_APPLY` | Cuenta con permisos de escritura, usada solo por `apply.yml` |
+
+La cuenta del plan es de solo lectura y la del apply es distinta: así un fallo
+en el workflow de validación no puede modificar nada.

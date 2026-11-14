@@ -1,0 +1,196 @@
+name: Aplicar cambios
+
+# Despliegue con aprobación humana.
+#
+# El trabajo se parte en dos a propósito: uno genera el plan y lo somete a la
+# compuerta; el otro lo aplica. Entre ambos se interpone el environment de
+# GitHub, que es donde viven los revisores obligatorios.
+#
+# El segundo trabajo NO vuelve a planear. Descarga el plan que ya pasó la
+# compuerta y comprueba su huella antes de aplicarlo: replanear significaría
+# aplicar algo que nadie revisó, porque el estado de la nube pudo cambiar entre
+# la aprobación y el despliegue.
+on:
+  workflow_dispatch:
+    inputs:
+      ambiente:
+        description: Ambiente a desplegar
+        type: choice
+        options: [dev, qa, produccion]
+        default: dev
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  TERRAFORM_VERSION: '1.16.4'
+  CONFTEST_VERSION: '0.71.1'
+
+concurrency:
+  # Un despliegue a la vez por ambiente: dos applies simultáneos se pelean por
+  # el bloqueo del estado y dejan recursos a medias.
+  group: apply-${{ inputs.ambiente }}
+  cancel-in-progress: false
+
+jobs:
+  planear:
+    name: Plan y veredicto
+    runs-on: ubuntu-24.04
+    if: vars.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
+    outputs:
+      huella: ${{ steps.huella.outputs.sha256 }}
+      resultado: ${{ steps.compuerta.outputs.resultado }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - uses: ./.github/actions/instalar-conftest
+        with:
+          version: ${{ env.CONFTEST_VERSION }}
+
+      - name: Autenticar en GCP (solo lectura)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT_PLAN }}
+
+      - name: terraform plan
+        working-directory: infra/environments/${{ inputs.ambiente }}
+        run: |
+          set -euo pipefail
+          terraform init -input=false -no-color -backend-config=backend.tfbackend
+          terraform plan -out=plan.bin -input=false -no-color -lock-timeout=5m
+          terraform show -json plan.bin > plan.json
+
+      - name: Evaluar políticas
+        id: compuerta
+        run: |
+          set -euo pipefail
+          infra/pipelines/scripts/policy_check.sh \
+            "infra/environments/${{ inputs.ambiente }}/plan.json" veredicto.json
+          echo "resultado=conforme" >> "$GITHUB_OUTPUT"
+
+      # La huella ata la aprobación a un plan concreto. El trabajo de aplicar
+      # la vuelve a calcular y se niega a seguir si no coincide.
+      - name: Calcular huella del plan
+        id: huella
+        run: |
+          set -euo pipefail
+          sha256sum "infra/environments/${{ inputs.ambiente }}/plan.bin" \
+            | cut -d' ' -f1 > huella.txt
+          echo "sha256=$(cat huella.txt)" >> "$GITHUB_OUTPUT"
+          echo "Huella del plan: $(cat huella.txt)"
+
+      - name: Guardar el plan aprobado
+        uses: actions/upload-artifact@v4
+        with:
+          name: plan-${{ inputs.ambiente }}-${{ github.run_id }}
+          path: |
+            infra/environments/${{ inputs.ambiente }}/plan.bin
+            infra/environments/${{ inputs.ambiente }}/plan.json
+            veredicto.json
+            huella.txt
+          retention-days: 90
+
+  aplicar:
+    name: Aplicar en ${{ inputs.ambiente }}
+    runs-on: ubuntu-24.04
+    needs: planear
+    # Aquí vive la aprobación humana. Los revisores obligatorios se configuran
+    # en el environment de GitHub, no en este archivo: así no se pueden
+    # eliminar con un commit.
+    environment: ${{ inputs.ambiente }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Recuperar el plan aprobado
+        uses: actions/download-artifact@v4
+        with:
+          name: plan-${{ inputs.ambiente }}-${{ github.run_id }}
+          path: descarga
+
+      # Si la huella no coincide, el plan que se iba a aplicar no es el que
+      # pasó la compuerta ni el que aprobó el revisor.
+      - name: Comprobar la huella del plan
+        run: |
+          set -euo pipefail
+          esperada="${{ needs.planear.outputs.huella }}"
+          obtenida="$(sha256sum descarga/plan.bin | cut -d' ' -f1)"
+          if [[ "${esperada}" != "${obtenida}" ]]; then
+            echo "::error title=Plan alterado::La huella no coincide con la aprobada"
+            echo "  aprobada: ${esperada}"
+            echo "  obtenida: ${obtenida}"
+            exit 1
+          fi
+          echo "El plan coincide con el aprobado: ${obtenida}"
+
+      - name: Autenticar en GCP (escritura)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT_APPLY }}
+
+      - name: terraform apply
+        working-directory: infra/environments/${{ inputs.ambiente }}
+        run: |
+          set -euo pipefail
+          cp "${GITHUB_WORKSPACE}/descarga/plan.bin" plan.bin
+          terraform init -input=false -no-color -backend-config=backend.tfbackend
+          # Se aplica el archivo de plan, no una ejecución nueva.
+          terraform apply -input=false -no-color -auto-approve plan.bin
+
+      # Verificación posterior: un plan vacío significa que la nube quedó como
+      # el código dice. Cualquier diferencia es drift inmediato.
+      - name: Verificar el estado tras aplicar
+        id: postcheck
+        working-directory: infra/environments/${{ inputs.ambiente }}
+        run: |
+          set -euo pipefail
+          estado=0
+          terraform plan -detailed-exitcode -input=false -no-color -lock-timeout=5m || estado=$?
+          case "${estado}" in
+            0) echo "Sin diferencias: el estado real coincide con el código." ;;
+            2) echo "::error title=Drift inmediato::Quedaron diferencias tras aplicar"; exit 1 ;;
+            *) echo "::error title=Post-check fallido::terraform plan terminó con ${estado}"; exit 1 ;;
+          esac
+
+      - name: Registrar evidencia del despliegue
+        if: always()
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' > evidencia.json
+          import json, os, datetime
+          json.dump({
+              "ambiente": os.environ["AMBIENTE"],
+              "huella_plan": os.environ["HUELLA"],
+              "commit": os.environ["GITHUB_SHA"],
+              "ejecucion": os.environ["GITHUB_RUN_ID"],
+              "lanzado_por": os.environ["GITHUB_ACTOR"],
+              "fecha": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              "resultado": os.environ["RESULTADO"],
+          }, open(1, "w", closefd=False), indent=2, ensure_ascii=False)
+          PY
+          cat evidencia.json
+        env:
+          AMBIENTE: ${{ inputs.ambiente }}
+          HUELLA: ${{ needs.planear.outputs.huella }}
+          RESULTADO: ${{ steps.postcheck.outcome }}
+
+      - name: Publicar evidencia
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidencia-${{ inputs.ambiente }}-${{ github.run_id }}
+          path: evidencia.json
+          retention-days: 90
