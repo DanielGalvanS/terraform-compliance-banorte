@@ -1,0 +1,44 @@
+name: Aplicaciones
+
+# Compila y prueba el frontend y la API. Hasta ahora ningún workflow miraba
+# apps/, así que un cambio que no compilara llegaba a main sin avisar.
+on:
+  pull_request:
+    paths:
+      - 'apps/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/aplicaciones.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/**'
+
+permissions:
+  contents: read
+
+jobs:
+  verificar:
+    name: Tipos, pruebas y build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      # `npm ci` respeta el lockfile: una dependencia que cambie sin pasar por
+      # un pull request hace fallar la instalación en vez de colarse.
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Comprobar tipos
+        run: npm run typecheck
+
+      - name: Pruebas
+        run: npm test
+
+      - name: Compilar el frontend
+        run: npm run build

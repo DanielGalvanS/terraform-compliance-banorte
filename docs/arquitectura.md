@@ -77,7 +77,7 @@ y comprueba su huella SHA-256 antes de hacerlo.
 | Despliegue con aprobación humana | Listo |
 | Ambiente `dev` integrado | Listo |
 | Frontend | Listo, con datos de ejemplo |
-| API REST | Pendiente |
+| API REST | Esqueleto: catálogo y hallazgos, en memoria |
 | Agente de IA | Pendiente |
 | Detección de drift programada | Pendiente |
 | Notificación y aprobación por Slack | Pendiente |

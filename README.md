@@ -19,7 +19,7 @@ Si el agente o el evaluador fallan, el pipeline bloquea y notifica.
 
 ```
 apps/web/      Frontend (React + TypeScript + Vite)
-apps/api/      API REST                        — pendiente
+apps/api/      API REST (Fastify + Zod + Drizzle)
 apps/agent/    Agente de IA sobre Vertex AI    — pendiente
 infra/         Terraform, políticas y evidencia
 docs/          Arquitectura, decisiones y resultados
@@ -35,7 +35,8 @@ docs/          Arquitectura, decisiones y resultados
 | Despliegue con aprobación humana | Listo |
 | Ambiente `dev` | Integrado |
 | Frontend | Listo, con datos de ejemplo |
-| API y agente | Pendientes |
+| API REST | Esqueleto, sin base de datos |
+| Agente de IA | Pendiente |
 
 Nada se ha ejecutado todavía contra GCP: no hay proyecto. Los módulos están
 validados sintácticamente, pero su compatibilidad real con la API de Google
@@ -46,6 +47,8 @@ está sin comprobar.
 ```bash
 npm install          # instala los workspaces
 npm run dev          # frontend en http://localhost:5173
+npm run dev:api      # API en http://127.0.0.1:8080
+npm test             # pruebas de todos los workspaces
 npm run build        # typecheck y bundle
 ```
 
