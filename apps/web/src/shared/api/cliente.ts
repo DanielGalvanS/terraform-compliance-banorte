@@ -28,6 +28,11 @@ export type RespuestaExcepciones =
 
 export type ExcepcionApi = RespuestaExcepciones['excepciones'][number]
 
+export type RespuestaRecursos =
+  paths['/recursos']['get']['responses'][200]['content']['application/json']
+
+export type RecursoApi = RespuestaRecursos['recursos'][number]
+
 export type NuevaExcepcionApi =
   paths['/excepciones']['post']['requestBody']['content']['application/json']
 
@@ -111,4 +116,5 @@ export const clienteApi = {
   listarExcepciones: (señal?: AbortSignal) =>
     pedir<RespuestaExcepciones>('/excepciones', señal),
   crearExcepcion: (nueva: NuevaExcepcionApi) => enviar<ExcepcionApi>('/excepciones', nueva),
+  listarRecursos: (señal?: AbortSignal) => pedir<RespuestaRecursos>('/recursos', señal),
 }

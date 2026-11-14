@@ -11,7 +11,8 @@ Comprueba cuatro cosas:
 1. Los marcos del frontend son exactamente los del catálogo.
 2. Todo marco que aparece en un dato de ejemplo está en alcance.
 3. Todo control `CO-XX-NN` que muestra el frontend existe en el catálogo.
-4. Las etiquetas obligatorias del frontend son las que exige CO-TAG-01.
+4. Las etiquetas obligatorias dicen lo mismo en los cuatro sitios donde viven:
+   el catálogo, la política CO-TAG-01, los módulos de Terraform y el frontend.
 
 Uso:
 
@@ -35,6 +36,7 @@ POLITICA_ETIQUETAS = RAIZ / "infra" / "policies" / "rego" / "co_tag_01.rego"
 FRONTEND = RAIZ / "apps" / "web" / "src"
 MARCOS_FRONTEND = FRONTEND / "shared" / "model" / "frameworks.ts"
 ETIQUETAS_FRONTEND = FRONTEND / "features" / "inventory" / "model" / "types.ts"
+MODULO_TERRAFORM = RAIZ / "infra" / "modules" / "kms" / "variables.tf"
 
 problemas: list[str] = []
 
@@ -105,18 +107,40 @@ def main() -> int:
         bien(f"los {len(citados)} controles citados existen en el catálogo")
 
     print("\n4. Etiquetas obligatorias")
-    bloque = re.search(r"etiquetas_obligatorias := \{(.*?)\}", POLITICA_ETIQUETAS.read_text(encoding="utf-8"), re.S)
-    etiquetas_politica = cadenas_de(bloque.group(1), r'"([^"]+)"') if bloque else set()
-    bloque = re.search(r"MANDATORY_TAG_KEYS = \[(.*?)\]", ETIQUETAS_FRONTEND.read_text(encoding="utf-8"), re.S)
-    etiquetas_frontend = cadenas_de(bloque.group(1), r"'([^']+)'") if bloque else set()
 
-    if etiquetas_politica and etiquetas_politica == etiquetas_frontend:
-        bien(f"las {len(etiquetas_politica)} claves coinciden con CO-TAG-01")
+    def entre(texto: str, patron: str, comillas: str) -> set[str]:
+        bloque = re.search(patron, texto, re.S)
+        return cadenas_de(bloque.group(1), comillas) if bloque else set()
+
+    fuentes = {
+        "catálogo": set(catalogo["etiquetas_obligatorias"]),
+        "CO-TAG-01": entre(
+            POLITICA_ETIQUETAS.read_text(encoding="utf-8"),
+            r"etiquetas_obligatorias := \{(.*?)\}",
+            r'"([^"]+)"',
+        ),
+        "Terraform": entre(
+            MODULO_TERRAFORM.read_text(encoding="utf-8"),
+            r"setsubtract\(\s*\[(.*?)\]",
+            r'"([^"]+)"',
+        ),
+        "frontend": entre(
+            ETIQUETAS_FRONTEND.read_text(encoding="utf-8"),
+            r"MANDATORY_TAG_KEYS = \[(.*?)\]",
+            r"'([^']+)'",
+        ),
+    }
+
+    referencia = fuentes["catálogo"]
+    discrepan = {n: v for n, v in fuentes.items() if v != referencia}
+    if not discrepan:
+        bien(f"las {len(referencia)} claves coinciden en los cuatro sitios")
     else:
-        fallo(
-            "las etiquetas del frontend no coinciden con CO-TAG-01: "
-            f"frontend={sorted(etiquetas_frontend)} política={sorted(etiquetas_politica)}"
-        )
+        for nombre, valores in discrepan.items():
+            fallo(
+                f"{nombre} no coincide con el catálogo: "
+                f"sobran={sorted(valores - referencia)} faltan={sorted(referencia - valores)}"
+            )
 
     print()
     if problemas:

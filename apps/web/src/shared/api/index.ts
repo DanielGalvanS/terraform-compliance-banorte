@@ -5,7 +5,9 @@ export type {
   HallazgoApi,
   MotivoRechazo,
   NuevaExcepcionApi,
+  RecursoApi,
   RespuestaExcepciones,
   RespuestaHallazgos,
+  RespuestaRecursos,
   RespuestaResumen,
 } from './cliente'

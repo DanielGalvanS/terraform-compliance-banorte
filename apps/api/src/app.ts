@@ -19,9 +19,14 @@ import {
   repositorioEnMemoria,
   type HallazgosRepositorio,
 } from './repositorios/hallazgosRepositorio.ts'
-import { excepcionesDeEjemplo, hallazgosDeEjemplo } from './repositorios/semilla.ts'
+import {
+  excepcionesDeEjemplo,
+  hallazgosDeEjemplo,
+  recursosDeEjemplo,
+} from './repositorios/semilla.ts'
 import { rutasCatalogo } from './rutas/catalogo.ts'
 import { rutasExcepciones } from './rutas/excepciones.ts'
+import { rutasRecursos } from './rutas/recursos.ts'
 import { rutasHallazgos } from './rutas/hallazgos.ts'
 import { rutasResumen } from './rutas/resumen.ts'
 
@@ -102,6 +107,7 @@ export async function construirApp({ config, hallazgos, excepciones }: Opciones)
   await app.register(rutasHallazgos(repositorio), { prefix: PREFIJO })
   await app.register(rutasResumen(catalogo, repositorio), { prefix: PREFIJO })
   await app.register(rutasExcepciones(catalogo, repositorioExcepciones), { prefix: PREFIJO })
+  await app.register(rutasRecursos(catalogo, recursosDeEjemplo, repositorio), { prefix: PREFIJO })
 
   return app
 }

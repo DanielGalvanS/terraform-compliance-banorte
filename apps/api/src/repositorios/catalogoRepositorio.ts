@@ -31,6 +31,8 @@ const referenciaArchivo = z.object({
 
 const archivo = z.object({
   version_catalogo: z.string(),
+  etiquetas_obligatorias: z.array(z.string()).min(1),
+  tipos_etiquetables: z.array(z.string()).min(1),
   marcos: z.record(
     z.string(),
     z.object({
@@ -54,6 +56,10 @@ const archivo = z.object({
 
 export type Catalogo = {
   version: string
+  /** Claves que exige CO-TAG-01; la API deriva de ellas el estado de un recurso. */
+  etiquetasObligatorias: string[]
+  /** Tipos que admiten etiquetas en GCP; al resto no se les exigen. */
+  tiposEtiquetables: string[]
   marcos: Marco[]
   controles: Control[]
 }
@@ -79,6 +85,8 @@ export async function cargarCatalogo(ruta: string): Promise<Catalogo> {
 
   return {
     version: datos.version_catalogo,
+    etiquetasObligatorias: datos.etiquetas_obligatorias,
+    tiposEtiquetables: datos.tipos_etiquetables,
     marcos: Object.entries(datos.marcos).map(([clave, marco]) => ({
       clave,
       nombre: marco.nombre,

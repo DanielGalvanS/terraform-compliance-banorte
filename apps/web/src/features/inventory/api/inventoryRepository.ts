@@ -20,9 +20,9 @@ export const inventoryRepository = {
   getResources: (): Resource[] => resources,
 
   /** Filtering lives next to the data so pages stay declarative. */
-  queryResources({ module, search }: ResourceQuery): Resource[] {
+  queryResources({ module, search }: ResourceQuery, rows: Resource[] = resources): Resource[] {
     const needle = search.trim().toLowerCase()
-    return resources.filter(
+    return rows.filter(
       (item) =>
         (module === ALL_MODULES || item.module === module) &&
         item.name.toLowerCase().includes(needle),

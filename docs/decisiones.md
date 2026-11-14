@@ -148,3 +148,30 @@ sobre el plan.
 arbitrarias: `password = "una cadena larga cualquiera"` pasa sin más. Y un
 valor que llega por variable nunca aparece en el código, pero sí en el plan y
 en el estado. Cada capa ve lo que la otra no.
+
+## 15. El estado de cada recurso se calcula, no se guarda
+
+**Decisión.** La API deriva el estado del inventario de las etiquetas del
+recurso y de los hallazgos abiertos sobre él.
+
+**Por qué.** Un campo guardado hay que mantenerlo al día, y el día que nadie
+lo actualice un recurso ya remediado seguirá apareciendo en rojo —o, peor, uno
+incumplidor seguirá en verde—. Derivarlo quita ese trabajo y ese riesgo.
+
+El orden importa: un hallazgo abierto manda sobre una etiqueta faltante,
+porque lo primero que hay que atender es el incumplimiento.
+
+## 16. El catálogo declara qué tipos admiten etiquetas
+
+**Decisión.** `mappings.yaml` lista `tipos_etiquetables`, y tanto CO-TAG-01
+como la API trabajan sobre esa lista.
+
+**Por qué.** Al conectar el inventario, la VPC, la subred y el firewall
+aparecieron como «Sin etiqueta» con las cinco claves faltantes. Es falso: esos
+tipos **no exponen `labels` en la API de GCP**. La política ya hacía el
+recorte, pero la API no, porque cada una tenía su propia lista.
+
+Con la lista en el catálogo hay un solo origen, y
+`scripts/verificar_catalogo.py` comprueba que las etiquetas obligatorias
+coincidan en los cuatro sitios donde viven: catálogo, política, módulos de
+Terraform y frontend.

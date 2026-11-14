@@ -6,6 +6,8 @@ import { calcularCobertura } from '../src/rutas/resumen.ts'
 /** Catálogo mínimo: dos marcos y tres controles repartidos entre ellos. */
 const catalogo: Catalogo = {
   version: '0.0.1',
+  etiquetasObligatorias: ['duenio'],
+  tiposEtiquetables: ['google_compute_instance'],
   marcos: [
     { clave: 'a', nombre: 'Marco A', nombreCorto: 'A' },
     { clave: 'b', nombre: 'Marco B', nombreCorto: 'B' },

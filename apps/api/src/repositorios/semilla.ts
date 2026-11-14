@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { Hallazgo } from '../model/esquemas.ts'
+import type { RecursoGuardado } from '../model/recursos.ts'
 import type { ExcepcionGuardada } from './excepcionesRepositorio.ts'
 
 /**
@@ -152,5 +153,95 @@ export const excepcionesDeEjemplo: ExcepcionGuardada[] = [
     venceEl: enDias(-6),
     estadoGuardado: 'Activa',
     planRemediacion: null,
+  },
+]
+
+/** Etiquetas completas de un ambiente, para no repetirlas en cada recurso. */
+function etiquetas(ambiente: string, clasificacion = 'interno'): Record<string, string> {
+  return {
+    duenio: 'plataforma',
+    ambiente: ambiente.toLowerCase(),
+    clasificacion_datos: clasificacion,
+    centro_costos: 'cc-1042',
+    marco_aplicable: ambiente === 'Prod' ? 'lfpdppp' : 'cis-gcp',
+  }
+}
+
+export const recursosDeEjemplo: RecursoGuardado[] = [
+  {
+    direccion: 'module.red.google_compute_network.esta',
+    nombre: 'vpc-mdc-prod',
+    tipo: 'google_compute_network',
+    modulo: 'network',
+    version: 'v5.3.0',
+    ambiente: 'Prod',
+    etiquetas: {},
+  },
+  {
+    direccion: 'module.red.google_compute_subnetwork.privada',
+    nombre: 'subnet-data-prod',
+    tipo: 'google_compute_subnetwork',
+    modulo: 'network',
+    version: 'v5.3.0',
+    ambiente: 'Prod',
+    etiquetas: {},
+  },
+  {
+    direccion: 'google_compute_firewall.allow_ssh',
+    nombre: 'fw-allow-ssh',
+    tipo: 'google_compute_firewall',
+    modulo: 'firewall',
+    version: 'v3.8.2',
+    ambiente: 'Prod',
+    etiquetas: {},
+  },
+  {
+    direccion: 'google_sql_database_instance.main',
+    nombre: 'sql-mdc-qa-01',
+    tipo: 'google_sql_database_instance',
+    modulo: 'sql',
+    version: 'v6.0.1',
+    ambiente: 'QA',
+    etiquetas: etiquetas('QA', 'confidencial'),
+  },
+  {
+    direccion: 'google_storage_bucket.evidencia',
+    nombre: 'gcs-audit-evidence',
+    tipo: 'google_storage_bucket',
+    modulo: 'logging',
+    version: 'v4.2.0',
+    ambiente: 'Prod',
+    etiquetas: etiquetas('Prod', 'confidencial'),
+  },
+  {
+    direccion: 'google_storage_bucket.logs',
+    nombre: 'gcs-logs-dev',
+    tipo: 'google_storage_bucket',
+    modulo: 'logging',
+    version: 'v4.2.0',
+    ambiente: 'Dev',
+    etiquetas: etiquetas('Dev'),
+  },
+  {
+    // Le falta el centro de costos: debe salir como «Sin etiqueta».
+    direccion: 'google_secret_manager_secret.api_key',
+    nombre: 'sm-app-secrets',
+    tipo: 'google_secret_manager_secret',
+    modulo: 'secrets',
+    version: 'v1.7.4',
+    ambiente: 'Prod',
+    etiquetas: (() => {
+      const { centro_costos: _omitido, ...resto } = etiquetas('Prod', 'confidencial')
+      return resto
+    })(),
+  },
+  {
+    direccion: 'module.kms.google_kms_crypto_key.estas["sql"]',
+    nombre: 'kms-sql-prod',
+    tipo: 'google_kms_crypto_key',
+    modulo: 'kms',
+    version: 'v2.1.0',
+    ambiente: 'Prod',
+    etiquetas: etiquetas('Prod', 'confidencial'),
   },
 ]

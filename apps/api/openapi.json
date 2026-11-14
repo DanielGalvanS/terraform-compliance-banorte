@@ -1548,6 +1548,183 @@
           }
         }
       }
+    },
+    "/recursos": {
+      "get": {
+        "summary": "Inventario de recursos gestionados",
+        "tags": [
+          "inventario"
+        ],
+        "description": "El estado de cada recurso se calcula a partir de sus etiquetas y de los hallazgos abiertos sobre él; no es un campo guardado que alguien deba mantener al día.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "modulo",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "Dev",
+                "QA",
+                "Prod"
+              ]
+            },
+            "in": "query",
+            "name": "ambiente",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "buscar",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "recursos": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "direccion": {
+                            "type": "string",
+                            "description": "Dirección en Terraform, por ejemplo module.red.google_compute_network.esta"
+                          },
+                          "nombre": {
+                            "type": "string"
+                          },
+                          "tipo": {
+                            "type": "string"
+                          },
+                          "modulo": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "string"
+                          },
+                          "ambiente": {
+                            "type": "string",
+                            "enum": [
+                              "Dev",
+                              "QA",
+                              "Prod"
+                            ]
+                          },
+                          "etiquetas": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "string"
+                            }
+                          },
+                          "etiquetasFaltantes": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "Claves obligatorias ausentes"
+                          },
+                          "estado": {
+                            "type": "string",
+                            "enum": [
+                              "Conforme",
+                              "Advertencia",
+                              "No conforme",
+                              "Sin etiqueta"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "direccion",
+                          "nombre",
+                          "tipo",
+                          "modulo",
+                          "version",
+                          "ambiente",
+                          "etiquetas",
+                          "etiquetasFaltantes",
+                          "estado"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "resumen": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "modulos": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "conEtiquetasCompletas": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "etiquetables": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991,
+                          "description": "Recursos cuyo tipo admite etiquetas"
+                        },
+                        "coberturaEtiquetas": {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 100
+                        },
+                        "noConformes": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "total",
+                        "modulos",
+                        "conEtiquetasCompletas",
+                        "etiquetables",
+                        "coberturaEtiquetas",
+                        "noConformes"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "etiquetasObligatorias": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "recursos",
+                    "resumen",
+                    "etiquetasObligatorias"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "servers": [

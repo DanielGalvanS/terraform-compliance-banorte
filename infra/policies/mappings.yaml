@@ -12,6 +12,32 @@
 version_catalogo: "0.1.0"
 actualizado: "2026-11-13"
 
+# Claves que exige CO-TAG-01 en todo recurso etiquetable.
+#
+# Se declaran aquí para que haya un solo origen: la política las aplica, los
+# módulos de Terraform las validan, la API las usa para derivar el estado de
+# cada recurso y el frontend las muestra. scripts/verificar_catalogo.py
+# comprueba que los cuatro coincidan.
+etiquetas_obligatorias:
+  - duenio
+  - ambiente
+  - clasificacion_datos
+  - centro_costos
+  - marco_aplicable
+
+# Tipos de recurso que admiten etiquetas en GCP.
+#
+# Las redes, subredes, routers y gateways NAT no exponen el campo `labels`:
+# exigírselas produciría hallazgos que nadie puede remediar. CO-TAG-01 evalúa
+# solo estos tipos, y la API deriva de la misma lista el estado del inventario.
+tipos_etiquetables:
+  - google_compute_instance
+  - google_compute_disk
+  - google_sql_database_instance
+  - google_storage_bucket
+  - google_kms_crypto_key
+  - google_secret_manager_secret
+
 marcos:
   cis_gcp:
     nombre: CIS Benchmark for Google Cloud Platform
