@@ -32,9 +32,14 @@ module "sql" {
   red_privada  = module.red.red_id
   llave_kms    = module.kms.llaves["sql"]
   etiquetas    = local.etiquetas_obligatorias
-  dependencias = [module.red.acceso_privado_servicios_listo]
 }
 ```
+
+El orden se declara en la llamada, con `depends_on = [module.red, module.kms]`:
+la base no puede crearse antes del peering de servicios privados ni antes de
+que el agente de Cloud SQL pueda usar la llave. Terraform acepta un
+`depends_on` que apunte a una variable, pero no crea ninguna dependencia real;
+por eso el módulo no expone una entrada para eso.
 
 La contraseña del usuario de la base no se declara aquí: vive en Secret
 Manager y se carga fuera de Terraform.

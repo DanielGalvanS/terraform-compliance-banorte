@@ -1,0 +1,7 @@
+# Copia este archivo como terraform.tfvars y rellena los valores reales.
+# terraform.tfvars está ignorado por git: nunca debe subirse con datos del
+# proyecto.
+
+project_id       = "mi-proyecto-dev"
+bucket_evidencia = "mi-proyecto-dev-evidencia"
+centro_costos    = "cc-0000"

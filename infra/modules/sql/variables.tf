@@ -75,9 +75,3 @@ variable "etiquetas" {
     error_message = "Faltan etiquetas obligatorias: duenio, ambiente, clasificacion_datos, centro_costos, marco_aplicable."
   }
 }
-
-variable "dependencias" {
-  description = "Recursos que deben existir antes, como el peering de servicios privados."
-  type        = list(any)
-  default     = []
-}

@@ -8,9 +8,12 @@ dist
 *.tfstate
 *.tfstate.*
 crash.log
-# Los .tfvars llevan valores reales (project IDs, rangos); solo se versiona el ejemplo.
+# Los .tfvars y la configuración del backend llevan valores reales
+# (project IDs, buckets); solo se versionan los ejemplos.
 *.tfvars
 !*.tfvars.example
+*.tfbackend
+!*.tfbackend.example
 # El lock de proveedores SÍ se versiona: fija las versiones (convención del reto).
 !.terraform.lock.hcl
 

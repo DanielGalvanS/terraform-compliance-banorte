@@ -12,3 +12,9 @@ El nivel de autonomía del agente depende del ambiente:
 | `prod`   | Siempre aprobación humana     | Doble aprobación         |
 
 En producción el agente nunca aplica por sí solo, sin importar la severidad.
+
+| Ambiente | Estado |
+| --- | --- |
+| `dev` | Integrado: los ocho módulos compuestos |
+| `qa` | Pendiente |
+| `prod` | Pendiente |

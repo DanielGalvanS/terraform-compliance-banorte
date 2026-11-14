@@ -55,7 +55,6 @@ resource "google_sql_database_instance" "esta" {
     }
   }
 
-  depends_on = [var.dependencias]
 
   lifecycle {
     precondition {
