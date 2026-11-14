@@ -21,6 +21,8 @@ export type HallazgoApi = RespuestaHallazgos['hallazgos'][number]
 export type RespuestaResumen =
   paths['/resumen']['get']['responses'][200]['content']['application/json']
 
+export type CoberturaMarco = RespuestaResumen['coberturaPorMarco'][number]
+
 export class ErrorApi extends Error {
   constructor(
     mensaje: string,

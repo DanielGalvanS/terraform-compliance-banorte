@@ -1,16 +1,25 @@
-import { Card, CardHeader } from '@/shared/ui'
+import { Card, CardHeader, FuenteDeDatos, type Fuente } from '@/shared/ui'
 import type { FrameworkScore } from '../model'
 
 /** Below this coverage a framework is drawn as a warning instead of on-track. */
 const WARNING_THRESHOLD = 90
 
-export function FrameworkChart({ scores }: { scores: FrameworkScore[] }) {
+type FrameworkChartProps = {
+  scores: FrameworkScore[]
+  fuente: Fuente
+}
+
+export function FrameworkChart({ scores, fuente }: FrameworkChartProps) {
   return (
     <Card className="chart-card">
       <CardHeader
         title="Cumplimiento por marco"
-        subtitle="Cobertura de controles activos"
-        aside={<span className="tiny-label">ACTUALIZADO AHORA</span>}
+        subtitle={
+          fuente === 'api'
+            ? 'Controles sin hallazgos abiertos, sobre el total de cada marco'
+            : 'Cobertura de controles activos'
+        }
+        aside={<FuenteDeDatos fuente={fuente} />}
       />
       <div className="framework-chart">
         {scores.map((item) => (

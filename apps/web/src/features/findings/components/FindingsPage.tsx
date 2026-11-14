@@ -1,13 +1,12 @@
 import { useState } from 'react'
 import { useFilters, useToast } from '@/shared/hooks'
-import { Button, Card, DataTable, PageTitle, Toast } from '@/shared/ui'
+import { Button, Card, DataTable, FuenteDeDatos, PageTitle, Toast } from '@/shared/ui'
 import { defaultFindingFilters, findingsRepository } from '../api/findingsRepository'
 import { useFindings } from '../hooks/useFindings'
 import type { Finding } from '../model'
 import { FindingDrawer } from './FindingDrawer'
 import { FindingFilters } from './FindingFilters'
 import { findingColumns } from './findingColumns'
-import { FuenteDeDatos } from './FuenteDeDatos'
 import { SeverityStats } from './SeverityStats'
 
 export function FindingsPage() {

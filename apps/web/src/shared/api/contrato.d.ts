@@ -452,7 +452,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Postura de cumplimiento en cifras */
+        /**
+         * Postura de cumplimiento en cifras
+         * @description La cobertura por marco se calcula: un control es conforme cuando no tiene hallazgos abiertos ni en remediación.
+         */
         get: {
             parameters: {
                 query?: never;
@@ -475,6 +478,14 @@ export interface paths {
                             };
                             controles: number;
                             marcos: number;
+                            coberturaPorMarco: {
+                                marco: string;
+                                /** @description Controles del catálogo mapeados a este marco */
+                                controles: number;
+                                /** @description Controles sin hallazgos abiertos */
+                                conformes: number;
+                                porcentaje: number;
+                            }[];
                         };
                     };
                 };

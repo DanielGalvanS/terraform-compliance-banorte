@@ -1,5 +1,7 @@
-import { Badge } from '@/shared/ui'
-import type { Fuente } from '../hooks/useFindings'
+import { Badge } from './Badge'
+
+/** De dónde salieron los datos que se están mostrando. */
+export type Fuente = 'api' | 'ejemplo'
 
 /**
  * Dice de dónde salieron los datos en pantalla.

@@ -103,11 +103,24 @@ export const FiltroHallazgos = z.object({
   control: z.string().optional(),
 })
 
+/**
+ * Cobertura de un marco: qué proporción de sus controles no tiene hallazgos
+ * abiertos. Se calcula, no se declara: un porcentaje escrito a mano no
+ * resiste la pregunta «¿de dónde sale ese número?».
+ */
+export const CoberturaMarco = z.object({
+  marco: z.string(),
+  controles: z.number().int().describe('Controles del catálogo mapeados a este marco'),
+  conformes: z.number().int().describe('Controles sin hallazgos abiertos'),
+  porcentaje: z.number().min(0).max(100),
+})
+
 export const Resumen = z.object({
   hallazgosAbiertos: z.number().int(),
   porSeveridad: z.record(Severidad, z.number().int()),
   controles: z.number().int(),
   marcos: z.number().int(),
+  coberturaPorMarco: z.array(CoberturaMarco),
 })
 
 export const Error = z.object({
@@ -121,3 +134,5 @@ export type Hallazgo = z.infer<typeof Hallazgo>
 export type DetalleHallazgo = z.infer<typeof DetalleHallazgo>
 export type NuevoHallazgo = z.infer<typeof NuevoHallazgo>
 export type FiltroHallazgos = z.infer<typeof FiltroHallazgos>
+export type Resumen = z.infer<typeof Resumen>
+export type CoberturaMarco = z.infer<typeof CoberturaMarco>

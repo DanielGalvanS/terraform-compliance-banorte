@@ -1096,6 +1096,7 @@
         "tags": [
           "resumen"
         ],
+        "description": "La cobertura por marco se calcula: un control es conforme cuando no tiene hallazgos abiertos ni en remediación.",
         "responses": {
           "200": {
             "description": "Default Response",
@@ -1132,13 +1133,49 @@
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
+                    },
+                    "coberturaPorMarco": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "marco": {
+                            "type": "string"
+                          },
+                          "controles": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Controles del catálogo mapeados a este marco"
+                          },
+                          "conformes": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Controles sin hallazgos abiertos"
+                          },
+                          "porcentaje": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 100
+                          }
+                        },
+                        "required": [
+                          "marco",
+                          "controles",
+                          "conformes",
+                          "porcentaje"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [
                     "hallazgosAbiertos",
                     "porSeveridad",
                     "controles",
-                    "marcos"
+                    "marcos",
+                    "coberturaPorMarco"
                   ],
                   "additionalProperties": false
                 }

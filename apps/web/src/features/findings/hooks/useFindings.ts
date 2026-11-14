@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react'
 import { clienteApi, hayApi } from '@/shared/api'
+import type { Fuente } from '@/shared/ui'
 import { findingsRepository } from '../api/findingsRepository'
 import { desdeApi } from '../api/mapeo'
 import type { Finding } from '../model'
-
-/** De dónde salieron los datos que se están mostrando. */
-export type Fuente = 'api' | 'ejemplo'
 
 export type EstadoHallazgos =
   | { estado: 'cargando' }

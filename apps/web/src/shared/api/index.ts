@@ -1,2 +1,7 @@
 export { clienteApi, ErrorApi, hayApi, URL_API } from './cliente'
-export type { HallazgoApi, RespuestaHallazgos, RespuestaResumen } from './cliente'
+export type {
+  CoberturaMarco,
+  HallazgoApi,
+  RespuestaHallazgos,
+  RespuestaResumen,
+} from './cliente'
