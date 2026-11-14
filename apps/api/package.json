@@ -1,0 +1,31 @@
+{
+  "name": "@compliance-ops/api",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "node --experimental-strip-types src/main.ts",
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "openapi": "tsx src/openapi.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.4.3",
+    "@fastify/swagger": "^9.9.4",
+    "@fastify/swagger-ui": "^6.1.3",
+    "drizzle-orm": "^0.45.4",
+    "fastify": "^5.12.8",
+    "fastify-type-provider-zod": "^7.0.0",
+    "postgres": "^4.1.1",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.7"
+  }
+}

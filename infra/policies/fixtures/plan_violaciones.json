@@ -1,0 +1,176 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.16.4",
+  "resource_changes": [
+    {
+      "address": "google_compute_firewall.allow_ssh",
+      "type": "google_compute_firewall",
+      "name": "allow_ssh",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "name": "fw-allow-ssh",
+          "direction": "INGRESS",
+          "priority": 1000,
+          "source_ranges": [
+            "0.0.0.0/0"
+          ],
+          "allow": [
+            {
+              "protocol": "tcp",
+              "ports": [
+                "22"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "address": "google_compute_firewall.allow_all",
+      "type": "google_compute_firewall",
+      "name": "allow_all",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "name": "fw-allow-all",
+          "direction": "INGRESS",
+          "priority": 1200,
+          "source_ranges": [
+            "0.0.0.0/0"
+          ],
+          "allow": [
+            {
+              "protocol": "all"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "address": "google_sql_database_instance.publica",
+      "type": "google_sql_database_instance",
+      "name": "publica",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "name": "sql-mdc-dev-02",
+          "database_version": "POSTGRES_15",
+          "settings": [
+            {
+              "tier": "db-g1-small",
+              "ip_configuration": [
+                {
+                  "ipv4_enabled": true
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "address": "google_compute_instance.sin_etiquetas",
+      "type": "google_compute_instance",
+      "name": "sin_etiquetas",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "name": "vm-mdc-dev-02",
+          "machine_type": "e2-micro",
+          "labels": {
+            "duenio": "plataforma",
+            "ambiente": "dev"
+          }
+        }
+      }
+    },
+    {
+      "address": "google_secret_manager_secret.sin_etiquetas",
+      "type": "google_secret_manager_secret",
+      "name": "sin_etiquetas",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "secret_id": "api-key"
+        }
+      }
+    },
+    {
+      "address": "google_project_iam_member.deployer_editor",
+      "type": "google_project_iam_member",
+      "name": "deployer_editor",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "role": "roles/editor",
+          "member": "serviceAccount:sa-deployer-qa@mdc-dev.iam.gserviceaccount.com"
+        }
+      }
+    },
+    {
+      "address": "google_compute_instance.expuesta",
+      "type": "google_compute_instance",
+      "name": "expuesta",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "name": "vm-mdc-dev-03",
+          "labels": {
+            "duenio": "plataforma",
+            "ambiente": "dev",
+            "clasificacion_datos": "interno",
+            "centro_costos": "cc-1042",
+            "marco_aplicable": "cis-gcp"
+          },
+          "network_interface": [
+            {
+              "subnetwork": "subnet-privada",
+              "access_config": [
+                {
+                  "nat_ip": null
+                }
+              ]
+            }
+          ],
+          "service_account": [
+            {
+              "email": "123456789-compute@developer.gserviceaccount.com"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "address": "google_sql_user.app",
+      "type": "google_sql_user",
+      "name": "app",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "name": "app",
+          "instance": "sql-mdc-dev-02"
+        },
+        "after_sensitive": {
+          "password": true
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,253 @@
+# Catálogo de controles: control -> marco regulatorio -> política.
+#
+# Este archivo es la fuente de verdad del alcance regulatorio. El Gate 1 del
+# reto exige que el área de Cumplimiento lo firme antes de avanzar de fase.
+#
+# ADVERTENCIA SOBRE LA NUMERACIÓN
+# La numeración de CIS cambia entre versiones del benchmark, así que cada
+# referencia fija la versión contra la que se mapeó. Las referencias marcadas
+# con `por_validar: true` necesitan la confirmación de Cumplimiento: el título
+# del control es estable, el número no siempre.
+
+version_catalogo: "0.1.0"
+actualizado: "2026-11-13"
+
+# Claves que exige CO-TAG-01 en todo recurso etiquetable.
+#
+# Se declaran aquí para que haya un solo origen: la política las aplica, los
+# módulos de Terraform las validan, la API las usa para derivar el estado de
+# cada recurso y el frontend las muestra. scripts/verificar_catalogo.py
+# comprueba que los cuatro coincidan.
+etiquetas_obligatorias:
+  - duenio
+  - ambiente
+  - clasificacion_datos
+  - centro_costos
+  - marco_aplicable
+
+# Tipos de recurso que admiten etiquetas en GCP.
+#
+# Las redes, subredes, routers y gateways NAT no exponen el campo `labels`:
+# exigírselas produciría hallazgos que nadie puede remediar. CO-TAG-01 evalúa
+# solo estos tipos, y la API deriva de la misma lista el estado del inventario.
+tipos_etiquetables:
+  - google_compute_instance
+  - google_compute_disk
+  - google_sql_database_instance
+  - google_storage_bucket
+  - google_kms_crypto_key
+  - google_secret_manager_secret
+
+marcos:
+  cis_gcp:
+    nombre: CIS Benchmark for Google Cloud Platform
+    nombre_corto: CIS GCP
+    version: "3.0.0"
+    ambito: Endurecimiento técnico
+  lfpdppp:
+    nombre: Ley Federal de Protección de Datos Personales en Posesión de los Particulares
+    nombre_corto: LFPDPPP
+    ambito: Datos personales en México
+    # México publicó una nueva LFPDPPP en marzo de 2025 que sustituyó a la de
+    # 2010. Se mapea por principio y no por artículo hasta que Cumplimiento
+    # confirme la versión vigente y su articulado.
+    por_validar: true
+  nist_800_53:
+    nombre: NIST SP 800-53 Rev. 5
+    nombre_corto: NIST 800-53
+    ambito: Controles de seguridad generales
+  soc2:
+    nombre: SOC 2 Trust Services Criteria
+    nombre_corto: SOC 2
+    ambito: Controles de seguridad generales
+
+controles:
+  - id: CO-NET-01
+    titulo: Administración remota expuesta a internet
+    descripcion: >-
+      Ninguna regla de firewall debe permitir SSH (22) ni RDP (3389) desde
+      0.0.0.0/0. El acceso se hace por Identity-Aware Proxy o desde un rango
+      corporativo.
+    severidad: critica
+    politica: rego/co_net_01.rego
+    pruebas: rego/co_net_01_test.rego
+    caso_de_prueba: CP-05
+    mapeo:
+      cis_gcp:
+        - referencia: "3.6"
+          titulo: Ensure that SSH access is restricted from the internet
+        - referencia: "3.7"
+          titulo: Ensure that RDP access is restricted from the internet
+      nist_800_53:
+        - referencia: SC-7
+          titulo: Boundary Protection
+        - referencia: AC-4
+          titulo: Information Flow Enforcement
+      soc2:
+        - referencia: CC6.6
+          titulo: Protección frente a amenazas externas
+
+  - id: CO-NET-02
+    titulo: Firewall que permite todo el tráfico desde internet
+    descripcion: >-
+      Ninguna regla debe abrir todos los protocolos, ni el rango completo de
+      puertos, con origen 0.0.0.0/0.
+    severidad: critica
+    politica: rego/co_net_02.rego
+    pruebas: rego/co_net_02_test.rego
+    mapeo:
+      cis_gcp:
+        - referencia: "3.x"
+          titulo: Reglas de firewall acotadas
+          por_validar: true
+      nist_800_53:
+        - referencia: SC-7
+          titulo: Boundary Protection
+      soc2:
+        - referencia: CC6.6
+          titulo: Protección frente a amenazas externas
+
+  - id: CO-DB-01
+    titulo: Cloud SQL con dirección IP pública
+    descripcion: >-
+      Las instancias de base de datos deben ser alcanzables solo por IP privada
+      dentro de la VPC.
+    severidad: critica
+    politica: rego/co_db_01.rego
+    pruebas: rego/co_db_01_test.rego
+    caso_de_prueba: CP-06
+    mapeo:
+      cis_gcp:
+        - referencia: "6.6"
+          titulo: Ensure that Cloud SQL database instances do not have public IPs
+          por_validar: true
+      lfpdppp:
+        - referencia: Principio de seguridad
+          titulo: Medidas de seguridad frente a acceso no autorizado
+          por_validar: true
+      nist_800_53:
+        - referencia: SC-7
+          titulo: Boundary Protection
+      soc2:
+        - referencia: CC6.6
+          titulo: Protección frente a amenazas externas
+
+  - id: CO-DB-02
+    titulo: Cloud SQL sin llave administrada por el cliente
+    descripcion: >-
+      Las instancias deben cifrarse con una llave CMEK de KMS, para que la
+      organización conserve la custodia y pueda revocar el acceso.
+    severidad: alta
+    politica: rego/co_db_02.rego
+    pruebas: rego/co_db_02_test.rego
+    caso_de_prueba: CP-07
+    mapeo:
+      cis_gcp:
+        - referencia: "6.x"
+          titulo: Cifrado con llaves administradas por el cliente
+          por_validar: true
+      lfpdppp:
+        - referencia: Principio de seguridad
+          titulo: Cifrado en reposo de datos personales
+          por_validar: true
+      nist_800_53:
+        - referencia: SC-28
+          titulo: Protection of Information at Rest
+        - referencia: SC-12
+          titulo: Cryptographic Key Establishment and Management
+      soc2:
+        - referencia: CC6.1
+          titulo: Controles de acceso lógico y cifrado
+
+  - id: CO-TAG-01
+    titulo: Etiquetas obligatorias ausentes
+    descripcion: >-
+      Todo recurso etiquetable debe declarar duenio, ambiente,
+      clasificacion_datos, centro_costos y marco_aplicable. Las claves van sin
+      acentos por la restricción de GCP. Los recursos de red no admiten
+      etiquetas y quedan fuera del alcance de este control.
+    severidad: media
+    politica: rego/co_tag_01.rego
+    pruebas: rego/co_tag_01_test.rego
+    caso_de_prueba: CP-16
+    mapeo:
+      nist_800_53:
+        - referencia: CM-8
+          titulo: System Component Inventory
+      soc2:
+        - referencia: CC6.1
+          titulo: Identificación y gestión de activos
+      lfpdppp:
+        - referencia: Principio de responsabilidad
+          titulo: Inventario y clasificación de datos personales
+          por_validar: true
+
+  - id: CO-IAM-01
+    titulo: Permisos de IAM excesivos
+    descripcion: >-
+      Ninguna cuenta debe recibir roles/owner, roles/editor ni roles que
+      permitan escalar privilegios a nivel de proyecto. Tampoco debe
+      reemplazarse la política de IAM completa del proyecto.
+    severidad: alta
+    politica: rego/co_iam_01.rego
+    pruebas: rego/co_iam_01_test.rego
+    mapeo:
+      cis_gcp:
+        - referencia: "1.x"
+          titulo: Mínimo privilegio en cuentas de servicio
+          por_validar: true
+      nist_800_53:
+        - referencia: AC-6
+          titulo: Least Privilege
+      soc2:
+        - referencia: CC6.3
+          titulo: Altas, bajas y cambios de acceso
+
+  - id: CO-VM-01
+    titulo: Instancia expuesta o con cuenta por defecto
+    descripcion: >-
+      Ninguna instancia debe tener dirección IP pública ni usar la cuenta de
+      servicio por defecto de Compute Engine, que trae rol de editor sobre el
+      proyecto entero.
+    severidad: alta
+    politica: rego/co_vm_01.rego
+    pruebas: rego/co_vm_01_test.rego
+    mapeo:
+      cis_gcp:
+        - referencia: "4.x"
+          titulo: Instancias sin IP pública y sin cuenta por defecto
+          por_validar: true
+      nist_800_53:
+        - referencia: SC-7
+          titulo: Boundary Protection
+        - referencia: AC-6
+          titulo: Least Privilege
+      soc2:
+        - referencia: CC6.6
+          titulo: Protección frente a amenazas externas
+
+  - id: CO-SEC-01
+    titulo: Secretos declarados en Terraform
+    descripcion: >-
+      Ningún recurso debe declarar una contraseña, el contenido de un secreto
+      ni una llave privada en el plan. El valor quedaría en el estado en texto
+      plano, aunque Terraform lo oculte en la salida.
+    severidad: critica
+    politica: rego/co_sec_01.rego
+    pruebas: rego/co_sec_01_test.rego
+    caso_de_prueba: CP-09
+    mapeo:
+      cis_gcp:
+        - referencia: "1.x"
+          titulo: Gestión de credenciales y llaves
+          por_validar: true
+      lfpdppp:
+        - referencia: Principio de seguridad
+          titulo: Resguardo de credenciales de acceso a datos personales
+          por_validar: true
+      nist_800_53:
+        - referencia: IA-5
+          titulo: Authenticator Management
+      soc2:
+        - referencia: CC6.1
+          titulo: Controles de acceso lógico y cifrado

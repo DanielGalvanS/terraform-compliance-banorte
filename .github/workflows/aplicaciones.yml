@@ -1,0 +1,71 @@
+name: Aplicaciones
+
+# Compila y prueba el frontend y la API. Hasta ahora ningún workflow miraba
+# apps/, así que un cambio que no compilara llegaba a main sin avisar.
+on:
+  pull_request:
+    paths:
+      - 'apps/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/aplicaciones.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/**'
+
+permissions:
+  contents: read
+
+jobs:
+  verificar:
+    name: Tipos, pruebas y build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      # `npm ci` respeta el lockfile: una dependencia que cambie sin pasar por
+      # un pull request hace fallar la instalación en vez de colarse.
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Comprobar tipos
+        run: npm run typecheck
+
+      - name: Pruebas
+        run: npm test
+
+      - name: Compilar el frontend
+        run: npm run build
+
+      # El frontend genera sus tipos de openapi.json. Si el contrato cambió y
+      # nadie lo regeneró, los tipos mienten: compilan contra una API que ya no
+      # responde así.
+      - name: El contrato OpenAPI está al día
+        run: |
+          set -euo pipefail
+          npm run openapi --workspace @compliance-ops/api
+          if ! git diff --quiet -- apps/api/openapi.json; then
+            echo "::error title=Contrato desactualizado::apps/api/openapi.json no coincide con el código"
+            echo "Ejecuta: npm run openapi --workspace @compliance-ops/api"
+            # `|| true`: head cierra la tubería y git muere con SIGPIPE, lo que
+            # con pipefail cortaría el paso antes de imprimir el diff.
+            git --no-pager diff -- apps/api/openapi.json | head -40 || true
+            exit 1
+          fi
+          echo "El contrato coincide con el código."
+
+      - name: Los tipos del frontend coinciden con el contrato
+        run: |
+          set -euo pipefail
+          npx openapi-typescript apps/api/openapi.json -o apps/web/src/shared/api/contrato.d.ts
+          if ! git diff --quiet -- apps/web/src/shared/api/contrato.d.ts; then
+            echo "::error title=Tipos desactualizados::Regenera el cliente del frontend"
+            exit 1
+          fi
+          echo "Los tipos coinciden con el contrato." 

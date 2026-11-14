@@ -1,0 +1,26 @@
+# Configuración del escáner de secretos.
+#
+# Parte del conjunto de reglas por defecto de gitleaks y solo acota dónde mira.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Rutas que no son código fuente del proyecto"
+paths = [
+  # Salida de compilación: lo que contenga ya viene del código fuente, que sí
+  # se escanea. Incluirlo duplicaría cada hallazgo.
+  '''apps/web/dist/.*''',
+  # Dependencias de terceros: sus hallazgos no son accionables aquí.
+  '''node_modules/.*''',
+  # Estado y proveedores descargados de Terraform.
+  '''.*\.terraform/.*''',
+]
+
+# El commit inicial del prototipo trae la contraseña precargada de la pantalla
+# de demostración. Ya no está en el código, pero sigue en el historial y
+# reescribirlo costaría más de lo que vale: no es un secreto, es el valor de un
+# formulario que acepta cualquier cosa.
+regexes = [
+  '''Compliance2025''',
+]

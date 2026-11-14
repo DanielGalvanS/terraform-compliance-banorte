@@ -1,0 +1,4 @@
+# Copia este archivo como backend.tfbackend y rellena los valores reales.
+# backend.tfbackend está ignorado por git.
+bucket = "NOMBRE-DEL-BUCKET-DE-ESTADO"
+prefix = "mdc/dev"

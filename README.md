@@ -1,73 +1,72 @@
 # Compliance Ops
 
-Prototipo web de gobierno de infraestructura: valida cada cambio de Terraform,
-registra hallazgos y conserva evidencia auditable.
+Plataforma de validación de cumplimiento regulatorio para infraestructura en
+Google Cloud, con Terraform y un agente de IA.
+
+Todo cambio de infraestructura entra por pull request. El pipeline genera el
+`terraform plan` en JSON y un motor de políticas lo evalúa contra un catálogo de
+controles mapeado a marcos regulatorios. Si hay una violación crítica o alta, el
+pull request se bloquea.
+
+## Regla central
+
+**Las políticas deciden el bloqueo; la IA interpreta y orquesta.** El agente
+clasifica hallazgos, los explica y propone remediaciones como pull requests de
+Terraform, pero no puede anular un veredicto ni aplicar cambios en producción.
+Si el agente o el evaluador fallan, el pipeline bloquea y notifica.
+
+## Estructura
+
+```
+apps/web/      Frontend (React + TypeScript + Vite)
+apps/api/      API REST (Fastify + Zod + Drizzle)
+apps/agent/    Agente de IA sobre Vertex AI    — pendiente
+infra/         Terraform, políticas y evidencia
+docs/          Arquitectura, decisiones y resultados
+```
+
+## Estado
+
+| Pieza | Estado |
+| --- | --- |
+| Módulos de Terraform | 8 de 8 |
+| Catálogo de controles | 8, con 32 pruebas unitarias |
+| Pipeline de validación y compuerta | Listo |
+| Despliegue con aprobación humana | Listo |
+| Ambiente `dev` | Integrado |
+| Frontend | Listo, con datos de ejemplo |
+| API REST | Esqueleto, sin base de datos |
+| Agente de IA | Pendiente |
+
+Nada se ha ejecutado todavía contra GCP: no hay proyecto. Los módulos están
+validados sintácticamente, pero su compatibilidad real con la API de Google
+está sin comprobar.
+
+## Desarrollo
 
 ```bash
-npm install
-npm run dev        # http://localhost:5173
-npm run build      # typecheck + bundle de producción
-npm run typecheck
+npm install          # instala los workspaces
+npm run dev          # frontend en http://localhost:5173
+npm run dev:api      # API en http://127.0.0.1:8080
+npm test             # pruebas de todos los workspaces
+npm run build        # typecheck y bundle
 ```
 
-## Arquitectura
+Comprobar las políticas sin necesidad de GCP:
 
-El código se organiza en tres capas con una sola dirección de dependencia:
-
+```bash
+conftest verify --policy infra/policies/rego
+infra/pipelines/scripts/policy_check.sh infra/policies/fixtures/plan_conforme.json
 ```
-app  →  features  →  shared
-```
 
-- **`src/app`** — composición: proveedores globales, el shell (sidebar y barra
-  superior) y el registro de rutas. Es la única capa que conoce todas las
-  funcionalidades.
-- **`src/features/<nombre>`** — una carpeta por área del producto, autocontenida:
-  - `model/` tipos del dominio y reglas puras (vigencias, validación, tonos).
-  - `data/` fixtures: los datos de demostración, y nada más.
-  - `api/` el repositorio: el único punto que lee `data/`. Sustituir estas
-    funciones por llamadas HTTP es todo lo que hace falta para conectar un
-    backend real.
-  - `components/` la página y sus piezas visuales.
-  - `hooks/` estado propio de la funcionalidad.
-  - `index.ts` la superficie pública; nadie importa el interior de otra feature.
-- **`src/shared`** — lo reutilizable y sin dominio: `ui/` (botones, tarjetas,
-  tablas, drawer, modal…), `hooks/`, `navigation/`, `lib/` y `model/` con el
-  vocabulario común (ambiente, severidad, tono).
+Terraform y las políticas se trabajan desde `infra/`; consulta su README para
+las convenciones obligatorias.
 
-Reglas que sostienen la estructura:
+## Documentación
 
-1. **Los componentes no importan fixtures.** Siempre pasan por el repositorio.
-2. **Los datos describen hechos, no estilos.** Un hallazgo guarda su severidad;
-   el color se deriva con `severityTone()`. Así un cambio de paleta no toca los
-   datos.
-3. **Las reglas de negocio son funciones puras** (`model/expiry.ts`,
-   `model/validation.ts`, `model/coverage.ts`), testeables sin React.
-4. **Una ruta nueva es una entrada en `app/routes/routes.tsx`.** El sidebar, el
-   breadcrumb y el router leen de ahí.
+Empieza por [docs/arquitectura.md](docs/arquitectura.md). El índice completo
+está en [docs/README.md](docs/README.md).
 
-### Navegación
+## Marcos en alcance
 
-`shared/navigation` implementa un router por hash (`#/findings`), sin
-dependencias externas: las páginas son enlazables y el botón de retroceso
-funciona. La capa `app` decide qué rutas existen.
-
-### Estilos
-
-`src/styles/index.css` importa los parciales en orden de cascada: tokens →
-reset → componentes → features → breakpoints. El orden es significativo; un
-archivo nuevo va en su capa, no al final. Los porcentajes que dependen de los
-datos (barras, anillo de cobertura) se aplican como estilos en línea desde el
-componente, no en el CSS.
-
-### Datos de demostración
-
-Los fixtures de excepciones calculan sus fechas a partir de hoy, de modo que
-los estados «por vencer» y «vencida» siguen siendo correctos cada vez que se
-abre el prototipo. Las estadísticas se derivan de las filas, por lo que nunca
-contradicen la tabla.
-
-## Autenticación
-
-`features/auth` encapsula el acceso. `authRepository` acepta cualquier
-credencial no vacía y devuelve la identidad de demostración: es el único
-archivo que hay que cambiar para integrar el proveedor de identidad real.
+CIS Benchmark for GCP, LFPDPPP y NIST SP 800-53 / SOC 2.

@@ -1,0 +1,121 @@
+name: Plan y veredicto
+
+# Genera el terraform plan real contra GCP, lo exporta a JSON y lo somete a la
+# compuerta de políticas. El veredicto se publica como comentario del pull
+# request y se conserva como artefacto de evidencia.
+#
+# Queda inactivo hasta que existan las variables de GCP. Mientras tanto la
+# compuerta se demuestra con los planes de ejemplo en policies.yml.
+on:
+  pull_request:
+    paths:
+      - 'infra/**'
+      - '.github/workflows/plan.yml'
+
+permissions:
+  contents: read
+  # Necesario para Workload Identity Federation: el runner intercambia su token
+  # OIDC por credenciales temporales de GCP. Así no hay ninguna llave de cuenta
+  # de servicio guardada en el repositorio.
+  id-token: write
+  pull-requests: write
+
+env:
+  TERRAFORM_VERSION: '1.16.4'
+  CONFTEST_VERSION: '0.71.1'
+  AMBIENTE: dev
+
+concurrency:
+  # Un plan por pull request: los planes viejos no aportan y gastan cuota.
+  group: plan-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    name: Plan y veredicto del ambiente dev
+    runs-on: ubuntu-24.04
+    # Sin proveedor de identidad configurado no hay nada que planear.
+    if: vars.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - uses: ./.github/actions/instalar-conftest
+        with:
+          version: ${{ env.CONFTEST_VERSION }}
+
+      # Credenciales temporales, sin llaves en el repositorio.
+      - name: Autenticar en GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT_PLAN }}
+
+      - name: terraform init
+        working-directory: infra/environments/${{ env.AMBIENTE }}
+        run: terraform init -input=false -no-color
+
+      # El plan es de solo lectura sobre la nube: describe lo que pasaría, no
+      # cambia nada. El apply vive en su propio workflow, con aprobación.
+      - name: terraform plan
+        working-directory: infra/environments/${{ env.AMBIENTE }}
+        run: |
+          set -euo pipefail
+          terraform plan -out=plan.bin -input=false -no-color -lock-timeout=5m
+          terraform show -json plan.bin > plan.json
+
+      - name: Evaluar políticas
+        id: compuerta
+        run: |
+          set -euo pipefail
+          estado=0
+          infra/pipelines/scripts/policy_check.sh \
+            "infra/environments/${AMBIENTE}/plan.json" veredicto.json || estado=$?
+          echo "estado=${estado}" >> "$GITHUB_OUTPUT"
+          exit "${estado}"
+
+      # El veredicto se publica pase lo que pase: un bloqueo también es
+      # evidencia, y es justo la que el revisor necesita leer.
+      - name: Comentar el veredicto en el pull request
+        if: always() && steps.compuerta.conclusion != 'skipped'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs')
+            if (!fs.existsSync('veredicto.json')) return
+
+            const veredicto = JSON.parse(fs.readFileSync('veredicto.json', 'utf8'))
+            const simbolo = { conforme: '✅', bloqueado: '⛔', error: '⚠️' }
+
+            const detalle = veredicto.violaciones.length
+              ? ['', '| Control | Hallazgo |', '| --- | --- |',
+                 ...veredicto.violaciones.map(v => `| \`${v.control}\` | ${v.mensaje} |`)].join('\n')
+              : ''
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: [
+                `### ${simbolo[veredicto.resultado] ?? ''} Veredicto: ${veredicto.resultado}`,
+                '',
+                veredicto.motivo,
+                detalle,
+                '',
+                `<sub>commit \`${veredicto.commit.slice(0, 8)}\` · ${veredicto.fecha}</sub>`,
+              ].join('\n'),
+            })
+
+      - name: Publicar evidencia
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: veredicto-${{ github.event.pull_request.number }}
+          path: |
+            veredicto.json
+            infra/environments/${{ env.AMBIENTE }}/plan.json
+          retention-days: 90
