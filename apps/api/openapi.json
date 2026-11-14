@@ -1184,6 +1184,370 @@
           }
         }
       }
+    },
+    "/excepciones": {
+      "get": {
+        "summary": "Excepciones registradas",
+        "tags": [
+          "excepciones"
+        ],
+        "description": "El estado se deriva de la fecha: una excepción activa cuya vigencia pasó se devuelve como Vencida aunque nadie haya corrido un proceso que la marque.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "Pendiente",
+                "Activa",
+                "Vencida",
+                "Rechazada",
+                "Revocada"
+              ]
+            },
+            "in": "query",
+            "name": "estado",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "Dev",
+                "QA",
+                "Prod"
+              ]
+            },
+            "in": "query",
+            "name": "ambiente",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "control",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "excepciones": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "codigo": {
+                            "type": "string",
+                            "description": "Identificador legible, por ejemplo EXC-1048"
+                          },
+                          "control": {
+                            "type": "string",
+                            "description": "Código del catálogo, por ejemplo CO-NET-01"
+                          },
+                          "controlNombre": {
+                            "type": "string"
+                          },
+                          "marco": {
+                            "type": "string"
+                          },
+                          "severidad": {
+                            "type": "string",
+                            "enum": [
+                              "Crítica",
+                              "Alta",
+                              "Media",
+                              "Baja"
+                            ]
+                          },
+                          "recurso": {
+                            "type": "string"
+                          },
+                          "ambiente": {
+                            "type": "string",
+                            "enum": [
+                              "Dev",
+                              "QA",
+                              "Prod"
+                            ]
+                          },
+                          "justificacion": {
+                            "type": "string"
+                          },
+                          "solicitadaPor": {
+                            "type": "string"
+                          },
+                          "aprobadaPor": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "solicitadaEn": {
+                            "type": "string",
+                            "description": "Fecha ISO 8601"
+                          },
+                          "venceEl": {
+                            "type": "string",
+                            "description": "Fecha yyyy-mm-dd"
+                          },
+                          "estado": {
+                            "type": "string",
+                            "enum": [
+                              "Pendiente",
+                              "Activa",
+                              "Vencida",
+                              "Rechazada",
+                              "Revocada"
+                            ]
+                          },
+                          "planRemediacion": {
+                            "nullable": true,
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "codigo",
+                          "control",
+                          "controlNombre",
+                          "marco",
+                          "severidad",
+                          "recurso",
+                          "ambiente",
+                          "justificacion",
+                          "solicitadaPor",
+                          "aprobadaPor",
+                          "solicitadaEn",
+                          "venceEl",
+                          "estado",
+                          "planRemediacion"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "excepciones"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Solicita una excepción",
+        "tags": [
+          "excepciones"
+        ],
+        "description": "Siempre nace Pendiente: nada se exceptúa sin aprobación humana. La severidad la decide el control, no quien la solicita.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "control": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "recurso": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "ambiente": {
+                    "type": "string",
+                    "enum": [
+                      "Dev",
+                      "QA",
+                      "Prod"
+                    ]
+                  },
+                  "justificacion": {
+                    "type": "string"
+                  },
+                  "venceEl": {
+                    "type": "string"
+                  },
+                  "aprobador": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "A quién se le pide la aprobación"
+                  },
+                  "planRemediacion": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "control",
+                  "recurso",
+                  "ambiente",
+                  "justificacion",
+                  "venceEl",
+                  "aprobador"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "codigo": {
+                      "type": "string",
+                      "description": "Identificador legible, por ejemplo EXC-1048"
+                    },
+                    "control": {
+                      "type": "string",
+                      "description": "Código del catálogo, por ejemplo CO-NET-01"
+                    },
+                    "controlNombre": {
+                      "type": "string"
+                    },
+                    "marco": {
+                      "type": "string"
+                    },
+                    "severidad": {
+                      "type": "string",
+                      "enum": [
+                        "Crítica",
+                        "Alta",
+                        "Media",
+                        "Baja"
+                      ]
+                    },
+                    "recurso": {
+                      "type": "string"
+                    },
+                    "ambiente": {
+                      "type": "string",
+                      "enum": [
+                        "Dev",
+                        "QA",
+                        "Prod"
+                      ]
+                    },
+                    "justificacion": {
+                      "type": "string"
+                    },
+                    "solicitadaPor": {
+                      "type": "string"
+                    },
+                    "aprobadaPor": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "solicitadaEn": {
+                      "type": "string",
+                      "description": "Fecha ISO 8601"
+                    },
+                    "venceEl": {
+                      "type": "string",
+                      "description": "Fecha yyyy-mm-dd"
+                    },
+                    "estado": {
+                      "type": "string",
+                      "enum": [
+                        "Pendiente",
+                        "Activa",
+                        "Vencida",
+                        "Rechazada",
+                        "Revocada"
+                      ]
+                    },
+                    "planRemediacion": {
+                      "nullable": true,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "codigo",
+                    "control",
+                    "controlNombre",
+                    "marco",
+                    "severidad",
+                    "recurso",
+                    "ambiente",
+                    "justificacion",
+                    "solicitadaPor",
+                    "aprobadaPor",
+                    "solicitadaEn",
+                    "venceEl",
+                    "estado",
+                    "planRemediacion"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "detalle": {
+                      "type": "string"
+                    },
+                    "motivos": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "campo": {
+                            "type": "string"
+                          },
+                          "mensaje": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "campo",
+                          "mensaje"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "motivos"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "servers": [

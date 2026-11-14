@@ -1,0 +1,28 @@
+import type { ExcepcionApi } from '@/shared/api'
+import type { ComplianceException } from '../model'
+
+/** Traduce una excepción de la API al modelo de la pantalla. */
+export function desdeApi(excepcion: ExcepcionApi): ComplianceException {
+  return {
+    id: excepcion.codigo,
+    controlCode: excepcion.control,
+    controlName: excepcion.controlNombre,
+    framework: excepcion.marco,
+    resource: excepcion.recurso,
+    environment: excepcion.ambiente,
+    severity: excepcion.severidad,
+    justification: excepcion.justificacion,
+    approver: excepcion.aprobadaPor ?? 'Pendiente de asignar',
+    requestedBy: excepcion.solicitadaPor,
+    requestedAtLabel: new Date(excepcion.solicitadaEn).toLocaleDateString('es-MX', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    }),
+    expiresOn: excepcion.venceEl,
+    state: excepcion.estado,
+    ...(excepcion.planRemediacion === null
+      ? {}
+      : { remediationPlan: excepcion.planRemediacion }),
+  }
+}

@@ -11,7 +11,11 @@ type NewExceptionFormProps = {
   /** Environment selected in the top bar, used as the default. */
   defaultEnvironment: Environment
   onCancel: () => void
-  onSubmit: (input: NewExceptionInput) => void
+  /**
+   * Devuelve los errores que la API rechazó, por campo, o nada si aceptó.
+   * La validación local evita viajes inútiles; la de la API es la que manda.
+   */
+  onSubmit: (input: NewExceptionInput) => Promise<ValidationErrors | void>
 }
 
 function emptyForm(environment: Environment): NewExceptionInput {
@@ -43,12 +47,21 @@ export function NewExceptionForm({
     setErrors((current) => ({ ...current, [key]: '' }))
   }
 
-  const handleSubmit = (event: FormEvent) => {
+  const [enviando, setEnviando] = useState(false)
+
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
     const found = validateNewException(form, { minDate, maxDate })
     setErrors(found)
     if (Object.keys(found).length > 0) return
-    onSubmit(form)
+
+    setEnviando(true)
+    try {
+      const rechazo = await onSubmit(form)
+      if (rechazo) setErrors(rechazo)
+    } finally {
+      setEnviando(false)
+    }
   }
 
   return (
@@ -153,8 +166,8 @@ export function NewExceptionForm({
         <Button variant="secondary" onClick={onCancel}>
           Cancelar
         </Button>
-        <Button type="submit" icon="arrow">
-          Enviar para aprobación
+        <Button type="submit" icon="arrow" disabled={enviando}>
+          {enviando ? 'Enviando…' : 'Enviar para aprobación'}
         </Button>
       </div>
     </form>

@@ -136,3 +136,57 @@ export type NuevoHallazgo = z.infer<typeof NuevoHallazgo>
 export type FiltroHallazgos = z.infer<typeof FiltroHallazgos>
 export type Resumen = z.infer<typeof Resumen>
 export type CoberturaMarco = z.infer<typeof CoberturaMarco>
+
+export const EstadoExcepcion = z.enum([
+  'Pendiente',
+  'Activa',
+  'Vencida',
+  'Rechazada',
+  'Revocada',
+])
+
+export const Excepcion = z.object({
+  id: z.uuid(),
+  codigo: z.string().describe('Identificador legible, por ejemplo EXC-1048'),
+  control: z.string().describe('Código del catálogo, por ejemplo CO-NET-01'),
+  controlNombre: z.string(),
+  marco: z.string(),
+  severidad: Severidad,
+  recurso: z.string(),
+  ambiente: Ambiente,
+  justificacion: z.string(),
+  solicitadaPor: z.string(),
+  aprobadaPor: z.string().nullable(),
+  solicitadaEn: z.string().describe('Fecha ISO 8601'),
+  venceEl: z.string().describe('Fecha yyyy-mm-dd'),
+  estado: EstadoExcepcion,
+  planRemediacion: z.string().nullable(),
+})
+
+/**
+ * Solicitud de excepción.
+ *
+ * No incluye estado ni severidad: el estado siempre nace «Pendiente» —nada se
+ * exceptúa sin que una persona lo apruebe— y la severidad la decide el
+ * control, no quien la pide.
+ */
+export const NuevaExcepcion = z.object({
+  control: z.string().min(1),
+  recurso: z.string().min(1),
+  ambiente: Ambiente,
+  justificacion: z.string(),
+  venceEl: z.string(),
+  aprobador: z.string().min(1).describe('A quién se le pide la aprobación'),
+  planRemediacion: z.string().optional(),
+})
+
+export const FiltroExcepciones = z.object({
+  estado: EstadoExcepcion.optional(),
+  ambiente: Ambiente.optional(),
+  control: z.string().optional(),
+})
+
+export type Excepcion = z.infer<typeof Excepcion>
+export type NuevaExcepcion = z.infer<typeof NuevaExcepcion>
+export type FiltroExcepciones = z.infer<typeof FiltroExcepciones>
+export type EstadoExcepcion = z.infer<typeof EstadoExcepcion>

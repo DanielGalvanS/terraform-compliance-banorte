@@ -2,9 +2,21 @@ import { useState } from 'react'
 import { useEnvironment } from '@/app/providers/EnvironmentProvider'
 import { useAuth } from '@/features/auth'
 import { useFilters, useToast } from '@/shared/hooks'
-import { Badge, Button, DataTable, Drawer, PageTitle, StatCard, Toast } from '@/shared/ui'
+import { ErrorValidacion } from '@/shared/api'
+import {
+  Badge,
+  Button,
+  Card,
+  DataTable,
+  Drawer,
+  FuenteDeDatos,
+  PageTitle,
+  StatCard,
+  Toast,
+} from '@/shared/ui'
 import { defaultExceptionFilters, exceptionsRepository } from '../api/exceptionsRepository'
-import { useExceptions } from '../hooks/useExceptions'
+import { useExcepcionesApi } from '../hooks/useExcepcionesApi'
+import type { ValidationErrors } from '../model/validation'
 import { exceptionStateTone, type ComplianceException } from '../model'
 import { ExceptionDetail } from './ExceptionDetail'
 import { ExceptionFilters } from './ExceptionFilters'
@@ -17,12 +29,55 @@ type DrawerMode = { kind: 'new' } | { kind: 'detail'; exception: ComplianceExcep
 export function ExceptionsPage() {
   const { environment } = useEnvironment()
   const { user } = useAuth()
-  const { items, create } = useExceptions(user?.name ?? 'Equipo de cumplimiento')
+  const { estado: carga, crear } = useExcepcionesApi(user?.name ?? 'Equipo de cumplimiento')
   const { values, set, reset } = useFilters(defaultExceptionFilters)
   const [search, setSearch] = useState('')
   const [drawer, setDrawer] = useState<DrawerMode>(null)
   const toast = useToast()
 
+  const titulo = (
+    <PageTitle
+      eyebrow="RIESGO · CUMPLIMIENTO"
+      title="Excepciones"
+      description="Gestiona incumplimientos aceptados temporalmente y su vigencia."
+      action={
+        <>
+          {carga.estado === 'listo' && <FuenteDeDatos fuente={carga.fuente} />}
+          <Button icon="shield" onClick={() => setDrawer({ kind: 'new' })}>
+            Nueva excepción
+          </Button>
+        </>
+      }
+    />
+  )
+
+  if (carga.estado === 'cargando') {
+    return (
+      <>
+        {titulo}
+        <Card>
+          <p>Consultando el registro de excepciones…</p>
+        </Card>
+      </>
+    )
+  }
+
+  if (carga.estado === 'error') {
+    return (
+      <>
+        {titulo}
+        <Card>
+          <h2>No se pudo cargar el registro</h2>
+          <p>{carga.mensaje}</p>
+          <Button variant="secondary" onClick={() => window.location.reload()}>
+            Reintentar
+          </Button>
+        </Card>
+      </>
+    )
+  }
+
+  const items = carga.items
   const visible = exceptionsRepository.query(items, { filters: values, search })
 
   const clearAll = () => {
@@ -32,16 +87,7 @@ export function ExceptionsPage() {
 
   return (
     <>
-      <PageTitle
-        eyebrow="RIESGO · CUMPLIMIENTO"
-        title="Excepciones"
-        description="Gestiona incumplimientos aceptados temporalmente y su vigencia."
-        action={
-          <Button icon="shield" onClick={() => setDrawer({ kind: 'new' })}>
-            Nueva excepción
-          </Button>
-        }
-      />
+      {titulo}
       <div className="exception-stats">
         {exceptionsRepository.getStats(items).map((stat) => (
           <StatCard
@@ -83,10 +129,36 @@ export function ExceptionsPage() {
           <NewExceptionForm
             defaultEnvironment={environment}
             onCancel={() => setDrawer(null)}
-            onSubmit={(input) => {
-              create(input)
-              setDrawer(null)
-              toast.show('Excepción enviada para aprobación')
+            onSubmit={async (input) => {
+              try {
+                await crear({
+                  control: input.control,
+                  recurso: input.resource,
+                  ambiente: input.environment,
+                  justificacion: input.justification,
+                  venceEl: input.expiresOn,
+                  aprobador: input.approver,
+                  ...(input.remediationPlan.trim()
+                    ? { planRemediacion: input.remediationPlan.trim() }
+                    : {}),
+                })
+                setDrawer(null)
+                toast.show('Excepción enviada para aprobación')
+              } catch (causa) {
+                // La API rechaza por campo: se pintan en el formulario en vez
+                // de mostrar un mensaje genérico que no dice qué corregir.
+                if (causa instanceof ErrorValidacion) {
+                  const errores: ValidationErrors = {}
+                  for (const motivo of causa.motivos) {
+                    if (motivo.campo === 'justificacion') errores.justification = motivo.mensaje
+                    else if (motivo.campo === 'venceEl') errores.expiresOn = motivo.mensaje
+                    else if (motivo.campo === 'control') errores.control = motivo.mensaje
+                  }
+                  return errores
+                }
+                toast.show('No se pudo enviar la excepción')
+                return
+              }
             }}
           />
         </Drawer>

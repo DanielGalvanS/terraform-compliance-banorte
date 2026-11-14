@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { Hallazgo } from '../model/esquemas.ts'
+import type { ExcepcionGuardada } from './excepcionesRepositorio.ts'
 
 /**
  * Hallazgos de ejemplo, para que la API responda algo mientras no hay base.
@@ -99,5 +100,57 @@ export const hallazgosDeEjemplo: Hallazgo[] = [
         anadidas: ['+ centro_costos = "cc-1042"'],
       },
     },
+  },
+]
+
+/** Fecha a N días de hoy, para que la semilla no caduque sola. */
+function enDias(dias: number): string {
+  return new Date(Date.now() + dias * 86_400_000).toISOString().slice(0, 10)
+}
+
+export const excepcionesDeEjemplo: ExcepcionGuardada[] = [
+  {
+    id: randomUUID(),
+    codigo: 'EXC-1048',
+    control: 'CO-NET-01',
+    recurso: 'google_compute_firewall.allow_ssh',
+    ambiente: 'Prod',
+    justificacion: 'Acceso temporal para la migración del clúster legado.',
+    solicitadaPor: 'Ana Martínez',
+    aprobadaPor: 'Roberto Silva',
+    solicitadaEn: new Date(Date.now() - 6 * 86_400_000).toISOString(),
+    venceEl: enDias(4),
+    estadoGuardado: 'Activa',
+    planRemediacion: 'OPS-2841 · Restringir reglas de firewall',
+  },
+  {
+    id: randomUUID(),
+    codigo: 'EXC-1044',
+    control: 'CO-DB-02',
+    recurso: 'google_sql_database_instance.main',
+    ambiente: 'QA',
+    justificacion: 'Dependencia del proveedor pendiente de actualización.',
+    solicitadaPor: 'Carlos Vega',
+    aprobadaPor: null,
+    solicitadaEn: new Date(Date.now() - 3 * 86_400_000).toISOString(),
+    venceEl: enDias(42),
+    estadoGuardado: 'Pendiente',
+    planRemediacion: 'OPS-2860 · Migrar a CMEK',
+  },
+  {
+    // Guardada como Activa pero con la fecha pasada: al leerla debe salir
+    // Vencida, que es lo que demuestra que el estado se deriva.
+    id: randomUUID(),
+    codigo: 'EXC-1031',
+    control: 'CO-TAG-01',
+    recurso: 'google_secret_manager_secret.api_key',
+    ambiente: 'Prod',
+    justificacion: 'Etiquetado pendiente hasta la ventana de mantenimiento.',
+    solicitadaPor: 'Ana Martínez',
+    aprobadaPor: 'Roberto Silva',
+    solicitadaEn: new Date(Date.now() - 45 * 86_400_000).toISOString(),
+    venceEl: enDias(-6),
+    estadoGuardado: 'Activa',
+    planRemediacion: null,
   },
 ]

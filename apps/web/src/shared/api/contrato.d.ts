@@ -499,6 +499,152 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/excepciones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Excepciones registradas
+         * @description El estado se deriva de la fecha: una excepción activa cuya vigencia pasó se devuelve como Vencida aunque nadie haya corrido un proceso que la marque.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    estado?: "Pendiente" | "Activa" | "Vencida" | "Rechazada" | "Revocada";
+                    ambiente?: "Dev" | "QA" | "Prod";
+                    control?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            excepciones: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @description Identificador legible, por ejemplo EXC-1048 */
+                                codigo: string;
+                                /** @description Código del catálogo, por ejemplo CO-NET-01 */
+                                control: string;
+                                controlNombre: string;
+                                marco: string;
+                                /** @enum {string} */
+                                severidad: "Crítica" | "Alta" | "Media" | "Baja";
+                                recurso: string;
+                                /** @enum {string} */
+                                ambiente: "Dev" | "QA" | "Prod";
+                                justificacion: string;
+                                solicitadaPor: string;
+                                aprobadaPor: string | null;
+                                /** @description Fecha ISO 8601 */
+                                solicitadaEn: string;
+                                /** @description Fecha yyyy-mm-dd */
+                                venceEl: string;
+                                /** @enum {string} */
+                                estado: "Pendiente" | "Activa" | "Vencida" | "Rechazada" | "Revocada";
+                                planRemediacion: string | null;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Solicita una excepción
+         * @description Siempre nace Pendiente: nada se exceptúa sin aprobación humana. La severidad la decide el control, no quien la solicita.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        control: string;
+                        recurso: string;
+                        /** @enum {string} */
+                        ambiente: "Dev" | "QA" | "Prod";
+                        justificacion: string;
+                        venceEl: string;
+                        /** @description A quién se le pide la aprobación */
+                        aprobador: string;
+                        planRemediacion?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            id: string;
+                            /** @description Identificador legible, por ejemplo EXC-1048 */
+                            codigo: string;
+                            /** @description Código del catálogo, por ejemplo CO-NET-01 */
+                            control: string;
+                            controlNombre: string;
+                            marco: string;
+                            /** @enum {string} */
+                            severidad: "Crítica" | "Alta" | "Media" | "Baja";
+                            recurso: string;
+                            /** @enum {string} */
+                            ambiente: "Dev" | "QA" | "Prod";
+                            justificacion: string;
+                            solicitadaPor: string;
+                            aprobadaPor: string | null;
+                            /** @description Fecha ISO 8601 */
+                            solicitadaEn: string;
+                            /** @description Fecha yyyy-mm-dd */
+                            venceEl: string;
+                            /** @enum {string} */
+                            estado: "Pendiente" | "Activa" | "Vencida" | "Rechazada" | "Revocada";
+                            planRemediacion: string | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                            motivos: {
+                                campo: string;
+                                mensaje: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {

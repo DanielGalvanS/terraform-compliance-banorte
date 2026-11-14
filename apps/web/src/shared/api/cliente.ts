@@ -23,6 +23,18 @@ export type RespuestaResumen =
 
 export type CoberturaMarco = RespuestaResumen['coberturaPorMarco'][number]
 
+export type RespuestaExcepciones =
+  paths['/excepciones']['get']['responses'][200]['content']['application/json']
+
+export type ExcepcionApi = RespuestaExcepciones['excepciones'][number]
+
+export type NuevaExcepcionApi =
+  paths['/excepciones']['post']['requestBody']['content']['application/json']
+
+/** Motivos de rechazo que devuelve la API cuando una solicitud no cumple. */
+export type MotivoRechazo = { campo: string; mensaje: string }
+
+
 export class ErrorApi extends Error {
   constructor(
     mensaje: string,
@@ -30,6 +42,15 @@ export class ErrorApi extends Error {
   ) {
     super(mensaje)
     this.name = 'ErrorApi'
+  }
+}
+export class ErrorValidacion extends ErrorApi {
+  constructor(
+    mensaje: string,
+    readonly motivos: MotivoRechazo[],
+  ) {
+    super(mensaje, 422)
+    this.name = 'ErrorValidacion'
   }
 }
 
@@ -59,8 +80,35 @@ async function pedir<T>(ruta: string, señal?: AbortSignal): Promise<T> {
   return (await respuesta.json()) as T
 }
 
+async function enviar<T>(ruta: string, cuerpo: unknown): Promise<T> {
+  if (!hayApi) throw new ErrorApi('No hay API configurada')
+
+  let respuesta: Response
+  try {
+    respuesta = await fetch(`${URL_API}${ruta}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify(cuerpo),
+      signal: AbortSignal.timeout(TIEMPO_LIMITE_MS),
+    })
+  } catch {
+    throw new ErrorApi('No se pudo contactar con la API')
+  }
+
+  // 422 trae el detalle por campo, que el formulario sabe pintar.
+  if (respuesta.status === 422) {
+    const cuerpoError = (await respuesta.json()) as { error: string; motivos: MotivoRechazo[] }
+    throw new ErrorValidacion(cuerpoError.error, cuerpoError.motivos)
+  }
+  if (!respuesta.ok) throw new ErrorApi(`La API respondió ${respuesta.status}`, respuesta.status)
+  return (await respuesta.json()) as T
+}
+
 export const clienteApi = {
   listarHallazgos: (señal?: AbortSignal) =>
     pedir<RespuestaHallazgos>('/hallazgos', señal),
   resumen: (señal?: AbortSignal) => pedir<RespuestaResumen>('/resumen', señal),
+  listarExcepciones: (señal?: AbortSignal) =>
+    pedir<RespuestaExcepciones>('/excepciones', señal),
+  crearExcepcion: (nueva: NuevaExcepcionApi) => enviar<ExcepcionApi>('/excepciones', nueva),
 }
