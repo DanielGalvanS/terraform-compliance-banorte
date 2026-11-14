@@ -37,6 +37,40 @@ export const Control = z.object({
   mapeo: z.array(ReferenciaMarco),
 })
 
+
+/** El control violado, tal como lo explica el catálogo. */
+export const ControlViolado = z.object({
+  codigo: z.string(),
+  enunciado: z.string(),
+  equivalentes: z.array(z.string()).describe('Referencias del mismo control en otros marcos'),
+})
+
+export const ExplicacionAgente = z.object({
+  texto: z.string(),
+  confianza: z.number().int().min(0).max(100),
+  motor: z.string().describe('Herramientas que produjeron el veredicto'),
+})
+
+/** Cambio de Terraform propuesto, como líneas quitadas y añadidas. */
+export const Remediacion = z.object({
+  quitadas: z.array(z.string()),
+  anadidas: z.array(z.string()),
+})
+
+/**
+ * Lo que el panel de detalle necesita para explicar un hallazgo.
+ *
+ * Va dentro del mismo objeto y no en otra llamada: son datos pequeños que
+ * siempre se piden juntos, y una segunda petición solo añadiría latencia y un
+ * estado de carga más que manejar.
+ */
+export const DetalleHallazgo = z.object({
+  controlViolado: ControlViolado,
+  evidencia: z.string().describe('Extracto del plan que prueba el hallazgo'),
+  explicacion: ExplicacionAgente,
+  remediacion: Remediacion,
+})
+
 export const Hallazgo = z.object({
   id: z.uuid(),
   control: z.string().nullable().describe('Código del control; nulo si ninguna política lo cubre'),
@@ -48,6 +82,7 @@ export const Hallazgo = z.object({
   estado: EstadoHallazgo,
   mensaje: z.string(),
   detectadoEn: z.string().describe('Fecha ISO 8601'),
+  detalle: DetalleHallazgo.optional(),
 })
 
 /** Lo que el pipeline envía al detectar un incumplimiento. */
@@ -83,5 +118,6 @@ export const Error = z.object({
 export type Marco = z.infer<typeof Marco>
 export type Control = z.infer<typeof Control>
 export type Hallazgo = z.infer<typeof Hallazgo>
+export type DetalleHallazgo = z.infer<typeof DetalleHallazgo>
 export type NuevoHallazgo = z.infer<typeof NuevoHallazgo>
 export type FiltroHallazgos = z.infer<typeof FiltroHallazgos>

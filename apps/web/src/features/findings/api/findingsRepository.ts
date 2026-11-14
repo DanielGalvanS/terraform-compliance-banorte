@@ -27,19 +27,20 @@ export const findingsRepository = {
   getSummary: (): FindingsSummary => findingsSummary,
 
   /** Options come from the data itself, so a filter can never show a dead end. */
-  getFilterOptions(): Record<FindingFilterKey, string[]> {
+  getFilterOptions(rows: Finding[] = findings): Record<FindingFilterKey, string[]> {
     return {
       severity: [ANY.severity, ...(SEVERITIES as Severity[])],
-      framework: filterOptions(ANY.framework, findings.map((f) => f.framework)),
-      control: filterOptions(ANY.control, findings.map((f) => f.control)),
-      environment: filterOptions(ANY.environment, findings.map((f) => f.environment)),
-      origin: filterOptions(ANY.origin, findings.map((f) => f.origin)),
-      state: filterOptions(ANY.state, unique(findings.map((f) => f.state))),
+      framework: filterOptions(ANY.framework, rows.map((f) => f.framework)),
+      control: filterOptions(ANY.control, rows.map((f) => f.control)),
+      environment: filterOptions(ANY.environment, rows.map((f) => f.environment)),
+      origin: filterOptions(ANY.origin, rows.map((f) => f.origin)),
+      state: filterOptions(ANY.state, unique(rows.map((f) => f.state))),
     }
   },
 
-  query(filters: FindingFilters): Finding[] {
-    return findings.filter(
+  /** Filtra la lista recibida; la fuente puede ser la API o los ejemplos. */
+  query(filters: FindingFilters, rows: Finding[] = findings): Finding[] {
+    return rows.filter(
       (finding) =>
         (filters.severity === ANY.severity || finding.severity === filters.severity) &&
         (filters.framework === ANY.framework || finding.framework === filters.framework) &&

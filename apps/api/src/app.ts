@@ -1,3 +1,4 @@
+import fastifyCors from '@fastify/cors'
 import fastifySwagger from '@fastify/swagger'
 import fastifySwaggerUi from '@fastify/swagger-ui'
 import Fastify from 'fastify'
@@ -35,6 +36,14 @@ type Opciones = {
  */
 export async function construirApp({ config, hallazgos }: Opciones) {
   const app = Fastify({ logger: { level: config.NIVEL_LOG } }).withTypeProvider<ZodTypeProvider>()
+
+  // El frontend se sirve desde otro origen en desarrollo. La lista es
+  // explícita: un '*' abriría la API a cualquier página del navegador.
+  await app.register(fastifyCors, {
+    origin: config.ORIGENES_PERMITIDOS,
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['content-type', 'idempotency-key'],
+  })
 
   app.setValidatorCompiler(validatorCompiler)
   app.setSerializerCompiler(serializerCompiler)

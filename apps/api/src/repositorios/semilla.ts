@@ -18,6 +18,25 @@ export const hallazgosDeEjemplo: Hallazgo[] = [
     estado: 'Abierto',
     mensaje: 'La regla expone el puerto 22 a 0.0.0.0/0.',
     detectadoEn: new Date().toISOString(),
+    detalle: {
+      controlViolado: {
+        codigo: 'CIS GCP 3.6',
+        enunciado: 'Asegurar que SSH no esté abierto a internet.',
+        equivalentes: ['NIST SC-7', 'NIST AC-4', 'SOC 2 CC6.6'],
+      },
+      evidencia: 'source_ranges = ["0.0.0.0/0"]\nports         = ["22"]\ndirection     = "INGRESS"',
+      explicacion: {
+        texto:
+          'La regla permite intentos SSH desde cualquier IP pública. El riesgo es ' +
+          'explotable y afecta un activo en producción.',
+        confianza: 98,
+        motor: 'OPA + Checkov',
+      },
+      remediacion: {
+        quitadas: ['- source_ranges = ["0.0.0.0/0"]'],
+        anadidas: ['+ source_ranges = ["10.80.0.0/16"]'],
+      },
+    },
   },
   {
     id: randomUUID(),
@@ -30,6 +49,25 @@ export const hallazgosDeEjemplo: Hallazgo[] = [
     estado: 'En remediación',
     mensaje: 'La instancia no declara encryption_key_name.',
     detectadoEn: new Date().toISOString(),
+    detalle: {
+      controlViolado: {
+        codigo: 'NIST 800-53 SC-28',
+        enunciado: 'Proteger la información en reposo con llaves bajo custodia de la organización.',
+        equivalentes: ['CIS GCP 6.x', 'LFPDPPP · principio de seguridad', 'SOC 2 CC6.1'],
+      },
+      evidencia: 'encryption_key_name = null\ndatabase_version    = "POSTGRES_15"',
+      explicacion: {
+        texto:
+          'La instancia usa cifrado administrado por Google. El control exige llaves ' +
+          'CMEK bajo custodia de la organización.',
+        confianza: 94,
+        motor: 'OPA + Asset Inventory',
+      },
+      remediacion: {
+        quitadas: ['- encryption_key_name = null'],
+        anadidas: ['+ encryption_key_name = google_kms_crypto_key.sql.id'],
+      },
+    },
   },
   {
     id: randomUUID(),
@@ -42,5 +80,24 @@ export const hallazgosDeEjemplo: Hallazgo[] = [
     estado: 'Abierto',
     mensaje: 'Falta la etiqueta obligatoria centro_costos.',
     detectadoEn: new Date().toISOString(),
+    detalle: {
+      controlViolado: {
+        codigo: 'NIST 800-53 CM-8',
+        enunciado: 'Mantener un inventario completo y etiquetado de los componentes.',
+        equivalentes: ['LFPDPPP · principio de responsabilidad', 'SOC 2 CC6.1'],
+      },
+      evidencia: 'labels = {\n  duenio = "plataforma"\n}',
+      explicacion: {
+        texto:
+          'Falta la etiqueta de centro de costos. El impacto es de gobierno y no ' +
+          'expone el activo.',
+        confianza: 89,
+        motor: 'Conftest',
+      },
+      remediacion: {
+        quitadas: [],
+        anadidas: ['+ centro_costos = "cc-1042"'],
+      },
+    },
   },
 ]

@@ -1,0 +1,1157 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Compliance Ops API",
+    "description": "Lectura de la postura de cumplimiento y registro de hallazgos. El catálogo de controles se sirve desde infra/policies/mappings.yaml, el mismo archivo que evalúa la compuerta del pipeline.",
+    "version": "0.1.0"
+  },
+  "components": {
+    "schemas": {}
+  },
+  "paths": {
+    "/salud": {
+      "get": {
+        "summary": "Comprobación de vida",
+        "tags": [
+          "operación"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "estado": {
+                      "type": "string",
+                      "enum": [
+                        "ok"
+                      ]
+                    },
+                    "catalogo": {
+                      "type": "string",
+                      "description": "Versión del catálogo cargado"
+                    },
+                    "persistencia": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "estado",
+                    "catalogo",
+                    "persistencia"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/marcos": {
+      "get": {
+        "summary": "Marcos regulatorios en alcance",
+        "tags": [
+          "catálogo"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "version": {
+                      "type": "string"
+                    },
+                    "marcos": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "clave": {
+                            "type": "string",
+                            "description": "Identificador interno, por ejemplo cis_gcp"
+                          },
+                          "nombre": {
+                            "type": "string"
+                          },
+                          "nombreCorto": {
+                            "type": "string",
+                            "description": "El nombre que muestran las pantallas"
+                          },
+                          "version": {
+                            "type": "string"
+                          },
+                          "ambito": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "clave",
+                          "nombre",
+                          "nombreCorto"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "version",
+                    "marcos"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/controles": {
+      "get": {
+        "summary": "Controles codificados y su mapeo a marcos",
+        "tags": [
+          "catálogo"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "marco",
+            "required": false,
+            "description": "Filtra por nombre corto del marco"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "version": {
+                      "type": "string"
+                    },
+                    "controles": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "codigo": {
+                            "type": "string",
+                            "description": "Identificador del catálogo, por ejemplo CO-NET-01"
+                          },
+                          "titulo": {
+                            "type": "string"
+                          },
+                          "descripcion": {
+                            "type": "string"
+                          },
+                          "severidad": {
+                            "type": "string",
+                            "enum": [
+                              "Crítica",
+                              "Alta",
+                              "Media",
+                              "Baja"
+                            ]
+                          },
+                          "casoDePrueba": {
+                            "type": "string"
+                          },
+                          "mapeo": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "marco": {
+                                  "type": "string"
+                                },
+                                "referencia": {
+                                  "type": "string"
+                                },
+                                "titulo": {
+                                  "type": "string"
+                                },
+                                "porValidar": {
+                                  "type": "boolean",
+                                  "description": "Pendiente de validación por Cumplimiento"
+                                }
+                              },
+                              "required": [
+                                "marco",
+                                "referencia",
+                                "titulo",
+                                "porValidar"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "codigo",
+                          "titulo",
+                          "descripcion",
+                          "severidad",
+                          "mapeo"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "version",
+                    "controles"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/hallazgos": {
+      "get": {
+        "summary": "Hallazgos, con filtros opcionales",
+        "tags": [
+          "hallazgos"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "Crítica",
+                "Alta",
+                "Media",
+                "Baja"
+              ]
+            },
+            "in": "query",
+            "name": "severidad",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "Dev",
+                "QA",
+                "Prod"
+              ]
+            },
+            "in": "query",
+            "name": "ambiente",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "Abierto",
+                "En remediación",
+                "Excepción",
+                "Cerrado"
+              ]
+            },
+            "in": "query",
+            "name": "estado",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "control",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "hallazgos": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "control": {
+                            "nullable": true,
+                            "description": "Código del control; nulo si ninguna política lo cubre",
+                            "type": "string"
+                          },
+                          "titulo": {
+                            "type": "string"
+                          },
+                          "recurso": {
+                            "type": "string"
+                          },
+                          "severidad": {
+                            "type": "string",
+                            "enum": [
+                              "Crítica",
+                              "Alta",
+                              "Media",
+                              "Baja"
+                            ]
+                          },
+                          "ambiente": {
+                            "type": "string",
+                            "enum": [
+                              "Dev",
+                              "QA",
+                              "Prod"
+                            ]
+                          },
+                          "origen": {
+                            "type": "string",
+                            "enum": [
+                              "Plan",
+                              "Drift",
+                              "Evento",
+                              "Auditoría"
+                            ]
+                          },
+                          "estado": {
+                            "type": "string",
+                            "enum": [
+                              "Abierto",
+                              "En remediación",
+                              "Excepción",
+                              "Cerrado"
+                            ]
+                          },
+                          "mensaje": {
+                            "type": "string"
+                          },
+                          "detectadoEn": {
+                            "type": "string",
+                            "description": "Fecha ISO 8601"
+                          },
+                          "detalle": {
+                            "type": "object",
+                            "properties": {
+                              "controlViolado": {
+                                "type": "object",
+                                "properties": {
+                                  "codigo": {
+                                    "type": "string"
+                                  },
+                                  "enunciado": {
+                                    "type": "string"
+                                  },
+                                  "equivalentes": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "description": "Referencias del mismo control en otros marcos"
+                                  }
+                                },
+                                "required": [
+                                  "codigo",
+                                  "enunciado",
+                                  "equivalentes"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "evidencia": {
+                                "type": "string",
+                                "description": "Extracto del plan que prueba el hallazgo"
+                              },
+                              "explicacion": {
+                                "type": "object",
+                                "properties": {
+                                  "texto": {
+                                    "type": "string"
+                                  },
+                                  "confianza": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 100
+                                  },
+                                  "motor": {
+                                    "type": "string",
+                                    "description": "Herramientas que produjeron el veredicto"
+                                  }
+                                },
+                                "required": [
+                                  "texto",
+                                  "confianza",
+                                  "motor"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "remediacion": {
+                                "type": "object",
+                                "properties": {
+                                  "quitadas": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "anadidas": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "quitadas",
+                                  "anadidas"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": [
+                              "controlViolado",
+                              "evidencia",
+                              "explicacion",
+                              "remediacion"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "control",
+                          "titulo",
+                          "recurso",
+                          "severidad",
+                          "ambiente",
+                          "origen",
+                          "estado",
+                          "mensaje",
+                          "detectadoEn"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "hallazgos"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Registra un hallazgo detectado por el pipeline",
+        "tags": [
+          "hallazgos"
+        ],
+        "description": "Acepta la cabecera Idempotency-Key. Con la misma clave, un reintento devuelve el hallazgo ya registrado y responde 200 en vez de 201.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "control": {
+                    "default": null,
+                    "nullable": true,
+                    "type": "string"
+                  },
+                  "titulo": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "recurso": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "severidad": {
+                    "type": "string",
+                    "enum": [
+                      "Crítica",
+                      "Alta",
+                      "Media",
+                      "Baja"
+                    ]
+                  },
+                  "ambiente": {
+                    "type": "string",
+                    "enum": [
+                      "Dev",
+                      "QA",
+                      "Prod"
+                    ]
+                  },
+                  "origen": {
+                    "type": "string",
+                    "enum": [
+                      "Plan",
+                      "Drift",
+                      "Evento",
+                      "Auditoría"
+                    ]
+                  },
+                  "mensaje": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "titulo",
+                  "recurso",
+                  "severidad",
+                  "ambiente",
+                  "origen",
+                  "mensaje"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 8
+            },
+            "in": "header",
+            "name": "idempotency-key",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "control": {
+                      "nullable": true,
+                      "description": "Código del control; nulo si ninguna política lo cubre",
+                      "type": "string"
+                    },
+                    "titulo": {
+                      "type": "string"
+                    },
+                    "recurso": {
+                      "type": "string"
+                    },
+                    "severidad": {
+                      "type": "string",
+                      "enum": [
+                        "Crítica",
+                        "Alta",
+                        "Media",
+                        "Baja"
+                      ]
+                    },
+                    "ambiente": {
+                      "type": "string",
+                      "enum": [
+                        "Dev",
+                        "QA",
+                        "Prod"
+                      ]
+                    },
+                    "origen": {
+                      "type": "string",
+                      "enum": [
+                        "Plan",
+                        "Drift",
+                        "Evento",
+                        "Auditoría"
+                      ]
+                    },
+                    "estado": {
+                      "type": "string",
+                      "enum": [
+                        "Abierto",
+                        "En remediación",
+                        "Excepción",
+                        "Cerrado"
+                      ]
+                    },
+                    "mensaje": {
+                      "type": "string"
+                    },
+                    "detectadoEn": {
+                      "type": "string",
+                      "description": "Fecha ISO 8601"
+                    },
+                    "detalle": {
+                      "type": "object",
+                      "properties": {
+                        "controlViolado": {
+                          "type": "object",
+                          "properties": {
+                            "codigo": {
+                              "type": "string"
+                            },
+                            "enunciado": {
+                              "type": "string"
+                            },
+                            "equivalentes": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "description": "Referencias del mismo control en otros marcos"
+                            }
+                          },
+                          "required": [
+                            "codigo",
+                            "enunciado",
+                            "equivalentes"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "evidencia": {
+                          "type": "string",
+                          "description": "Extracto del plan que prueba el hallazgo"
+                        },
+                        "explicacion": {
+                          "type": "object",
+                          "properties": {
+                            "texto": {
+                              "type": "string"
+                            },
+                            "confianza": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 100
+                            },
+                            "motor": {
+                              "type": "string",
+                              "description": "Herramientas que produjeron el veredicto"
+                            }
+                          },
+                          "required": [
+                            "texto",
+                            "confianza",
+                            "motor"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "remediacion": {
+                          "type": "object",
+                          "properties": {
+                            "quitadas": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "anadidas": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "required": [
+                            "quitadas",
+                            "anadidas"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "controlViolado",
+                        "evidencia",
+                        "explicacion",
+                        "remediacion"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "control",
+                    "titulo",
+                    "recurso",
+                    "severidad",
+                    "ambiente",
+                    "origen",
+                    "estado",
+                    "mensaje",
+                    "detectadoEn"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "control": {
+                      "nullable": true,
+                      "description": "Código del control; nulo si ninguna política lo cubre",
+                      "type": "string"
+                    },
+                    "titulo": {
+                      "type": "string"
+                    },
+                    "recurso": {
+                      "type": "string"
+                    },
+                    "severidad": {
+                      "type": "string",
+                      "enum": [
+                        "Crítica",
+                        "Alta",
+                        "Media",
+                        "Baja"
+                      ]
+                    },
+                    "ambiente": {
+                      "type": "string",
+                      "enum": [
+                        "Dev",
+                        "QA",
+                        "Prod"
+                      ]
+                    },
+                    "origen": {
+                      "type": "string",
+                      "enum": [
+                        "Plan",
+                        "Drift",
+                        "Evento",
+                        "Auditoría"
+                      ]
+                    },
+                    "estado": {
+                      "type": "string",
+                      "enum": [
+                        "Abierto",
+                        "En remediación",
+                        "Excepción",
+                        "Cerrado"
+                      ]
+                    },
+                    "mensaje": {
+                      "type": "string"
+                    },
+                    "detectadoEn": {
+                      "type": "string",
+                      "description": "Fecha ISO 8601"
+                    },
+                    "detalle": {
+                      "type": "object",
+                      "properties": {
+                        "controlViolado": {
+                          "type": "object",
+                          "properties": {
+                            "codigo": {
+                              "type": "string"
+                            },
+                            "enunciado": {
+                              "type": "string"
+                            },
+                            "equivalentes": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "description": "Referencias del mismo control en otros marcos"
+                            }
+                          },
+                          "required": [
+                            "codigo",
+                            "enunciado",
+                            "equivalentes"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "evidencia": {
+                          "type": "string",
+                          "description": "Extracto del plan que prueba el hallazgo"
+                        },
+                        "explicacion": {
+                          "type": "object",
+                          "properties": {
+                            "texto": {
+                              "type": "string"
+                            },
+                            "confianza": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 100
+                            },
+                            "motor": {
+                              "type": "string",
+                              "description": "Herramientas que produjeron el veredicto"
+                            }
+                          },
+                          "required": [
+                            "texto",
+                            "confianza",
+                            "motor"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "remediacion": {
+                          "type": "object",
+                          "properties": {
+                            "quitadas": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "anadidas": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "required": [
+                            "quitadas",
+                            "anadidas"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "controlViolado",
+                        "evidencia",
+                        "explicacion",
+                        "remediacion"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "control",
+                    "titulo",
+                    "recurso",
+                    "severidad",
+                    "ambiente",
+                    "origen",
+                    "estado",
+                    "mensaje",
+                    "detectadoEn"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/hallazgos/{id}": {
+      "get": {
+        "summary": "Un hallazgo por identificador",
+        "tags": [
+          "hallazgos"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "control": {
+                      "nullable": true,
+                      "description": "Código del control; nulo si ninguna política lo cubre",
+                      "type": "string"
+                    },
+                    "titulo": {
+                      "type": "string"
+                    },
+                    "recurso": {
+                      "type": "string"
+                    },
+                    "severidad": {
+                      "type": "string",
+                      "enum": [
+                        "Crítica",
+                        "Alta",
+                        "Media",
+                        "Baja"
+                      ]
+                    },
+                    "ambiente": {
+                      "type": "string",
+                      "enum": [
+                        "Dev",
+                        "QA",
+                        "Prod"
+                      ]
+                    },
+                    "origen": {
+                      "type": "string",
+                      "enum": [
+                        "Plan",
+                        "Drift",
+                        "Evento",
+                        "Auditoría"
+                      ]
+                    },
+                    "estado": {
+                      "type": "string",
+                      "enum": [
+                        "Abierto",
+                        "En remediación",
+                        "Excepción",
+                        "Cerrado"
+                      ]
+                    },
+                    "mensaje": {
+                      "type": "string"
+                    },
+                    "detectadoEn": {
+                      "type": "string",
+                      "description": "Fecha ISO 8601"
+                    },
+                    "detalle": {
+                      "type": "object",
+                      "properties": {
+                        "controlViolado": {
+                          "type": "object",
+                          "properties": {
+                            "codigo": {
+                              "type": "string"
+                            },
+                            "enunciado": {
+                              "type": "string"
+                            },
+                            "equivalentes": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "description": "Referencias del mismo control en otros marcos"
+                            }
+                          },
+                          "required": [
+                            "codigo",
+                            "enunciado",
+                            "equivalentes"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "evidencia": {
+                          "type": "string",
+                          "description": "Extracto del plan que prueba el hallazgo"
+                        },
+                        "explicacion": {
+                          "type": "object",
+                          "properties": {
+                            "texto": {
+                              "type": "string"
+                            },
+                            "confianza": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 100
+                            },
+                            "motor": {
+                              "type": "string",
+                              "description": "Herramientas que produjeron el veredicto"
+                            }
+                          },
+                          "required": [
+                            "texto",
+                            "confianza",
+                            "motor"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "remediacion": {
+                          "type": "object",
+                          "properties": {
+                            "quitadas": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "anadidas": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "required": [
+                            "quitadas",
+                            "anadidas"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "controlViolado",
+                        "evidencia",
+                        "explicacion",
+                        "remediacion"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "control",
+                    "titulo",
+                    "recurso",
+                    "severidad",
+                    "ambiente",
+                    "origen",
+                    "estado",
+                    "mensaje",
+                    "detectadoEn"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "detalle": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/resumen": {
+      "get": {
+        "summary": "Postura de cumplimiento en cifras",
+        "tags": [
+          "resumen"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "hallazgosAbiertos": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "porSeveridad": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "required": [
+                        "Crítica",
+                        "Alta",
+                        "Media",
+                        "Baja"
+                      ]
+                    },
+                    "controles": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "marcos": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "hallazgosAbiertos",
+                    "porSeveridad",
+                    "controles",
+                    "marcos"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "/api/v1"
+    }
+  ]
+}

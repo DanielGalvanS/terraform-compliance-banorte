@@ -76,7 +76,7 @@ y comprueba su huella SHA-256 antes de hacerlo.
 | Pipeline de validación y compuerta | Listo |
 | Despliegue con aprobación humana | Listo |
 | Ambiente `dev` integrado | Listo |
-| Frontend | Listo, con datos de ejemplo |
+| Frontend | Listo; hallazgos conectados a la API |
 | API REST | Esqueleto: catálogo y hallazgos, en memoria |
 | Agente de IA | Pendiente |
 | Detección de drift programada | Pendiente |

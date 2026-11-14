@@ -14,6 +14,11 @@ const esquema = z.object({
    * pantalla mostraría controles que no bloquean nada.
    */
   RUTA_CATALOGO: z.string().default('../../infra/policies/mappings.yaml'),
+  /** Orígenes del navegador autorizados, separados por coma. */
+  ORIGENES_PERMITIDOS: z
+    .string()
+    .default('http://localhost:5173,http://127.0.0.1:5173')
+    .transform((valor) => valor.split(',').map((o) => o.trim()).filter(Boolean)),
   /** Ausente mientras no exista la base; los repositorios usan memoria. */
   DATABASE_URL: z.string().optional(),
 })
