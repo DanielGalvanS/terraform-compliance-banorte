@@ -119,6 +119,41 @@
           "member": "serviceAccount:sa-deployer-qa@mdc-dev.iam.gserviceaccount.com"
         }
       }
+    },
+    {
+      "address": "google_compute_instance.expuesta",
+      "type": "google_compute_instance",
+      "name": "expuesta",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "name": "vm-mdc-dev-03",
+          "labels": {
+            "duenio": "plataforma",
+            "ambiente": "dev",
+            "clasificacion_datos": "interno",
+            "centro_costos": "cc-1042",
+            "marco_aplicable": "cis-gcp"
+          },
+          "network_interface": [
+            {
+              "subnetwork": "subnet-privada",
+              "access_config": [
+                {
+                  "nat_ip": null
+                }
+              ]
+            }
+          ],
+          "service_account": [
+            {
+              "email": "123456789-compute@developer.gserviceaccount.com"
+            }
+          ]
+        }
+      }
     }
   ]
 }

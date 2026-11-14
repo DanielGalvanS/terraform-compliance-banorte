@@ -110,7 +110,18 @@
             "clasificacion_datos": "interno",
             "centro_costos": "cc-1042",
             "marco_aplicable": "cis-gcp"
-          }
+          },
+          "network_interface": [
+            {
+              "subnetwork": "subnet-privada",
+              "access_config": []
+            }
+          ],
+          "service_account": [
+            {
+              "email": "app-pruebas@mdc-dev.iam.gserviceaccount.com"
+            }
+          ]
         }
       }
     },

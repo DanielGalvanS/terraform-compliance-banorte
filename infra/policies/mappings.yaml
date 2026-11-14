@@ -172,3 +172,26 @@ controles:
       soc2:
         - referencia: CC6.3
           titulo: Altas, bajas y cambios de acceso
+
+  - id: CO-VM-01
+    titulo: Instancia expuesta o con cuenta por defecto
+    descripcion: >-
+      Ninguna instancia debe tener dirección IP pública ni usar la cuenta de
+      servicio por defecto de Compute Engine, que trae rol de editor sobre el
+      proyecto entero.
+    severidad: alta
+    politica: rego/co_vm_01.rego
+    pruebas: rego/co_vm_01_test.rego
+    mapeo:
+      cis_gcp:
+        - referencia: "4.x"
+          titulo: Instancias sin IP pública y sin cuenta por defecto
+          por_validar: true
+      nist_800_53:
+        - referencia: SC-7
+          titulo: Boundary Protection
+        - referencia: AC-6
+          titulo: Least Privilege
+      soc2:
+        - referencia: CC6.6
+          titulo: Protección frente a amenazas externas
