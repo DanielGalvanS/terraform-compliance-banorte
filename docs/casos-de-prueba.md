@@ -8,7 +8,7 @@ Dónde se demuestra cada caso del reto, y con qué se comprueba.
 | CP-06 | Cloud SQL con IP pública es rechazado | **Cubierto** | `CO-DB-01` |
 | CP-07 | Cloud SQL sin CMEK es rechazado | **Cubierto** | `CO-DB-02` |
 | CP-08 | Un pull request conforme es aprobado | **Cubierto** | `plan_conforme.json` |
-| CP-09 | Un secreto en el código falla el pull request | **PENDIENTE** | Ver abajo |
+| CP-09 | Un secreto en el código falla el pull request | **Cubierto** | `secretos.yml` y `CO-SEC-01` |
 | CP-15 | Si falla el evaluador, el pipeline bloquea | **Cubierto** | `policy_check.sh` |
 | CP-16 | Un recurso sin etiquetas es rechazado | **Cubierto** | `CO-TAG-01` |
 | CP-17 | El agente no puede aprobar un PR bloqueado | **Estructural** | Ver abajo |
@@ -35,18 +35,51 @@ infra/pipelines/scripts/policy_check.sh /tmp/corrupto.json
 El workflow `policies.yml` corre estos mismos casos en cada pull request, así
 que no son una comprobación que alguien hizo una vez: se repiten solas.
 
-## CP-09 está pendiente
+## CP-09 se cubre en dos capas
 
-**No hay escaneo de secretos en el pipeline.** Nada impide hoy que alguien suba
-una contraseña o una llave en un archivo de Terraform.
+Ninguna de las dos basta por separado.
 
-Lo que falta es añadir un paso de escaneo a `validate.yml` —gitleaks o
-similar— y un fixture con un secreto incrustado que demuestre el rechazo. Es
-trabajo de media hora y es el único caso de prueba del reto sin cubrir.
+**`secretos.yml` escanea el repositorio** con gitleaks, en el código y en todo
+el historial: un secreto que alguien subió y luego borró sigue estando en los
+commits anteriores.
 
-Las convenciones ya empujan en la dirección correcta: el módulo `secrets` no
-acepta valores, y `.gitignore` excluye `*.tfvars` y `*.tfbackend`. Pero una
-convención no es un control: no bloquea nada.
+**`CO-SEC-01` mira el plan de Terraform.** Rechaza los campos que contienen un
+secreto por definición: la contraseña de un usuario de Cloud SQL, el contenido
+de una versión de secreto, la llave privada de una cuenta de servicio.
+
+### Por qué hacen falta las dos
+
+Al probarlo apareció un límite del escáner que conviene conocer:
+
+```
+password = "Sup3rS3cret-Ejemplo-2026-No-Real"   → NO lo detecta
+api_key  = "AIza..."                             → sí lo detecta
+-----BEGIN PRIVATE KEY-----                      → sí lo detecta
+ghp_...                                          → sí lo detecta
+```
+
+gitleaks reconoce **formas** de token y de llave, no contraseñas arbitrarias.
+Una contraseña inventada no tiene una forma reconocible, así que pasa.
+
+Ahí entra CO-SEC-01, que no mira la forma del valor sino **el campo**: si un
+recurso declara `password`, sobra discutir si la cadena parece secreta.
+
+Y a la inversa: un valor que llega por variable no aparece en el código fuente
+—el escáner no lo ve— pero sí aparece en el plan y en el estado. CO-SEC-01 lo
+detecta incluso cuando Terraform lo marca como sensible y lo oculta en la
+salida, porque ocultarlo no lo quita del estado.
+
+### Reproducirlo
+
+```bash
+gitleaks dir . --config .gitleaks.toml          # el repo está limpio
+gitleaks git . --config .gitleaks.toml          # el historial también
+```
+
+El workflow comprueba además que el escáner **rechaza de verdad**: genera una
+llave con forma válida fuera del repositorio y falla si no la detecta. Sin esa
+comprobación, un escáner mal configurado se vería igual de verde que uno que
+funciona.
 
 ## CP-17 es estructural
 

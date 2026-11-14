@@ -154,6 +154,23 @@
           ]
         }
       }
+    },
+    {
+      "address": "google_sql_user.app",
+      "type": "google_sql_user",
+      "name": "app",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "name": "app",
+          "instance": "sql-mdc-dev-02"
+        },
+        "after_sensitive": {
+          "password": true
+        }
+      }
     }
   ]
 }

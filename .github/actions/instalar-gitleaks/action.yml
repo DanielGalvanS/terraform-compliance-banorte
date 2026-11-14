@@ -1,0 +1,29 @@
+name: Instalar gitleaks
+description: Descarga gitleaks en una versión fija y comprueba su integridad.
+
+inputs:
+  version:
+    description: Versión de gitleaks a instalar.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Descargar y verificar
+      shell: bash
+      run: |
+        set -euo pipefail
+        version="${{ inputs.version }}"
+        base="https://github.com/gitleaks/gitleaks/releases/download/v${version}"
+        archivo="gitleaks_${version}_linux_x64.tar.gz"
+
+        tmp="$(mktemp -d)"
+        cd "${tmp}"
+        curl --fail --silent --show-error --location --retry 3 -O "${base}/${archivo}"
+        curl --fail --silent --show-error --location --retry 3 -O "${base}/gitleaks_${version}_checksums.txt"
+
+        grep " ${archivo}\$" "gitleaks_${version}_checksums.txt" | sha256sum --check --status
+
+        tar -xzf "${archivo}" gitleaks
+        install -m 0755 gitleaks /usr/local/bin/gitleaks
+        gitleaks version

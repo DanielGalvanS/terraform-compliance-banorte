@@ -119,3 +119,32 @@ repositorio y queda registrado.
 **Por qué.** Un fallo o un abuso del workflow de validación —que corre en cada
 pull request, incluidos los de forks si se permitieran— no puede modificar
 nada.
+
+## 13. `not f(objeto[clave])` no hace lo que parece
+
+**Decisión.** Las funciones de las políticas reciben el objeto y la clave por
+separado, no el valor ya resuelto.
+
+**Por qué.** `CO-SEC-01` tenía esta condición para detectar un valor oculto:
+
+```rego
+not tiene_valor(recurso.change.after[campo])
+```
+
+Cuando la clave no existe, el argumento queda indefinido y con él toda la
+expresión, así que **la negación tampoco se cumple** y la regla no dispara. No
+hay error ni aviso: la política simplemente no ve el caso. Se descubrió porque
+una prueba unitaria lo exigía.
+
+La forma correcta pasa el objeto, cuyos argumentos siempre existen, y resuelve
+la ausencia dentro de la función.
+
+## 14. Los secretos se vigilan en dos capas
+
+**Decisión.** Escaneo del repositorio con gitleaks **y** control `CO-SEC-01`
+sobre el plan.
+
+**Por qué.** gitleaks reconoce formas de token y de llave, no contraseñas
+arbitrarias: `password = "una cadena larga cualquiera"` pasa sin más. Y un
+valor que llega por variable nunca aparece en el código, pero sí en el plan y
+en el estado. Cada capa ve lo que la otra no.

@@ -195,3 +195,29 @@ controles:
       soc2:
         - referencia: CC6.6
           titulo: Protección frente a amenazas externas
+
+  - id: CO-SEC-01
+    titulo: Secretos declarados en Terraform
+    descripcion: >-
+      Ningún recurso debe declarar una contraseña, el contenido de un secreto
+      ni una llave privada en el plan. El valor quedaría en el estado en texto
+      plano, aunque Terraform lo oculte en la salida.
+    severidad: critica
+    politica: rego/co_sec_01.rego
+    pruebas: rego/co_sec_01_test.rego
+    caso_de_prueba: CP-09
+    mapeo:
+      cis_gcp:
+        - referencia: "1.x"
+          titulo: Gestión de credenciales y llaves
+          por_validar: true
+      lfpdppp:
+        - referencia: Principio de seguridad
+          titulo: Resguardo de credenciales de acceso a datos personales
+          por_validar: true
+      nist_800_53:
+        - referencia: IA-5
+          titulo: Authenticator Management
+      soc2:
+        - referencia: CC6.1
+          titulo: Controles de acceso lógico y cifrado
