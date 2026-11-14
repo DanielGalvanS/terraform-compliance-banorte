@@ -47,10 +47,19 @@ export function FindingDrawer({ finding, onClose, onAction }: FindingDrawerProps
           <div className="control-box">
             <Icon name="shield" />
             <div>
-              <strong>{finding.violatedControl.code}</strong>
+              <strong>
+                {finding.catalogControl
+                  ? `${finding.catalogControl} · ${finding.violatedControl.code}`
+                  : finding.violatedControl.code}
+              </strong>
               <p>{finding.violatedControl.statement}</p>
               <TagList
-                tags={finding.violatedControl.equivalents.map((text) => ({ text }))}
+                tags={[
+                  ...(finding.catalogControl
+                    ? []
+                    : [{ text: 'sin política codificada', missing: true }]),
+                  ...finding.violatedControl.equivalents.map((text) => ({ text })),
+                ]}
               />
             </div>
           </div>

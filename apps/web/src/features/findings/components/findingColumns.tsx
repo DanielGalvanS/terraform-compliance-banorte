@@ -21,11 +21,15 @@ export const findingColumns: Column<Finding>[] = [
   { id: 'resource', header: 'Recurso', render: (row) => <code>{row.resource}</code> },
   {
     id: 'control',
-    header: 'Marco / Control',
+    header: 'Control / Marco',
     render: (row) => (
       <>
-        <strong>{row.framework}</strong>
-        <small>{row.control}</small>
+        {/* El control interno encabeza: es el que decide el bloqueo. El marco
+            queda como referencia para el auditor. */}
+        <strong>{row.catalogControl ?? row.framework}</strong>
+        <small>
+          {row.catalogControl ? `${row.framework} ${row.control}` : row.control}
+        </small>
       </>
     ),
   },

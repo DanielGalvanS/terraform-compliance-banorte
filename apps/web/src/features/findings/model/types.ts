@@ -29,6 +29,12 @@ export type Finding = {
   severity: Severity
   title: string
   resource: string
+  /**
+   * Control del catálogo interno que detectó el hallazgo, por ejemplo
+   * `CO-NET-01`. Es opcional: un hallazgo de auditoría puede no venir de
+   * ninguna política codificada, y fingir lo contrario ocultaría ese hueco.
+   */
+  catalogControl?: string
   framework: string
   control: string
   origin: FindingOrigin
