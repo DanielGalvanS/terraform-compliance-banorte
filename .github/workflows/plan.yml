@@ -32,7 +32,7 @@ concurrency:
 
 jobs:
   plan:
-    name: Plan de ${{ github.event.pull_request.base.ref }}
+    name: Plan y veredicto del ambiente dev
     runs-on: ubuntu-24.04
     # Sin proveedor de identidad configurado no hay nada que planear.
     if: vars.GCP_WORKLOAD_IDENTITY_PROVIDER != ''

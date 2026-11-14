@@ -53,7 +53,9 @@ jobs:
           if ! git diff --quiet -- apps/api/openapi.json; then
             echo "::error title=Contrato desactualizado::apps/api/openapi.json no coincide con el código"
             echo "Ejecuta: npm run openapi --workspace @compliance-ops/api"
-            git --no-pager diff -- apps/api/openapi.json | head -40
+            # `|| true`: head cierra la tubería y git muere con SIGPIPE, lo que
+            # con pipefail cortaría el paso antes de imprimir el diff.
+            git --no-pager diff -- apps/api/openapi.json | head -40 || true
             exit 1
           fi
           echo "El contrato coincide con el código."
