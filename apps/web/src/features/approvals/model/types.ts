@@ -12,7 +12,7 @@ export type ApprovalRequest = {
   rationale: string
   requestedAgoLabel: string
   expiresInLabel: string
-  /** Where the request was broadcast, e.g. Slack and Teams. */
+  /** Where the request was broadcast; hoy solo Slack. */
   channels: string
 }
 

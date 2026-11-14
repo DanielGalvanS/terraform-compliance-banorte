@@ -12,7 +12,7 @@ export const approvalRequests: ApprovalRequest[] = [
       'Remediación directa de CIS GCP 3.6. Validada en QA y propuesta por PR #143.',
     requestedAgoLabel: 'hace 12 min',
     expiresInLabel: 'vence en 3 h',
-    channels: 'Enviada por Slack y Teams',
+    channels: 'Enviada por Slack',
   },
   {
     id: 879,
@@ -25,6 +25,6 @@ export const approvalRequests: ApprovalRequest[] = [
       'La clave supera el periodo de rotación de 90 días definido en PCI DSS 3.5.',
     requestedAgoLabel: 'hace 47 min',
     expiresInLabel: 'vence en 3 h',
-    channels: 'Enviada por Slack y Teams',
+    channels: 'Enviada por Slack',
   },
 ]

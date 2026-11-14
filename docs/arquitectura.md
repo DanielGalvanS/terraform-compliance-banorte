@@ -83,11 +83,14 @@ y comprueba su huella SHA-256 antes de hacerlo.
 | Notificación y aprobación por Slack | Pendiente |
 | Escalamiento a tickets de Jira | Pendiente |
 
-La pantalla de aprobaciones muestra «Enviada por Slack y Teams» porque dibuja
-el flujo que se pretende, igual que el resto del prototipo usa datos de
-ejemplo. **No existe ninguna integración**: ni webhook, ni cliente de Slack, ni
-de Jira. La aprobación que de verdad bloquea un despliegue vive en el
-environment de GitHub.
+La pantalla de aprobaciones muestra «Enviada por Slack» porque dibuja el flujo
+que se pretende, igual que el resto del prototipo usa datos de ejemplo. **No
+existe ninguna integración**: ni webhook, ni cliente de Slack, ni de Jira. La
+aprobación que de verdad bloquea un despliegue vive en el environment de
+GitHub.
+
+El reto admite Slack o Teams; el equipo eligió **solo Slack**, para no sostener
+dos canales de aviso que haya que mantener sincronizados.
 
 ## El mini data center
 
