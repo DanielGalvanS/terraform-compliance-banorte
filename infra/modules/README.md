@@ -9,7 +9,7 @@ Un directorio por módulo. Cada uno expone `main.tf`, `variables.tf`,
 | `firewall`| listo      | Deny by default; SSH solo desde el rango de IAP  |
 | `kms`     | listo      | Llaveros y llaves CMEK                           |
 | `secrets` | listo      | Secret Manager y su control de acceso            |
-| `iam`     | pendiente  | Cuentas de servicio de mínimo privilegio         |
+| `iam`     | listo      | Cuentas de servicio de mínimo privilegio         |
 | `sql`     | pendiente  | Cloud SQL PostgreSQL: IP privada, CMEK, backups  |
 | `compute` | pendiente  | VM de pruebas, sin IP pública, acceso por IAP    |
 | `logging` | pendiente  | Sinks de auditoría y retención                   |

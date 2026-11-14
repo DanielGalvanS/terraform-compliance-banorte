@@ -151,3 +151,24 @@ controles:
         - referencia: Principio de responsabilidad
           titulo: Inventario y clasificación de datos personales
           por_validar: true
+
+  - id: CO-IAM-01
+    titulo: Permisos de IAM excesivos
+    descripcion: >-
+      Ninguna cuenta debe recibir roles/owner, roles/editor ni roles que
+      permitan escalar privilegios a nivel de proyecto. Tampoco debe
+      reemplazarse la política de IAM completa del proyecto.
+    severidad: alta
+    politica: rego/co_iam_01.rego
+    pruebas: rego/co_iam_01_test.rego
+    mapeo:
+      cis_gcp:
+        - referencia: "1.x"
+          titulo: Mínimo privilegio en cuentas de servicio
+          por_validar: true
+      nist_800_53:
+        - referencia: AC-6
+          titulo: Least Privilege
+      soc2:
+        - referencia: CC6.3
+          titulo: Altas, bajas y cambios de acceso

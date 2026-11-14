@@ -105,6 +105,20 @@
           "secret_id": "api-key"
         }
       }
+    },
+    {
+      "address": "google_project_iam_member.deployer_editor",
+      "type": "google_project_iam_member",
+      "name": "deployer_editor",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "after": {
+          "role": "roles/editor",
+          "member": "serviceAccount:sa-deployer-qa@mdc-dev.iam.gserviceaccount.com"
+        }
+      }
     }
   ]
 }
