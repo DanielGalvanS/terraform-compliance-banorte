@@ -65,12 +65,10 @@ export const kpis: Kpi[] = [
 ]
 
 export const frameworkScores: FrameworkScore[] = [
-  { framework: 'CNBV', score: 94 },
-  { framework: 'LFPDPPP', score: 98 },
-  { framework: 'PCI DSS v4.0', score: 91 },
-  { framework: 'ISO 27001', score: 96 },
   { framework: 'CIS GCP', score: 88 },
+  { framework: 'LFPDPPP', score: 98 },
   { framework: 'NIST 800-53', score: 93 },
+  { framework: 'SOC 2', score: 95 },
 ]
 
 export const findingsTrend: FindingsTrend = {

@@ -1,3 +1,4 @@
+import { FRAMEWORKS_IN_SCOPE } from '@/shared/model'
 import type { EvidenceCoverage, EvidenceEntry, ExportFormat, ReportOptions } from '../model'
 
 export const evidenceLog: EvidenceEntry[] = [
@@ -39,7 +40,7 @@ export const coverage: EvidenceCoverage = {
 }
 
 export const reportOptions: ReportOptions = {
-  frameworks: ['PCI DSS v4.0', 'CNBV', 'ISO 27001', 'CIS GCP'],
+  frameworks: [...FRAMEWORKS_IN_SCOPE],
   environments: ['Producción', 'QA', 'Todos'],
   periods: ['Junio 2025', 'Q2 2025', 'Últimos 12 meses'],
 }

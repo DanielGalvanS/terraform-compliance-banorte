@@ -43,7 +43,7 @@ export const pullRequests: PullRequest[] = [
     verdict: {
       title: 'Bloqueado por política',
       summary: 'El plan expone SSH (puerto 22) a internet mediante 0.0.0.0/0.',
-      violatedControls: ['CIS GCP 3.6', 'CNBV C-12'],
+      violatedControls: ['CO-NET-01', 'CIS GCP 3.6'],
       recommendation: 'Limitar el origen al rango corporativo 10.80.0.0/16.',
       confidencePercent: 98,
       engine: 'Política OPA',
