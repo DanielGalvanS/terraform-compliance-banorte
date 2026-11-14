@@ -80,6 +80,14 @@ y comprueba su huella SHA-256 antes de hacerlo.
 | API REST | Pendiente |
 | Agente de IA | Pendiente |
 | Detección de drift programada | Pendiente |
+| Notificación y aprobación por Slack | Pendiente |
+| Escalamiento a tickets de Jira | Pendiente |
+
+La pantalla de aprobaciones muestra «Enviada por Slack y Teams» porque dibuja
+el flujo que se pretende, igual que el resto del prototipo usa datos de
+ejemplo. **No existe ninguna integración**: ni webhook, ni cliente de Slack, ni
+de Jira. La aprobación que de verdad bloquea un despliegue vive en el
+environment de GitHub.
 
 ## El mini data center
 
