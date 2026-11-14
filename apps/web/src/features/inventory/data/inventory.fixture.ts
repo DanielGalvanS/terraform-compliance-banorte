@@ -1,22 +1,30 @@
 import type { Environment } from '@/shared/model'
-import type { Tag } from '@/shared/ui'
+import { tagsFromValues } from '../model'
 import type {
   ComplianceState,
   InventorySummary,
   NetworkTopology,
   Resource,
+  TagValues,
   TerraformModule,
 } from '../model'
 
-/** Mandatory tag set every managed resource must carry. */
-function mandatoryTags(environment: Environment, overrides: Tag[] = []): Tag[] {
-  return [
-    { text: 'dueño:platform' },
-    { text: `amb:${environment.toLowerCase()}` },
-    ...overrides,
-    { text: 'costo:cc-1042' },
-    { text: `marco:${environment === 'Prod' ? 'pci-cnbv' : 'cis'}` },
-  ]
+const CENTRO_COSTOS = 'cc-1042'
+
+/** Marco que aplica a cada ambiente, de los tres confirmados con Cumplimiento. */
+function marcoDe(environment: Environment): string {
+  return environment === 'Prod' ? 'lfpdppp' : 'cis-gcp'
+}
+
+/** Valores que debería declarar todo recurso gestionado del ambiente. */
+function valoresCompletos(environment: Environment): TagValues {
+  return {
+    duenio: 'plataforma',
+    ambiente: environment.toLowerCase(),
+    clasificacion_datos: environment === 'Prod' ? 'confidencial' : 'interno',
+    centro_costos: CENTRO_COSTOS,
+    marco_aplicable: marcoDe(environment),
+  }
 }
 
 function resource(
@@ -25,15 +33,19 @@ function resource(
   moduleVersion: string,
   environment: Environment,
   state: ComplianceState,
-  tagOverrides?: Tag[],
+  /** Claves que al recurso le faltan; cada una se dibuja como incumplimiento. */
+  etiquetasFaltantes: (keyof TagValues)[] = [],
 ): Resource {
+  const valores = valoresCompletos(environment)
+  for (const clave of etiquetasFaltantes) delete valores[clave]
+
   return {
     name,
     module,
     moduleVersion,
     environment,
     state,
-    tags: mandatoryTags(environment, tagOverrides ?? [{ text: 'datos:confidencial' }]),
+    tags: tagsFromValues(valores),
   }
 }
 
@@ -46,7 +58,7 @@ export const resources: Resource[] = [
   resource('gcs-audit-evidence', 'Cloud Storage', 'v4.2.0', 'Prod', 'Conforme'),
   resource('sa-terraform-prod', 'Service Accounts', 'v2.9.0', 'Prod', 'Conforme'),
   resource('sm-app-secrets', 'Secret Manager', 'v1.7.4', 'Prod', 'Sin etiqueta', [
-    { text: '+ centro-costos', missing: true },
+    'centro_costos',
   ]),
   resource('vpn-mdc-prod-ha', 'VPN', 'v3.4.1', 'Prod', 'Conforme'),
 ]

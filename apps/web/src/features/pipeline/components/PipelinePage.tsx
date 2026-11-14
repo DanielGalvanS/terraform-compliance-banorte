@@ -28,7 +28,7 @@ export function PipelinePage() {
         description="Validación determinista y supervisión del agente antes de cada cambio."
         action={
           <Button variant="secondary" icon="external">
-            Abrir en GitLab
+            Abrir en GitHub
           </Button>
         }
       />

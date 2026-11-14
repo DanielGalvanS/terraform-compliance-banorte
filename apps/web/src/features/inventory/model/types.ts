@@ -1,6 +1,41 @@
 import type { Environment, Tone } from '@/shared/model'
 import type { Tag } from '@/shared/ui'
 
+/**
+ * Las cinco etiquetas obligatorias, en el orden en que se muestran.
+ *
+ * Las claves van sin acentos porque GCP solo admite minúsculas, números,
+ * guiones y guiones bajos en las claves de etiqueta: `dueño` sería inválido.
+ * Esta lista es la misma que exige la política CO-TAG-01 y que validan los
+ * módulos de Terraform, así que un cambio aquí debe acompañar a uno allá.
+ */
+export const MANDATORY_TAG_KEYS = [
+  'duenio',
+  'ambiente',
+  'clasificacion_datos',
+  'centro_costos',
+  'marco_aplicable',
+] as const
+
+export type MandatoryTagKey = (typeof MANDATORY_TAG_KEYS)[number]
+
+/** Valores declarados en un recurso; la clave ausente es un incumplimiento. */
+export type TagValues = Partial<Record<MandatoryTagKey, string>>
+
+/**
+ * Convierte los valores en etiquetas para la tabla. Una clave sin valor se
+ * marca como faltante en vez de omitirse, que es lo que hace visible el
+ * hallazgo de CO-TAG-01.
+ */
+export function tagsFromValues(values: TagValues): Tag[] {
+  return MANDATORY_TAG_KEYS.map((key) => {
+    const value = values[key]
+    return value === undefined
+      ? { text: `+ ${key}`, missing: true }
+      : { text: `${key}:${value}` }
+  })
+}
+
 export type ComplianceState = 'Conforme' | 'Advertencia' | 'No conforme' | 'Sin etiqueta'
 
 const COMPLIANCE_TONES: Record<ComplianceState, Tone> = {
