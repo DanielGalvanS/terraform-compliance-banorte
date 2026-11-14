@@ -28,7 +28,7 @@ validación por debajo de los 5 minutos que exige el reto.
 | Workflow | Cuándo | Qué hace | Necesita GCP |
 | --- | --- | --- | --- |
 | `validate.yml` | PR que toca `infra/` | `terraform fmt` y `validate` | No |
-| `policies.yml` | PR que toca `infra/` | Prueba el catálogo y lo ejerce contra los planes de ejemplo | No |
+| `policies.yml` | PR que toca `infra/` o el frontend | Prueba el catálogo, lo ejerce contra los planes de ejemplo y comprueba que las pantallas concuerdan con él | No |
 | `plan.yml` | PR que toca `infra/` | `terraform plan` real, veredicto y comentario en el PR | Sí |
 | `apply.yml` | A mano, por ambiente | Plan, aprobación humana y despliegue | Sí |
 
@@ -107,6 +107,26 @@ despliegue, el apply se detiene.
 Después del apply se corre `terraform plan -detailed-exitcode`. Un plan vacío
 significa que la nube quedó como dice el código. Cualquier diferencia es drift
 inmediato y el despliegue se marca como fallido.
+
+## El frontend también se comprueba
+
+`policies.yml` incluye un trabajo que cruza las pantallas con el catálogo:
+
+- Los marcos que muestra el frontend son exactamente los de `mappings.yaml`.
+- Ningún dato de ejemplo cita un marco fuera de alcance.
+- Todo control `CO-XX-NN` que aparece en pantalla existe en el catálogo.
+- Las etiquetas obligatorias del inventario son las que exige CO-TAG-01.
+
+Sin esto, el producto puede acabar enseñando una cobertura que las políticas no
+respaldan —ocurrió: el tablero graficaba seis marcos cuando solo tres estaban
+en alcance— y no se nota leyendo el código, porque cada archivo es coherente
+consigo mismo.
+
+Se ejecuta en local con:
+
+```bash
+python3 scripts/verificar_catalogo.py
+```
 
 ## Los environments de GitHub
 

@@ -15,10 +15,12 @@ actualizado: "2026-11-13"
 marcos:
   cis_gcp:
     nombre: CIS Benchmark for Google Cloud Platform
+    nombre_corto: CIS GCP
     version: "3.0.0"
     ambito: Endurecimiento técnico
   lfpdppp:
     nombre: Ley Federal de Protección de Datos Personales en Posesión de los Particulares
+    nombre_corto: LFPDPPP
     ambito: Datos personales en México
     # México publicó una nueva LFPDPPP en marzo de 2025 que sustituyó a la de
     # 2010. Se mapea por principio y no por artículo hasta que Cumplimiento
@@ -26,9 +28,11 @@ marcos:
     por_validar: true
   nist_800_53:
     nombre: NIST SP 800-53 Rev. 5
+    nombre_corto: NIST 800-53
     ambito: Controles de seguridad generales
   soc2:
     nombre: SOC 2 Trust Services Criteria
+    nombre_corto: SOC 2
     ambito: Controles de seguridad generales
 
 controles:
