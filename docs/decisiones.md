@@ -1,0 +1,121 @@
+# Bitácora de decisiones
+
+Las elecciones que no son evidentes, y qué pasaría si se cambiaran.
+
+## 1. La compuerta corre dentro del runner
+
+**Decisión.** `conftest` se ejecuta en el runner de GitHub Actions, no contra un
+servicio remoto.
+
+**Por qué.** Si dependiera de la red, un servicio caído tendría dos salidas
+posibles y ambas son malas: dejar pasar los cambios, o bloquear todo hasta que
+alguien lo levante. Además mantiene la validación por debajo de los 5 minutos
+que exige el reto.
+
+**Si se cambiara,** habría que decidir qué hacer cuando el servicio no
+responde, y la respuesta honesta —bloquear— convierte el servicio en un punto
+único de fallo del equipo entero.
+
+## 2. El apply no vuelve a planear
+
+**Decisión.** `apply.yml` aplica el archivo de plan que pasó la compuerta, y
+comprueba su huella SHA-256 antes de hacerlo.
+
+**Por qué.** El estado de la nube pudo cambiar entre la aprobación y el
+despliegue. Replanear significa aplicar algo que nadie revisó.
+
+**Si se cambiara,** la aprobación humana dejaría de significar nada concreto:
+se estaría aprobando una intención, no un conjunto de cambios.
+
+## 3. Las etiquetas obligatorias no aplican a la red
+
+**Decisión.** `CO-TAG-01` solo evalúa tipos que admiten etiquetas en GCP. Los
+módulos `network` y `firewall` no reciben la variable de etiquetas.
+
+**Por qué.** Las VPC, subredes, routers y gateways NAT **no exponen el campo
+`labels`** en la API de GCP. Exigírselas produciría hallazgos que nadie puede
+remediar, y un catálogo que grita sin razón se acaba ignorando.
+
+## 4. `iam_member` y nunca `iam_binding`
+
+**Decisión.** El módulo `iam` usa `google_project_iam_member`.
+
+**Por qué.** `iam_binding` es autoritativo sobre el rol completo: aplicarlo
+borra a cualquier otro miembro que lo tuviera, **incluidos los agentes de
+servicio que GCP administra solo**. Es uno de los errores más caros de revertir
+en IAM, y se descubre cuando algo deja de funcionar sin explicación.
+
+## 5. El módulo `secrets` no acepta valores
+
+**Decisión.** Crea el contenedor del secreto y su control de acceso, nunca el
+contenido.
+
+**Por qué.** Un valor declarado en Terraform acaba en el estado en texto plano
+y en el historial de git. De ninguno de los dos se saca.
+
+**Si alguien lo "mejorara"** añadiendo una variable para el valor, rompería la
+convención central del reto. Está escrito en el README del módulo para que la
+siguiente persona lo sepa.
+
+## 6. El bloqueo de retención viene apagado
+
+**Decisión.** `bloquear_retencion = false` por defecto en el módulo `logging`.
+
+**Por qué.** Bloquear la retención es irreversible: no se acorta, no se quita, y
+el bucket no se puede borrar hasta que venza el plazo de cada objeto. En dev y
+qa solo estorba, y un error ahí dura lo que dure el plazo.
+
+**Se activa en producción**, cuando Cumplimiento confirme el plazo según el
+marco más estricto aplicable.
+
+## 7. La cuenta de servicio de las VM es obligatoria
+
+**Decisión.** El módulo `compute` exige una cuenta y una precondición impide
+dejarla vacía.
+
+**Por qué.** Sin ella GCP asigna la cuenta por defecto de Compute Engine, que
+trae **rol de editor sobre el proyecto entero**. Una instancia comprometida se
+convertiría en control del proyecto.
+
+## 8. El peering de servicios privados vive en `network`
+
+**Decisión.** No en el módulo `sql`, que es quien lo necesita.
+
+**Por qué.** Es por VPC, no por instancia. Si lo creara la base, una segunda
+instancia lo duplicaría y el despliegue fallaría.
+
+## 9. `depends_on` no se pasa como variable
+
+**Decisión.** El orden entre módulos se declara con `depends_on` en la llamada.
+
+**Por qué.** El módulo `sql` llegó a tener una variable `dependencias` usada en
+un `depends_on`. **Terraform lo acepta en silencio** —`validate` y `plan` pasan
+sin aviso— pero no crea ninguna dependencia real. Prometía un orden que no
+garantizaba, y habría aparecido como un fallo intermitente.
+
+## 10. Las pruebas de las políticas afirman sobre su propio control
+
+**Decisión.** Cada prueba usa `mensajes_de("CO-XX-NN")` en vez de
+`count(deny)`.
+
+**Por qué.** Todas las políticas comparten `package main`, así que un plan de
+prueba dispara varias a la vez: una instancia de Cloud SQL sin etiquetas
+incumple `CO-TAG-01` aunque la prueba esté ejercitando `CO-DB-01`. Contar el
+total haría que **cada política nueva rompiera las pruebas de las anteriores**.
+
+## 11. Los revisores viven en el environment de GitHub
+
+**Decisión.** No en el archivo del workflow.
+
+**Por qué.** Un revisor que se pudiera quitar con un commit no sería un
+control. En el environment, cambiarlo requiere permisos de administración del
+repositorio y queda registrado.
+
+## 12. Las cuentas del plan y del apply son distintas
+
+**Decisión.** `GCP_SERVICE_ACCOUNT_PLAN` es de solo lectura;
+`GCP_SERVICE_ACCOUNT_APPLY` tiene escritura y solo la usa `apply.yml`.
+
+**Por qué.** Un fallo o un abuso del workflow de validación —que corre en cada
+pull request, incluidos los de forks si se permitieran— no puede modificar
+nada.

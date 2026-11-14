@@ -25,6 +25,22 @@ infra/         Terraform, políticas y evidencia
 docs/          Arquitectura, decisiones y resultados
 ```
 
+## Estado
+
+| Pieza | Estado |
+| --- | --- |
+| Módulos de Terraform | 8 de 8 |
+| Catálogo de controles | 8, con 32 pruebas unitarias |
+| Pipeline de validación y compuerta | Listo |
+| Despliegue con aprobación humana | Listo |
+| Ambiente `dev` | Integrado |
+| Frontend | Listo, con datos de ejemplo |
+| API y agente | Pendientes |
+
+Nada se ha ejecutado todavía contra GCP: no hay proyecto. Los módulos están
+validados sintácticamente, pero su compatibilidad real con la API de Google
+está sin comprobar.
+
 ## Desarrollo
 
 ```bash
@@ -33,8 +49,20 @@ npm run dev          # frontend en http://localhost:5173
 npm run build        # typecheck y bundle
 ```
 
+Comprobar las políticas sin necesidad de GCP:
+
+```bash
+conftest verify --policy infra/policies/rego
+infra/pipelines/scripts/policy_check.sh infra/policies/fixtures/plan_conforme.json
+```
+
 Terraform y las políticas se trabajan desde `infra/`; consulta su README para
 las convenciones obligatorias.
+
+## Documentación
+
+Empieza por [docs/arquitectura.md](docs/arquitectura.md). El índice completo
+está en [docs/README.md](docs/README.md).
 
 ## Marcos en alcance
 
