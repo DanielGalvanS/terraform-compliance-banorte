@@ -55,3 +55,24 @@ resource "google_compute_router_nat" "esta" {
     filter = "ERRORS_ONLY"
   }
 }
+
+# Rango que GCP reserva para los servicios administrados. No se asigna a
+# ninguna subred: lo consume el peering.
+resource "google_compute_global_address" "servicios_privados" {
+  count = var.acceso_privado_servicios ? 1 : 0
+
+  project       = var.project_id
+  name          = "${var.nombre}-servicios-privados"
+  purpose       = "VPC_PEERING"
+  address_type  = "INTERNAL"
+  prefix_length = var.prefijo_servicios
+  network       = google_compute_network.esta.id
+}
+
+resource "google_service_networking_connection" "servicios_privados" {
+  count = var.acceso_privado_servicios ? 1 : 0
+
+  network                 = google_compute_network.esta.id
+  service                 = "servicenetworking.googleapis.com"
+  reserved_peering_ranges = [google_compute_global_address.servicios_privados[0].name]
+}

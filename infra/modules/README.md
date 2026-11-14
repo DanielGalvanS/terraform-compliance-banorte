@@ -10,6 +10,6 @@ Un directorio por módulo. Cada uno expone `main.tf`, `variables.tf`,
 | `kms`     | listo      | Llaveros y llaves CMEK                           |
 | `secrets` | listo      | Secret Manager y su control de acceso            |
 | `iam`     | listo      | Cuentas de servicio de mínimo privilegio         |
-| `sql`     | pendiente  | Cloud SQL PostgreSQL: IP privada, CMEK, backups  |
+| `sql`     | listo      | Cloud SQL PostgreSQL: IP privada, CMEK, backups  |
 | `compute` | pendiente  | VM de pruebas, sin IP pública, acceso por IAP    |
 | `logging` | pendiente  | Sinks de auditoría y retención                   |

@@ -35,3 +35,19 @@ variable "retencion_flow_logs" {
     error_message = "El muestreo debe ser mayor que 0 y menor o igual que 1."
   }
 }
+
+variable "acceso_privado_servicios" {
+  description = <<-DESC
+    Crea el peering que necesitan los servicios administrados con IP privada,
+    como Cloud SQL. Es por VPC y no por instancia: si viviera en el módulo que
+    crea la base, una segunda instancia lo duplicaría.
+  DESC
+  type        = bool
+  default     = false
+}
+
+variable "prefijo_servicios" {
+  description = "Tamaño del bloque reservado para los servicios administrados."
+  type        = number
+  default     = 20
+}

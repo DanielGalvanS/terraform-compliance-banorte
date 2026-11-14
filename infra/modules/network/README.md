@@ -11,6 +11,10 @@ VPC con una subred privada, Cloud Router y Cloud NAT.
 - **Flow logs activos.** Son la evidencia de tráfico que piden los controles de
   monitoreo continuo de NIST y CIS.
 - **NAT con logging de errores.** Da salida a instancias privadas sin exponerlas.
+- **Acceso privado a servicios, opcional.** Cloud SQL con IP privada necesita
+  un peering con la red de servicios de Google. Vive aquí y no en el módulo
+  `sql` porque es por VPC: si lo creara la base, una segunda instancia lo
+  duplicaría y el despliegue fallaría.
 
 ## Sobre las etiquetas obligatorias
 
