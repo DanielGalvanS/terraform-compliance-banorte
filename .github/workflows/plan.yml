@@ -36,7 +36,50 @@ jobs:
     runs-on: ubuntu-24.04
     # Sin proveedor de identidad configurado no hay nada que planear.
     if: vars.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
+    # Variables de Terraform. Vienen de las variables de GitHub (no secrets:
+    # son identificadores, no credenciales). Las opcionales NO van aquí: ver el
+    # paso "Variables opcionales de Terraform".
+    env:
+      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      TF_VAR_project_id: ${{ vars.GCP_PROJECT_ID }}
+      TF_VAR_bucket_evidencia: ${{ vars.BUCKET_EVIDENCIA }}
+      TF_VAR_centro_costos: ${{ vars.CENTRO_COSTOS }}
     steps:
+      # Con el proveedor de identidad configurado pero sin el resto, el job
+      # fallaría más adelante con un error de Terraform difícil de leer. Aquí
+      # falla al principio y dice qué falta.
+      - name: Comprobar configuración
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+          BUCKET_EVIDENCIA: ${{ vars.BUCKET_EVIDENCIA }}
+          CENTRO_COSTOS: ${{ vars.CENTRO_COSTOS }}
+        run: |
+          faltan=0
+          for nombre in GCP_PROJECT_ID TF_STATE_BUCKET BUCKET_EVIDENCIA CENTRO_COSTOS; do
+            if [ -z "${!nombre}" ]; then
+              echo "::error title=Falta configuración::La variable de GitHub ${nombre} no está definida (Settings → Secrets and variables → Actions → Variables). Ver docs/compuerta.md"
+              faltan=1
+            fi
+          done
+          exit "${faltan}"
+
+      # Una variable de GitHub que no existe vale cadena vacía, no "nada". Para
+      # cuenta_facturacion eso sería "" en vez de null y el presupuesto
+      # (DEV-16) intentaría crearse con una cuenta vacía. Por eso se exportan
+      # solo si traen valor.
+      - name: Variables opcionales de Terraform
+        env:
+          CUENTA_FACTURACION: ${{ vars.CUENTA_FACTURACION }}
+          CORREOS_ALERTAS_COSTO: ${{ vars.CORREOS_ALERTAS_COSTO }}
+        run: |
+          if [ -n "${CUENTA_FACTURACION}" ]; then
+            echo "TF_VAR_cuenta_facturacion=${CUENTA_FACTURACION}" >> "$GITHUB_ENV"
+          fi
+          if [ -n "${CORREOS_ALERTAS_COSTO}" ]; then
+            echo "TF_VAR_correos_alertas_costo=${CORREOS_ALERTAS_COSTO}" >> "$GITHUB_ENV"
+          fi
+
       - uses: actions/checkout@v4
 
       - uses: hashicorp/setup-terraform@v3
@@ -48,16 +91,23 @@ jobs:
         with:
           version: ${{ env.CONFTEST_VERSION }}
 
-      # Credenciales temporales, sin llaves en el repositorio.
+      # Credenciales temporales, sin llaves en el repositorio. La cuenta es
+      # ci-plan, de solo lectura, que crea scripts/bootstrap/gcp_pipeline.sh.
       - name: Autenticar en GCP
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ vars.GCP_SERVICE_ACCOUNT_PLAN }}
 
+      # El backend va vacío en versions.tf para no versionar el bucket. Se pasa
+      # aquí, con el mismo prefijo que backend.tfbackend.example: así el estado
+      # del pipeline y el de quien despliega en local son el mismo.
       - name: terraform init
         working-directory: infra/environments/${{ env.AMBIENTE }}
-        run: terraform init -input=false -no-color
+        run: |
+          terraform init -input=false -no-color \
+            -backend-config="bucket=${TF_STATE_BUCKET}" \
+            -backend-config="prefix=mdc/${AMBIENTE}"
 
       # El plan es de solo lectura sobre la nube: describe lo que pasaría, no
       # cambia nada. El apply vive en su propio workflow, con aprobación.

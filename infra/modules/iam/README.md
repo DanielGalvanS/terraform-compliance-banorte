@@ -21,10 +21,13 @@ Cuentas de servicio con permisos acotados.
 
 | Cuenta | Para qué | Permisos |
 | --- | --- | --- |
-| `tf-plan` | Genera el plan en el pipeline | Solo lectura |
-| `tf-apply` | Aplica cambios aprobados | Escritura, solo desde `apply.yml` |
 | `app-api` | La API de cumplimiento | Lectura de la base y los secretos que use |
 | `app-agente` | El agente de IA | Solo lectura; sin permiso de aplicar |
+| `app-pruebas` | Instancias de prueba de rendimiento | Escritura de logs y métricas |
+
+Las cuentas del pipeline (`ci-plan` y `ci-apply`) **no** las crea este módulo.
+Tienen que existir antes del primer plan, así que las crea
+`scripts/bootstrap/gcp_pipeline.sh` (ver `docs/decisiones.md`).
 
 ## Uso
 
@@ -35,9 +38,9 @@ module "iam" {
   project_id = var.project_id
 
   cuentas = {
-    tf-plan = {
-      descripcion = "Genera el plan de Terraform en el pipeline"
-      roles       = ["roles/viewer"]
+    app-api = {
+      descripcion = "API de cumplimiento en Cloud Run"
+      roles       = ["roles/cloudsql.client", "roles/logging.logWriter"]
     }
     app-agente = {
       descripcion = "Agente de IA; solo lectura"
