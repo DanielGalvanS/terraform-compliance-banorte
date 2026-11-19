@@ -1,0 +1,13 @@
+# Quién revisa qué. GitHub pide revisión automáticamente a estas personas.
+# Cada ruta tiene al menos dos dueños: si alguien es autor, revisa el otro.
+# Lo último que coincide gana, así que lo general va arriba.
+
+*                         @DanielGalvanS @NanoCaballero @Danielvzq @Fer2545
+
+/infra/                   @NanoCaballero @DanielGalvanS
+/infra/policies/          @Danielvzq @NanoCaballero
+/scripts/rendimiento/     @NanoCaballero @DanielGalvanS
+/.github/                 @DanielGalvanS @Danielvzq
+/apps/api/                @Danielvzq @Fer2545
+/apps/web/                @Fer2545 @Danielvzq
+/docs/                    @NanoCaballero @Danielvzq @DanielGalvanS
