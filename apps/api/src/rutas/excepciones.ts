@@ -6,9 +6,14 @@ import {
   FiltroExcepciones,
   NuevaExcepcion,
 } from '../model/esquemas.ts'
-import { estadoVigente, validarSolicitud } from '../model/reglasExcepciones.ts'
+import {
+  estadoVigente,
+  validarDecision,
+  validarSolicitud,
+} from '../model/reglasExcepciones.ts'
 import type { Catalogo } from '../repositorios/catalogoRepositorio.ts'
 import type {
+  Decision,
   ExcepcionesRepositorio,
   ExcepcionGuardada,
 } from '../repositorios/excepcionesRepositorio.ts'
@@ -17,6 +22,30 @@ import type {
 const ErrorValidacion = ErrorRespuesta.extend({
   motivos: z.array(z.object({ campo: z.string(), mensaje: z.string() })),
 })
+
+const ParametrosId = z.object({ id: z.uuid() })
+
+// Quien decide viene en el cuerpo porque aún no hay autenticación. Cuando
+// exista OIDC (ver «Autenticación» en el README) saldrá del token: si el
+// cliente pudiera declararlo, cualquiera aprobaría a nombre del aprobador.
+// El comentario no lleva mínimo aquí para que la regla responda 422 con
+// `motivos`, igual que el resto de las reglas, y no un 400 genérico de Zod.
+const CuerpoAprobar = z.object({
+  aprobadaPor: z.string().min(1).describe('Quién aprueba; saldrá del token con OIDC'),
+  comentario: z.string().describe('Fundamento de la decisión'),
+})
+
+const CuerpoRechazar = z.object({
+  rechazadaPor: z.string().min(1).describe('Quién rechaza; saldrá del token con OIDC'),
+  comentario: z.string().describe('Fundamento de la decisión'),
+})
+
+const respuestasDecision = {
+  200: Excepcion,
+  404: ErrorRespuesta,
+  409: ErrorRespuesta,
+  422: ErrorValidacion,
+}
 
 export function rutasExcepciones(
   catalogo: Catalogo,
@@ -37,6 +66,47 @@ export function rutasExcepciones(
       severidad: control?.severidad ?? 'Media',
       estado: estadoVigente(estadoGuardado, guardada.venceEl),
     }
+  }
+
+  /**
+   * Aplica una decisión y devuelve el código y el cuerpo a responder.
+   * Aprobar y rechazar comparten las reglas; solo cambia el estado destino.
+   */
+  const decidir = async (
+    id: string,
+    estado: Decision['estado'],
+    decididaPor: string,
+    comentario: string,
+  ) => {
+    const guardada = await repositorio.obtener(id)
+    if (guardada === null) {
+      return { codigo: 404 as const, cuerpo: { error: 'No existe esa excepción' } }
+    }
+
+    const { conflicto, motivos } = validarDecision(guardada, { decididaPor, comentario })
+    // El conflicto va primero: si ya no se puede decidir, corregir los datos
+    // no cambiaría la respuesta.
+    if (conflicto !== null) {
+      return { codigo: 409 as const, cuerpo: { error: conflicto } }
+    }
+    if (motivos.length > 0) {
+      return {
+        codigo: 422 as const,
+        cuerpo: { error: 'La decisión no cumple las reglas de excepción', motivos },
+      }
+    }
+
+    const decidida = await repositorio.decidir(id, {
+      estado,
+      decididaPor: decididaPor.trim(),
+      comentario: comentario.trim(),
+      decididaEn: new Date().toISOString(),
+    })
+    // Pudo desaparecer entre obtener y decidir; con Postgres no es teórico.
+    if (decidida === null) {
+      return { codigo: 404 as const, cuerpo: { error: 'No existe esa excepción' } }
+    }
+    return { codigo: 200 as const, cuerpo: completar(decidida) }
   }
 
   return async (app) => {
@@ -88,14 +158,92 @@ export function rutasExcepciones(
           recurso: peticion.body.recurso,
           ambiente: peticion.body.ambiente,
           justificacion: peticion.body.justificacion.trim(),
-          solicitadaPor: 'Ana Martínez',
-          // Se registra a quién se le pide, no quién aprobó: aún nadie lo hizo.
+          // Del cuerpo mientras no haya OIDC; después, del token.
+          solicitadaPor: peticion.body.solicitante.trim(),
+          aprobadorSolicitado: peticion.body.aprobador.trim(),
+          // A quién se le pide no es quién aprobó: aún nadie lo hizo.
           aprobadaPor: null,
           solicitadaEn: new Date().toISOString(),
           venceEl: peticion.body.venceEl,
           planRemediacion: peticion.body.planRemediacion?.trim() || null,
         })
         return respuesta.code(201).send(completar(guardada))
+      },
+    )
+
+    app.get(
+      '/excepciones/:id',
+      {
+        schema: {
+          summary: 'Una excepción por identificador',
+          description:
+            'Con el control completado desde el catálogo y el estado derivado de la fecha, ' +
+            'igual que en la lista.',
+          tags: ['excepciones'],
+          params: ParametrosId,
+          response: { 200: Excepcion, 404: ErrorRespuesta },
+        },
+      },
+      async (peticion, respuesta) => {
+        const guardada = await repositorio.obtener(peticion.params.id)
+        if (guardada === null) {
+          return respuesta.code(404).send({ error: 'No existe esa excepción' })
+        }
+        return completar(guardada)
+      },
+    )
+
+    // POST y no PATCH, a propósito: aprobar y rechazar son acciones con reglas
+    // (estado, segregación de funciones, fundamento), no ediciones de un campo.
+    // Un PATCH sobre `estado` invitaría a saltarse esas reglas.
+    app.post(
+      '/excepciones/:id/aprobar',
+      {
+        schema: {
+          summary: 'Aprueba una excepción',
+          description:
+            'Solo una excepción pendiente y vigente se puede decidir; si ya se decidió o ' +
+            'venció responde 409. Quien la solicitó no puede aprobarla y el comentario es ' +
+            'obligatorio (422). Aprobar no cambia la vigencia: la acotó la solicitud.',
+          tags: ['excepciones'],
+          params: ParametrosId,
+          body: CuerpoAprobar,
+          response: respuestasDecision,
+        },
+      },
+      async (peticion, respuesta) => {
+        const { codigo, cuerpo } = await decidir(
+          peticion.params.id,
+          'Activa',
+          peticion.body.aprobadaPor,
+          peticion.body.comentario,
+        )
+        return respuesta.code(codigo).send(cuerpo)
+      },
+    )
+
+    app.post(
+      '/excepciones/:id/rechazar',
+      {
+        schema: {
+          summary: 'Rechaza una excepción',
+          description:
+            'Mismas reglas que aprobar: solo una pendiente y vigente (409), nadie decide su ' +
+            'propia solicitud y el rechazo también exige fundamento (422).',
+          tags: ['excepciones'],
+          params: ParametrosId,
+          body: CuerpoRechazar,
+          response: respuestasDecision,
+        },
+      },
+      async (peticion, respuesta) => {
+        const { codigo, cuerpo } = await decidir(
+          peticion.params.id,
+          'Rechazada',
+          peticion.body.rechazadaPor,
+          peticion.body.comentario,
+        )
+        return respuesta.code(codigo).send(cuerpo)
       },
     )
   }

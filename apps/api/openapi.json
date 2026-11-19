@@ -1288,8 +1288,23 @@
                           "solicitadaPor": {
                             "type": "string"
                           },
+                          "aprobadorSolicitado": {
+                            "type": "string",
+                            "description": "A quién se le pidió la aprobación; puede no ser quien termine decidiendo"
+                          },
                           "aprobadaPor": {
                             "nullable": true,
+                            "description": "Quién decidió, aprobando o rechazando; nulo mientras está pendiente",
+                            "type": "string"
+                          },
+                          "comentarioDecision": {
+                            "nullable": true,
+                            "description": "Fundamento de la decisión; nulo mientras está pendiente",
+                            "type": "string"
+                          },
+                          "decididaEn": {
+                            "nullable": true,
+                            "description": "Fecha ISO 8601; nula mientras está pendiente",
                             "type": "string"
                           },
                           "solicitadaEn": {
@@ -1326,7 +1341,10 @@
                           "ambiente",
                           "justificacion",
                           "solicitadaPor",
+                          "aprobadorSolicitado",
                           "aprobadaPor",
+                          "comentarioDecision",
+                          "decididaEn",
                           "solicitadaEn",
                           "venceEl",
                           "estado",
@@ -1386,6 +1404,11 @@
                     "minLength": 1,
                     "description": "A quién se le pide la aprobación"
                   },
+                  "solicitante": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Quién solicita la excepción"
+                  },
                   "planRemediacion": {
                     "type": "string"
                   }
@@ -1396,7 +1419,8 @@
                   "ambiente",
                   "justificacion",
                   "venceEl",
-                  "aprobador"
+                  "aprobador",
+                  "solicitante"
                 ]
               }
             }
@@ -1455,8 +1479,23 @@
                     "solicitadaPor": {
                       "type": "string"
                     },
+                    "aprobadorSolicitado": {
+                      "type": "string",
+                      "description": "A quién se le pidió la aprobación; puede no ser quien termine decidiendo"
+                    },
                     "aprobadaPor": {
                       "nullable": true,
+                      "description": "Quién decidió, aprobando o rechazando; nulo mientras está pendiente",
+                      "type": "string"
+                    },
+                    "comentarioDecision": {
+                      "nullable": true,
+                      "description": "Fundamento de la decisión; nulo mientras está pendiente",
+                      "type": "string"
+                    },
+                    "decididaEn": {
+                      "nullable": true,
+                      "description": "Fecha ISO 8601; nula mientras está pendiente",
                       "type": "string"
                     },
                     "solicitadaEn": {
@@ -1493,11 +1532,684 @@
                     "ambiente",
                     "justificacion",
                     "solicitadaPor",
+                    "aprobadorSolicitado",
                     "aprobadaPor",
+                    "comentarioDecision",
+                    "decididaEn",
                     "solicitadaEn",
                     "venceEl",
                     "estado",
                     "planRemediacion"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "detalle": {
+                      "type": "string"
+                    },
+                    "motivos": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "campo": {
+                            "type": "string"
+                          },
+                          "mensaje": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "campo",
+                          "mensaje"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "motivos"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/excepciones/{id}": {
+      "get": {
+        "summary": "Una excepción por identificador",
+        "tags": [
+          "excepciones"
+        ],
+        "description": "Con el control completado desde el catálogo y el estado derivado de la fecha, igual que en la lista.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "codigo": {
+                      "type": "string",
+                      "description": "Identificador legible, por ejemplo EXC-1048"
+                    },
+                    "control": {
+                      "type": "string",
+                      "description": "Código del catálogo, por ejemplo CO-NET-01"
+                    },
+                    "controlNombre": {
+                      "type": "string"
+                    },
+                    "marco": {
+                      "type": "string"
+                    },
+                    "severidad": {
+                      "type": "string",
+                      "enum": [
+                        "Crítica",
+                        "Alta",
+                        "Media",
+                        "Baja"
+                      ]
+                    },
+                    "recurso": {
+                      "type": "string"
+                    },
+                    "ambiente": {
+                      "type": "string",
+                      "enum": [
+                        "Dev",
+                        "QA",
+                        "Prod"
+                      ]
+                    },
+                    "justificacion": {
+                      "type": "string"
+                    },
+                    "solicitadaPor": {
+                      "type": "string"
+                    },
+                    "aprobadorSolicitado": {
+                      "type": "string",
+                      "description": "A quién se le pidió la aprobación; puede no ser quien termine decidiendo"
+                    },
+                    "aprobadaPor": {
+                      "nullable": true,
+                      "description": "Quién decidió, aprobando o rechazando; nulo mientras está pendiente",
+                      "type": "string"
+                    },
+                    "comentarioDecision": {
+                      "nullable": true,
+                      "description": "Fundamento de la decisión; nulo mientras está pendiente",
+                      "type": "string"
+                    },
+                    "decididaEn": {
+                      "nullable": true,
+                      "description": "Fecha ISO 8601; nula mientras está pendiente",
+                      "type": "string"
+                    },
+                    "solicitadaEn": {
+                      "type": "string",
+                      "description": "Fecha ISO 8601"
+                    },
+                    "venceEl": {
+                      "type": "string",
+                      "description": "Fecha yyyy-mm-dd"
+                    },
+                    "estado": {
+                      "type": "string",
+                      "enum": [
+                        "Pendiente",
+                        "Activa",
+                        "Vencida",
+                        "Rechazada",
+                        "Revocada"
+                      ]
+                    },
+                    "planRemediacion": {
+                      "nullable": true,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "codigo",
+                    "control",
+                    "controlNombre",
+                    "marco",
+                    "severidad",
+                    "recurso",
+                    "ambiente",
+                    "justificacion",
+                    "solicitadaPor",
+                    "aprobadorSolicitado",
+                    "aprobadaPor",
+                    "comentarioDecision",
+                    "decididaEn",
+                    "solicitadaEn",
+                    "venceEl",
+                    "estado",
+                    "planRemediacion"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "detalle": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/excepciones/{id}/aprobar": {
+      "post": {
+        "summary": "Aprueba una excepción",
+        "tags": [
+          "excepciones"
+        ],
+        "description": "Solo una excepción pendiente y vigente se puede decidir; si ya se decidió o venció responde 409. Quien la solicitó no puede aprobarla y el comentario es obligatorio (422). Aprobar no cambia la vigencia: la acotó la solicitud.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "aprobadaPor": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Quién aprueba; saldrá del token con OIDC"
+                  },
+                  "comentario": {
+                    "type": "string",
+                    "description": "Fundamento de la decisión"
+                  }
+                },
+                "required": [
+                  "aprobadaPor",
+                  "comentario"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "codigo": {
+                      "type": "string",
+                      "description": "Identificador legible, por ejemplo EXC-1048"
+                    },
+                    "control": {
+                      "type": "string",
+                      "description": "Código del catálogo, por ejemplo CO-NET-01"
+                    },
+                    "controlNombre": {
+                      "type": "string"
+                    },
+                    "marco": {
+                      "type": "string"
+                    },
+                    "severidad": {
+                      "type": "string",
+                      "enum": [
+                        "Crítica",
+                        "Alta",
+                        "Media",
+                        "Baja"
+                      ]
+                    },
+                    "recurso": {
+                      "type": "string"
+                    },
+                    "ambiente": {
+                      "type": "string",
+                      "enum": [
+                        "Dev",
+                        "QA",
+                        "Prod"
+                      ]
+                    },
+                    "justificacion": {
+                      "type": "string"
+                    },
+                    "solicitadaPor": {
+                      "type": "string"
+                    },
+                    "aprobadorSolicitado": {
+                      "type": "string",
+                      "description": "A quién se le pidió la aprobación; puede no ser quien termine decidiendo"
+                    },
+                    "aprobadaPor": {
+                      "nullable": true,
+                      "description": "Quién decidió, aprobando o rechazando; nulo mientras está pendiente",
+                      "type": "string"
+                    },
+                    "comentarioDecision": {
+                      "nullable": true,
+                      "description": "Fundamento de la decisión; nulo mientras está pendiente",
+                      "type": "string"
+                    },
+                    "decididaEn": {
+                      "nullable": true,
+                      "description": "Fecha ISO 8601; nula mientras está pendiente",
+                      "type": "string"
+                    },
+                    "solicitadaEn": {
+                      "type": "string",
+                      "description": "Fecha ISO 8601"
+                    },
+                    "venceEl": {
+                      "type": "string",
+                      "description": "Fecha yyyy-mm-dd"
+                    },
+                    "estado": {
+                      "type": "string",
+                      "enum": [
+                        "Pendiente",
+                        "Activa",
+                        "Vencida",
+                        "Rechazada",
+                        "Revocada"
+                      ]
+                    },
+                    "planRemediacion": {
+                      "nullable": true,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "codigo",
+                    "control",
+                    "controlNombre",
+                    "marco",
+                    "severidad",
+                    "recurso",
+                    "ambiente",
+                    "justificacion",
+                    "solicitadaPor",
+                    "aprobadorSolicitado",
+                    "aprobadaPor",
+                    "comentarioDecision",
+                    "decididaEn",
+                    "solicitadaEn",
+                    "venceEl",
+                    "estado",
+                    "planRemediacion"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "detalle": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "detalle": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "detalle": {
+                      "type": "string"
+                    },
+                    "motivos": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "campo": {
+                            "type": "string"
+                          },
+                          "mensaje": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "campo",
+                          "mensaje"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "motivos"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/excepciones/{id}/rechazar": {
+      "post": {
+        "summary": "Rechaza una excepción",
+        "tags": [
+          "excepciones"
+        ],
+        "description": "Mismas reglas que aprobar: solo una pendiente y vigente (409), nadie decide su propia solicitud y el rechazo también exige fundamento (422).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "rechazadaPor": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Quién rechaza; saldrá del token con OIDC"
+                  },
+                  "comentario": {
+                    "type": "string",
+                    "description": "Fundamento de la decisión"
+                  }
+                },
+                "required": [
+                  "rechazadaPor",
+                  "comentario"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "codigo": {
+                      "type": "string",
+                      "description": "Identificador legible, por ejemplo EXC-1048"
+                    },
+                    "control": {
+                      "type": "string",
+                      "description": "Código del catálogo, por ejemplo CO-NET-01"
+                    },
+                    "controlNombre": {
+                      "type": "string"
+                    },
+                    "marco": {
+                      "type": "string"
+                    },
+                    "severidad": {
+                      "type": "string",
+                      "enum": [
+                        "Crítica",
+                        "Alta",
+                        "Media",
+                        "Baja"
+                      ]
+                    },
+                    "recurso": {
+                      "type": "string"
+                    },
+                    "ambiente": {
+                      "type": "string",
+                      "enum": [
+                        "Dev",
+                        "QA",
+                        "Prod"
+                      ]
+                    },
+                    "justificacion": {
+                      "type": "string"
+                    },
+                    "solicitadaPor": {
+                      "type": "string"
+                    },
+                    "aprobadorSolicitado": {
+                      "type": "string",
+                      "description": "A quién se le pidió la aprobación; puede no ser quien termine decidiendo"
+                    },
+                    "aprobadaPor": {
+                      "nullable": true,
+                      "description": "Quién decidió, aprobando o rechazando; nulo mientras está pendiente",
+                      "type": "string"
+                    },
+                    "comentarioDecision": {
+                      "nullable": true,
+                      "description": "Fundamento de la decisión; nulo mientras está pendiente",
+                      "type": "string"
+                    },
+                    "decididaEn": {
+                      "nullable": true,
+                      "description": "Fecha ISO 8601; nula mientras está pendiente",
+                      "type": "string"
+                    },
+                    "solicitadaEn": {
+                      "type": "string",
+                      "description": "Fecha ISO 8601"
+                    },
+                    "venceEl": {
+                      "type": "string",
+                      "description": "Fecha yyyy-mm-dd"
+                    },
+                    "estado": {
+                      "type": "string",
+                      "enum": [
+                        "Pendiente",
+                        "Activa",
+                        "Vencida",
+                        "Rechazada",
+                        "Revocada"
+                      ]
+                    },
+                    "planRemediacion": {
+                      "nullable": true,
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "codigo",
+                    "control",
+                    "controlNombre",
+                    "marco",
+                    "severidad",
+                    "recurso",
+                    "ambiente",
+                    "justificacion",
+                    "solicitadaPor",
+                    "aprobadorSolicitado",
+                    "aprobadaPor",
+                    "comentarioDecision",
+                    "decididaEn",
+                    "solicitadaEn",
+                    "venceEl",
+                    "estado",
+                    "planRemediacion"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "detalle": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "detalle": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
                   ],
                   "additionalProperties": false
                 }
