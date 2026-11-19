@@ -445,6 +445,136 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/hallazgos/{id}/estado": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Cambia el estado de un hallazgo
+         * @description Solo se permiten estas transiciones: Abierto → En remediación, Cerrado; En remediación → Abierto, Cerrado; Cerrado → Abierto; Excepción → ninguno. Otra responde 409. A Excepción no se llega por aquí sino aprobando una excepción (422), para no saltarse la aprobación humana. El comentario es obligatorio (422) y el cambio queda en el registro de evidencia.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        estado: "Abierto" | "En remediación" | "Excepción" | "Cerrado";
+                        /** @description Por qué cambia; queda en la evidencia */
+                        comentario: string;
+                        /** @description Quién lo cambia; saldrá del token con OIDC */
+                        cambiadoPor: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            id: string;
+                            /** @description Código del control; nulo si ninguna política lo cubre */
+                            control: string | null;
+                            titulo: string;
+                            recurso: string;
+                            /** @enum {string} */
+                            severidad: "Crítica" | "Alta" | "Media" | "Baja";
+                            /** @enum {string} */
+                            ambiente: "Dev" | "QA" | "Prod";
+                            /** @enum {string} */
+                            origen: "Plan" | "Drift" | "Evento" | "Auditoría";
+                            /** @enum {string} */
+                            estado: "Abierto" | "En remediación" | "Excepción" | "Cerrado";
+                            mensaje: string;
+                            /** @description Fecha ISO 8601 */
+                            detectadoEn: string;
+                            detalle?: {
+                                controlViolado: {
+                                    codigo: string;
+                                    enunciado: string;
+                                    /** @description Referencias del mismo control en otros marcos */
+                                    equivalentes: string[];
+                                };
+                                /** @description Extracto del plan que prueba el hallazgo */
+                                evidencia: string;
+                                explicacion: {
+                                    texto: string;
+                                    confianza: number;
+                                    /** @description Herramientas que produjeron el veredicto */
+                                    motor: string;
+                                };
+                                remediacion: {
+                                    quitadas: string[];
+                                    anadidas: string[];
+                                };
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                            motivos: {
+                                campo: string;
+                                mensaje: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
     "/resumen": {
         parameters: {
             query?: never;
@@ -981,6 +1111,72 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/evidencia": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Registro de evidencia
+         * @description Decisiones sobre excepciones y cambios de estado de hallazgos, del más reciente al más antiguo. Cada evento guarda el hash del anterior; `integra` dice si la cadena completa sigue coincidiendo, no solo los eventos filtrados.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    tipo?: "excepcion.aprobada" | "excepcion.rechazada" | "hallazgo.estado";
+                    objetoId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            eventos: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @description 1, 2, 3… sin huecos */
+                                secuencia: number;
+                                /** @enum {string} */
+                                tipo: "excepcion.aprobada" | "excepcion.rechazada" | "hallazgo.estado";
+                                /** @description Id de la excepción o del hallazgo */
+                                objetoId: string;
+                                actor: string;
+                                /** @description Por ejemplo { de: "Abierto", a: "En remediación", comentario: "…" } */
+                                detalle: {
+                                    [key: string]: string;
+                                };
+                                /** @description Fecha ISO 8601 */
+                                registradoEn: string;
+                                /** @description sha256 del evento anterior; el primero usa 64 ceros */
+                                hashAnterior: string;
+                                /** @description sha256 de hashAnterior más el JSON canónico del evento sin hash */
+                                hash: string;
+                            }[];
+                            /** @description Si ningún evento del registro fue alterado */
+                            integra: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;

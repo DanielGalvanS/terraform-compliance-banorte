@@ -1090,6 +1090,318 @@
         }
       }
     },
+    "/hallazgos/{id}/estado": {
+      "patch": {
+        "summary": "Cambia el estado de un hallazgo",
+        "tags": [
+          "hallazgos"
+        ],
+        "description": "Solo se permiten estas transiciones: Abierto → En remediación, Cerrado; En remediación → Abierto, Cerrado; Cerrado → Abierto; Excepción → ninguno. Otra responde 409. A Excepción no se llega por aquí sino aprobando una excepción (422), para no saltarse la aprobación humana. El comentario es obligatorio (422) y el cambio queda en el registro de evidencia.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "estado": {
+                    "type": "string",
+                    "enum": [
+                      "Abierto",
+                      "En remediación",
+                      "Excepción",
+                      "Cerrado"
+                    ]
+                  },
+                  "comentario": {
+                    "type": "string",
+                    "description": "Por qué cambia; queda en la evidencia"
+                  },
+                  "cambiadoPor": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Quién lo cambia; saldrá del token con OIDC"
+                  }
+                },
+                "required": [
+                  "estado",
+                  "comentario",
+                  "cambiadoPor"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "control": {
+                      "nullable": true,
+                      "description": "Código del control; nulo si ninguna política lo cubre",
+                      "type": "string"
+                    },
+                    "titulo": {
+                      "type": "string"
+                    },
+                    "recurso": {
+                      "type": "string"
+                    },
+                    "severidad": {
+                      "type": "string",
+                      "enum": [
+                        "Crítica",
+                        "Alta",
+                        "Media",
+                        "Baja"
+                      ]
+                    },
+                    "ambiente": {
+                      "type": "string",
+                      "enum": [
+                        "Dev",
+                        "QA",
+                        "Prod"
+                      ]
+                    },
+                    "origen": {
+                      "type": "string",
+                      "enum": [
+                        "Plan",
+                        "Drift",
+                        "Evento",
+                        "Auditoría"
+                      ]
+                    },
+                    "estado": {
+                      "type": "string",
+                      "enum": [
+                        "Abierto",
+                        "En remediación",
+                        "Excepción",
+                        "Cerrado"
+                      ]
+                    },
+                    "mensaje": {
+                      "type": "string"
+                    },
+                    "detectadoEn": {
+                      "type": "string",
+                      "description": "Fecha ISO 8601"
+                    },
+                    "detalle": {
+                      "type": "object",
+                      "properties": {
+                        "controlViolado": {
+                          "type": "object",
+                          "properties": {
+                            "codigo": {
+                              "type": "string"
+                            },
+                            "enunciado": {
+                              "type": "string"
+                            },
+                            "equivalentes": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "description": "Referencias del mismo control en otros marcos"
+                            }
+                          },
+                          "required": [
+                            "codigo",
+                            "enunciado",
+                            "equivalentes"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "evidencia": {
+                          "type": "string",
+                          "description": "Extracto del plan que prueba el hallazgo"
+                        },
+                        "explicacion": {
+                          "type": "object",
+                          "properties": {
+                            "texto": {
+                              "type": "string"
+                            },
+                            "confianza": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 100
+                            },
+                            "motor": {
+                              "type": "string",
+                              "description": "Herramientas que produjeron el veredicto"
+                            }
+                          },
+                          "required": [
+                            "texto",
+                            "confianza",
+                            "motor"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "remediacion": {
+                          "type": "object",
+                          "properties": {
+                            "quitadas": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "anadidas": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "required": [
+                            "quitadas",
+                            "anadidas"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "controlViolado",
+                        "evidencia",
+                        "explicacion",
+                        "remediacion"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "control",
+                    "titulo",
+                    "recurso",
+                    "severidad",
+                    "ambiente",
+                    "origen",
+                    "estado",
+                    "mensaje",
+                    "detectadoEn"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "detalle": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "detalle": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "detalle": {
+                      "type": "string"
+                    },
+                    "motivos": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "campo": {
+                            "type": "string"
+                          },
+                          "mensaje": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "campo",
+                          "mensaje"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "motivos"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/resumen": {
       "get": {
         "summary": "Postura de cumplimiento en cifras",
@@ -2252,6 +2564,127 @@
                   "required": [
                     "error",
                     "motivos"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/evidencia": {
+      "get": {
+        "summary": "Registro de evidencia",
+        "tags": [
+          "evidencia"
+        ],
+        "description": "Decisiones sobre excepciones y cambios de estado de hallazgos, del más reciente al más antiguo. Cada evento guarda el hash del anterior; `integra` dice si la cadena completa sigue coincidiendo, no solo los eventos filtrados.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "excepcion.aprobada",
+                "excepcion.rechazada",
+                "hallazgo.estado"
+              ]
+            },
+            "in": "query",
+            "name": "tipo",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "objetoId",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "eventos": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "secuencia": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "exclusiveMinimum": true,
+                            "maximum": 9007199254740991,
+                            "description": "1, 2, 3… sin huecos"
+                          },
+                          "tipo": {
+                            "type": "string",
+                            "enum": [
+                              "excepcion.aprobada",
+                              "excepcion.rechazada",
+                              "hallazgo.estado"
+                            ]
+                          },
+                          "objetoId": {
+                            "type": "string",
+                            "description": "Id de la excepción o del hallazgo"
+                          },
+                          "actor": {
+                            "type": "string"
+                          },
+                          "detalle": {
+                            "type": "object",
+                            "additionalProperties": {
+                              "type": "string"
+                            },
+                            "description": "Por ejemplo { de: \"Abierto\", a: \"En remediación\", comentario: \"…\" }"
+                          },
+                          "registradoEn": {
+                            "type": "string",
+                            "description": "Fecha ISO 8601"
+                          },
+                          "hashAnterior": {
+                            "type": "string",
+                            "description": "sha256 del evento anterior; el primero usa 64 ceros"
+                          },
+                          "hash": {
+                            "type": "string",
+                            "description": "sha256 de hashAnterior más el JSON canónico del evento sin hash"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "secuencia",
+                          "tipo",
+                          "objetoId",
+                          "actor",
+                          "detalle",
+                          "registradoEn",
+                          "hashAnterior",
+                          "hash"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "integra": {
+                      "type": "boolean",
+                      "description": "Si ningún evento del registro fue alterado"
+                    }
+                  },
+                  "required": [
+                    "eventos",
+                    "integra"
                   ],
                   "additionalProperties": false
                 }

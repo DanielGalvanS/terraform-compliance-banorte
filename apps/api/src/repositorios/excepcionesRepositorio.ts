@@ -73,15 +73,23 @@ export function excepcionesEnMemoria(semilla: ExcepcionGuardada[] = []): Excepci
     },
 
     async decidir(id, { estado, decididaPor, comentario, decididaEn }) {
-      const excepcion = excepciones.find((e) => e.id === id)
-      if (excepcion === undefined) return null
-      excepcion.estadoGuardado = estado
-      // `aprobadaPor` guarda a quien decidió también al rechazar: es la columna
-      // que ya existe en `db/esquema.ts`, y el estado dice en qué sentido.
-      excepcion.aprobadaPor = decididaPor
-      excepcion.comentarioDecision = comentario
-      excepcion.decididaEn = decididaEn
-      return excepcion
+      const indice = excepciones.findIndex((e) => e.id === id)
+      if (indice === -1) return null
+      // Se reemplaza el objeto en vez de modificarlo: los de la semilla son
+      // compartidos por todas las instancias de la app, y cambiarlos en su
+      // lugar haría que una prueba viera las decisiones de otra.
+      const decidida: ExcepcionGuardada = {
+        ...excepciones[indice]!,
+        estadoGuardado: estado,
+        // `aprobadaPor` guarda a quien decidió también al rechazar: es la
+        // columna que ya existe en `db/esquema.ts`, y el estado dice en qué
+        // sentido.
+        aprobadaPor: decididaPor,
+        comentarioDecision: comentario,
+        decididaEn,
+      }
+      excepciones[indice] = decidida
+      return decidida
     },
   }
 }

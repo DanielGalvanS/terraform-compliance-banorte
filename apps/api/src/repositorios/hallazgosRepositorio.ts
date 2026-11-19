@@ -1,5 +1,10 @@
 import { randomUUID } from 'node:crypto'
-import type { FiltroHallazgos, Hallazgo, NuevoHallazgo } from '../model/esquemas.ts'
+import type {
+  EstadoHallazgo,
+  FiltroHallazgos,
+  Hallazgo,
+  NuevoHallazgo,
+} from '../model/esquemas.ts'
 
 /**
  * Acceso a hallazgos.
@@ -18,6 +23,12 @@ export type HallazgosRepositorio = {
    * reintenta, y un reintento no debe inflar el conteo de incumplimientos.
    */
   crear(nuevo: NuevoHallazgo, clave?: string): Promise<{ hallazgo: Hallazgo; yaExistia: boolean }>
+  /**
+   * Cambia el estado. No valida la transición: eso lo hace
+   * `validarCambioEstado` antes de llamar, para que haya una sola versión de
+   * las reglas.
+   */
+  cambiarEstado(id: string, estado: EstadoHallazgo): Promise<Hallazgo | null>
 }
 
 export function repositorioEnMemoria(semilla: Hallazgo[] = []): HallazgosRepositorio {
@@ -62,6 +73,16 @@ export function repositorioEnMemoria(semilla: Hallazgo[] = []): HallazgosReposit
       hallazgos.set(hallazgo.id, hallazgo)
       if (clave !== undefined) porClave.set(clave, hallazgo.id)
       return { hallazgo, yaExistia: false }
+    },
+
+    async cambiarEstado(id, estado) {
+      const actual = hallazgos.get(id)
+      if (actual === undefined) return null
+      // Objeto nuevo y no modificación en su lugar: los de la semilla los
+      // comparten todas las instancias de la app.
+      const cambiado: Hallazgo = { ...actual, estado }
+      hallazgos.set(id, cambiado)
+      return cambiado
     },
   }
 }

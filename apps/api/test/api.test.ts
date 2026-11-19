@@ -128,6 +128,71 @@ describe('hallazgos', () => {
   })
 })
 
+describe('estado de un hallazgo', () => {
+  const crear = async () =>
+    (await app.inject({ method: 'POST', url: `${PREFIJO}/hallazgos`, payload: cuerpoValido })).json()
+      .id as string
+
+  const cambiar = (id: string, estado: string, comentario = 'Se asigna al equipo de red') =>
+    app.inject({
+      method: 'PATCH',
+      url: `${PREFIJO}/hallazgos/${id}/estado`,
+      payload: { estado, comentario, cambiadoPor: 'Roberto Silva' },
+    })
+
+  it('recorre Abierto → En remediación → Cerrado → Abierto', async () => {
+    const id = await crear()
+    for (const estado of ['En remediación', 'Cerrado', 'Abierto']) {
+      const r = await cambiar(id, estado)
+      expect(r.statusCode).toBe(200)
+      expect(r.json().estado).toBe(estado)
+    }
+  })
+
+  it('pedir Excepción responde 422: usa el flujo de excepciones', async () => {
+    const r = await cambiar(await crear(), 'Excepción')
+    expect(r.statusCode).toBe(422)
+    expect(r.json().motivos.map((m: { campo: string }) => m.campo)).toEqual(['estado'])
+  })
+
+  it('una transición no permitida responde 409', async () => {
+    const id = await crear()
+    await cambiar(id, 'Cerrado')
+    expect((await cambiar(id, 'En remediación')).statusCode).toBe(409)
+  })
+
+  it('el mismo estado responde 409', async () => {
+    expect((await cambiar(await crear(), 'Abierto')).statusCode).toBe(409)
+  })
+
+  it('sin comentario responde 422', async () => {
+    expect((await cambiar(await crear(), 'Cerrado', '  ')).statusCode).toBe(422)
+  })
+
+  it('un id que no existe responde 404', async () => {
+    const r = await cambiar('00000000-0000-4000-8000-000000000000', 'Cerrado')
+    expect(r.statusCode).toBe(404)
+  })
+
+  it('el filtro por estado refleja el cambio', async () => {
+    const id = await crear()
+    await cambiar(id, 'En remediación')
+    const r = await app.inject({ method: 'GET', url: `${PREFIJO}/hallazgos?estado=En remediación` })
+    expect(r.json().hallazgos.map((h: { id: string }) => h.id)).toContain(id)
+    const abiertos = await app.inject({ method: 'GET', url: `${PREFIJO}/hallazgos?estado=Abierto` })
+    expect(abiertos.json().hallazgos.map((h: { id: string }) => h.id)).not.toContain(id)
+  })
+
+  it('el navegador puede enviar PATCH: CORS lo permite', async () => {
+    const r = await app.inject({
+      method: 'OPTIONS',
+      url: `${PREFIJO}/hallazgos/${await crear()}/estado`,
+      headers: { origin: 'http://localhost:5173', 'access-control-request-method': 'PATCH' },
+    })
+    expect(r.headers['access-control-allow-methods']).toContain('PATCH')
+  })
+})
+
 describe('salud', () => {
   it('avisa de que no hay persistencia', async () => {
     const r = await app.inject({ method: 'GET', url: '/salud' })

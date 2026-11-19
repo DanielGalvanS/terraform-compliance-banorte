@@ -96,6 +96,17 @@ export const NuevoHallazgo = z.object({
   mensaje: z.string().min(1),
 })
 
+/**
+ * Cambio de estado de un hallazgo. `cambiadoPor` viene en el cuerpo porque aún
+ * no hay autenticación; cuando exista OIDC saldrá del token. El comentario no
+ * lleva mínimo aquí para que la regla responda 422 con `motivos`.
+ */
+export const CambioEstadoHallazgo = z.object({
+  estado: EstadoHallazgo,
+  comentario: z.string().describe('Por qué cambia; queda en la evidencia'),
+  cambiadoPor: z.string().min(1).describe('Quién lo cambia; saldrá del token con OIDC'),
+})
+
 export const FiltroHallazgos = z.object({
   severidad: Severidad.optional(),
   ambiente: Ambiente.optional(),
@@ -134,6 +145,7 @@ export type Hallazgo = z.infer<typeof Hallazgo>
 export type DetalleHallazgo = z.infer<typeof DetalleHallazgo>
 export type NuevoHallazgo = z.infer<typeof NuevoHallazgo>
 export type FiltroHallazgos = z.infer<typeof FiltroHallazgos>
+export type EstadoHallazgo = z.infer<typeof EstadoHallazgo>
 export type Resumen = z.infer<typeof Resumen>
 export type CoberturaMarco = z.infer<typeof CoberturaMarco>
 
@@ -205,3 +217,29 @@ export type Excepcion = z.infer<typeof Excepcion>
 export type NuevaExcepcion = z.infer<typeof NuevaExcepcion>
 export type FiltroExcepciones = z.infer<typeof FiltroExcepciones>
 export type EstadoExcepcion = z.infer<typeof EstadoExcepcion>
+
+export const TipoEvento = z.enum(['excepcion.aprobada', 'excepcion.rechazada', 'hallazgo.estado'])
+
+/**
+ * Un evento del registro de evidencia.
+ *
+ * Cada uno guarda el hash del anterior: alterar uno intermedio rompe su hash y
+ * el de todos los que siguen, así que la alteración se detecta en vez de pasar
+ * desapercibida.
+ */
+export const EventoEvidencia = z.object({
+  id: z.uuid(),
+  secuencia: z.number().int().positive().describe('1, 2, 3… sin huecos'),
+  tipo: TipoEvento,
+  objetoId: z.string().describe('Id de la excepción o del hallazgo'),
+  actor: z.string(),
+  detalle: z
+    .record(z.string(), z.string())
+    .describe('Por ejemplo { de: "Abierto", a: "En remediación", comentario: "…" }'),
+  registradoEn: z.string().describe('Fecha ISO 8601'),
+  hashAnterior: z.string().describe('sha256 del evento anterior; el primero usa 64 ceros'),
+  hash: z.string().describe('sha256 de hashAnterior más el JSON canónico del evento sin hash'),
+})
+
+export type TipoEvento = z.infer<typeof TipoEvento>
+export type EventoEvidencia = z.infer<typeof EventoEvidencia>
