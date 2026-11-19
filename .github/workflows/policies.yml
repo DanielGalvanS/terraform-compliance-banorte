@@ -7,12 +7,9 @@ name: Políticas
 # red, un servicio caído dejaría pasar cambios; la regla del reto es la
 # contraria: si el evaluador falla, se bloquea y se notifica.
 on:
+  # Sin filtro de rutas en los PR: este workflow es un check obligatorio de
+  # main, y uno que no corre deja el PR esperando para siempre.
   pull_request:
-    paths:
-      - 'infra/**'
-      - 'apps/web/src/**'
-      - 'scripts/**'
-      - '.github/workflows/policies.yml'
   push:
     branches: [main]
     paths:

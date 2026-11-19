@@ -175,3 +175,25 @@ Con la lista en el catálogo hay un solo origen, y
 `scripts/verificar_catalogo.py` comprueba que las etiquetas obligatorias
 coincidan en los cuatro sitios donde viven: catálogo, política, módulos de
 Terraform y frontend.
+
+## 17. Las identidades del pipeline las crea el arranque, no Terraform
+
+**Decisión.** Las cuentas `ci-plan` y `ci-apply`, el pool de Workload Identity
+y su proveedor OIDC los crea `scripts/bootstrap/gcp_pipeline.sh`, una vez y a
+mano. `module "iam"` ya no crea la cuenta `tf-plan`.
+
+**Por qué.** Es el huevo y la gallina: el pipeline necesita esas identidades
+para correr su **primer** plan, así que no pueden ser recursos del mismo
+Terraform que el pipeline aplica. Además, una cuenta que el pipeline pudiera
+modificar sería una cuenta que el pipeline puede ampliarse a sí mismo. Pasa lo
+mismo con el bucket del estado.
+
+`ci-apply` lleva `roles/editor` y administradores de IAM, que `module "iam"`
+rechaza. No es una contradicción: esa regla es para las cuentas de la
+plataforma. La cuenta que aplica Terraform necesita crear lo que el código
+declara, y a cambio solo la pueden usar jobs dentro del environment `dev` de
+GitHub, que es donde vive la aprobación.
+
+**Si se cambiara,** y las cuentas volvieran a Terraform, un ambiente nuevo no
+podría desplegarse desde el pipeline, y un `terraform destroy` borraría la
+identidad con la que se corre el propio destroy a mitad de camino.
