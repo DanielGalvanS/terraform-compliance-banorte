@@ -197,3 +197,29 @@ GitHub, que es donde vive la aprobación.
 **Si se cambiara,** y las cuentas volvieran a Terraform, un ambiente nuevo no
 podría desplegarse desde el pipeline, y un `terraform destroy` borraría la
 identidad con la que se corre el propio destroy a mitad de camino.
+
+## 18. El presupuesto usa un proveedor con alias, no el principal
+
+**Decisión.** El módulo `costos` recibe un proveedor `google.facturacion` con
+`user_project_override` y `billing_project`; el proveedor principal de
+`environments/dev` se queda como estaba.
+
+**Por qué.** La API de presupuestos exige un proyecto que pague su cuota: sin
+`user_project_override` responde `403` aunque los permisos de facturación
+estén bien. Lo directo sería ponerlo en el proveedor principal, y ahí está la
+trampa: con esa opción **cada** llamada del proveedor exige
+`serviceusage.services.use`, un permiso que `roles/viewer` no incluye. La
+cuenta `ci-plan` del pipeline dejaría de poder planear **cualquier** recurso,
+no solo el presupuesto. Acotarlo a un alias deja el resto del ambiente
+intacto.
+
+**Consecuencias.** El presupuesto es opcional (`count` sobre las variables de
+facturación) y `terraform.tfvars.example` lo deja comentado: en cuanto se
+define, cada `terraform plan` lo consulta y la cuenta que planea necesita
+`roles/billing.viewer` sobre la cuenta de facturación. Ese permiso se otorga a
+mano, porque un módulo de proyecto no puede concederse permisos sobre la
+cuenta de facturación.
+
+Y conviene no confundir lo que hace: un presupuesto de GCP **avisa, no apaga
+nada**. Lo que corta el gasto sigue siendo destruir el ambiente al terminar
+cada sesión.
