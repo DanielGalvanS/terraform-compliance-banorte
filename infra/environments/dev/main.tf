@@ -63,6 +63,11 @@ module "firewall" {
   red         = module.red.red_nombre
   nombre      = local.nombre
   subred_cidr = module.red.subred_cidr
+
+  # Pruebas de rendimiento entre las dos VMs: iperf3 escucha en 5201 y la
+  # latencia se mide con ping. Ambos solo dentro de la subred.
+  puertos_internos      = ["443", "5201"]
+  permitir_icmp_interno = true
 }
 
 module "kms" {
