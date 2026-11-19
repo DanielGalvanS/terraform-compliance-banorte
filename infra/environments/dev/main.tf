@@ -96,11 +96,10 @@ module "iam" {
 
   project_id = var.project_id
 
+  # Las cuentas del pipeline (ci-plan y ci-apply) no están aquí: tienen que
+  # existir antes del primer plan, así que las crea
+  # scripts/bootstrap/gcp_pipeline.sh. Ver docs/decisiones.md.
   cuentas = {
-    tf-plan = {
-      descripcion = "Genera el plan de Terraform en el pipeline"
-      roles       = ["roles/viewer"]
-    }
     app-api = {
       descripcion = "API de cumplimiento en Cloud Run"
       roles       = ["roles/cloudsql.client", "roles/logging.logWriter"]

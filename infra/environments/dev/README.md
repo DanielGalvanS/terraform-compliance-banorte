@@ -5,7 +5,7 @@ Composición de los ocho módulos para el mini data center de desarrollo.
 ## Qué despliega
 
 Una VPC con subred privada, NAT y peering de servicios privados; firewall con
-denegación por defecto; tres llaves CMEK con rotación de 90 días; cuatro
+denegación por defecto; tres llaves CMEK con rotación de 90 días; tres
 cuentas de servicio acotadas; un secreto para la contraseña de la base; una
 instancia de Cloud SQL sin IP pública; dos VM de prueba sin IP pública; y el
 bucket de evidencia con su sink de auditoría.
