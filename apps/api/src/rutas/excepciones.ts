@@ -12,6 +12,7 @@ import {
   validarSolicitud,
 } from '../model/reglasExcepciones.ts'
 import type { Catalogo } from '../repositorios/catalogoRepositorio.ts'
+import type { EvidenciaRepositorio } from '../repositorios/evidenciaRepositorio.ts'
 import type {
   Decision,
   ExcepcionesRepositorio,
@@ -50,6 +51,7 @@ const respuestasDecision = {
 export function rutasExcepciones(
   catalogo: Catalogo,
   repositorio: ExcepcionesRepositorio,
+  evidencia: EvidenciaRepositorio,
 ): FastifyPluginAsyncZod {
   /**
    * Completa la excepción con los datos del control y su estado vigente.
@@ -106,6 +108,15 @@ export function rutasExcepciones(
     if (decidida === null) {
       return { codigo: 404 as const, cuerpo: { error: 'No existe esa excepción' } }
     }
+
+    // Se registra después de decidir, no antes: la evidencia describe lo que
+    // pasó, y una decisión que falló no pasó.
+    await evidencia.registrar({
+      tipo: estado === 'Activa' ? 'excepcion.aprobada' : 'excepcion.rechazada',
+      objetoId: decidida.id,
+      actor: decidida.aprobadaPor ?? decididaPor.trim(),
+      detalle: { codigo: decidida.codigo, comentario: decidida.comentarioDecision ?? '' },
+    })
     return { codigo: 200 as const, cuerpo: completar(decidida) }
   }
 

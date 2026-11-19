@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 import { construirApp, PREFIJO } from '../src/app.ts'
 import { cargarConfig } from '../src/config.ts'
+import { evidenciaEnMemoria } from '../src/repositorios/evidenciaRepositorio.ts'
 import {
   estadoVigente,
   MAXIMO_DIAS_VIGENCIA,
@@ -148,9 +149,10 @@ describe('reglas de la decisión', () => {
 
 describe('rutas de excepciones', () => {
   let app: Awaited<ReturnType<typeof construirApp>>
+  const evidencia = evidenciaEnMemoria()
 
   beforeAll(async () => {
-    app = await construirApp({ config: cargarConfig({ NIVEL_LOG: 'fatal' }) })
+    app = await construirApp({ config: cargarConfig({ NIVEL_LOG: 'fatal' }), evidencia })
     await app.ready()
   })
 
@@ -276,6 +278,24 @@ describe('rutas de excepciones', () => {
       expect(r.json().decididaEn).not.toBeNull()
       // Aprobar no cambia la vigencia.
       expect(r.json().venceEl).toBe(solicitud.venceEl)
+    })
+
+    it('aprobar deja evidencia con quién, el código y el comentario', async () => {
+      const id = await crear()
+      const aprobada = (await aprobar(id)).json()
+      const eventos = await evidencia.listar({ objetoId: id })
+      expect(eventos).toHaveLength(1)
+      expect(eventos[0]).toMatchObject({
+        tipo: 'excepcion.aprobada',
+        actor: 'Roberto Silva',
+        detalle: { codigo: aprobada.codigo, comentario: aprobada.comentarioDecision },
+      })
+    })
+
+    it('una decisión rechazada por las reglas no deja evidencia', async () => {
+      const id = await crear()
+      await aprobar(id, { comentario: 'ok' })
+      expect(await evidencia.listar({ objetoId: id })).toEqual([])
     })
 
     it('aprobarla otra vez responde 409', async () => {

@@ -12,6 +12,10 @@ import { z } from 'zod'
 import type { Config } from './config.ts'
 import { cargarCatalogo } from './repositorios/catalogoRepositorio.ts'
 import {
+  evidenciaEnMemoria,
+  type EvidenciaRepositorio,
+} from './repositorios/evidenciaRepositorio.ts'
+import {
   excepcionesEnMemoria,
   type ExcepcionesRepositorio,
 } from './repositorios/excepcionesRepositorio.ts'
@@ -37,6 +41,7 @@ type Opciones = {
   /** Permiten inyectar otros repositorios en las pruebas. */
   hallazgos?: HallazgosRepositorio
   excepciones?: ExcepcionesRepositorio
+  evidencia?: EvidenciaRepositorio
 }
 
 /**
@@ -45,7 +50,7 @@ type Opciones = {
  * Separarlo de `main.ts` permite que las pruebas lo levanten en memoria con
  * `app.inject()`, sin abrir un puerto ni depender del entorno.
  */
-export async function construirApp({ config, hallazgos, excepciones }: Opciones) {
+export async function construirApp({ config, hallazgos, excepciones, evidencia }: Opciones) {
   const app = Fastify({ logger: { level: config.NIVEL_LOG } }).withTypeProvider<ZodTypeProvider>()
 
   // El frontend se sirve desde otro origen en desarrollo. La lista es
@@ -78,6 +83,9 @@ export async function construirApp({ config, hallazgos, excepciones }: Opciones)
   const catalogo = await cargarCatalogo(config.RUTA_CATALOGO)
   const repositorio = hallazgos ?? repositorioEnMemoria(hallazgosDeEjemplo)
   const repositorioExcepciones = excepciones ?? excepcionesEnMemoria(excepcionesDeEjemplo)
+  // Sin semilla: la evidencia de ejemplo no probaría nada, y una cadena que
+  // empieza vacía es la que se puede verificar desde el primer evento.
+  const repositorioEvidencia = evidencia ?? evidenciaEnMemoria()
 
   app.get(
     '/salud',
@@ -106,7 +114,7 @@ export async function construirApp({ config, hallazgos, excepciones }: Opciones)
   await app.register(rutasCatalogo(catalogo), { prefix: PREFIJO })
   await app.register(rutasHallazgos(repositorio), { prefix: PREFIJO })
   await app.register(rutasResumen(catalogo, repositorio), { prefix: PREFIJO })
-  await app.register(rutasExcepciones(catalogo, repositorioExcepciones), { prefix: PREFIJO })
+  await app.register(rutasExcepciones(catalogo, repositorioExcepciones, repositorioEvidencia), { prefix: PREFIJO })
   await app.register(rutasRecursos(catalogo, recursosDeEjemplo, repositorio), { prefix: PREFIJO })
 
   return app
