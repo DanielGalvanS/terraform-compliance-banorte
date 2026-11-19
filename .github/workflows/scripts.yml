@@ -4,10 +4,9 @@ name: Scripts
 # acompañan a un script pasan el día que se escriben y se rompen en silencio
 # después: nadie vuelve a ejecutarlas a mano.
 on:
+  # Sin filtro de rutas en los PR: para poder exigirlo como check obligatorio
+  # de main. Uno que no corre deja el pull request esperando para siempre.
   pull_request:
-    paths:
-      - 'scripts/**'
-      - '.github/workflows/scripts.yml'
   push:
     branches: [main]
     paths:
