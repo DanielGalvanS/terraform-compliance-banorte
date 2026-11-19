@@ -156,6 +156,9 @@ export const Excepcion = z.object({
   ambiente: Ambiente,
   justificacion: z.string(),
   solicitadaPor: z.string(),
+  aprobadorSolicitado: z
+    .string()
+    .describe('A quién se le pidió la aprobación; puede no ser quien termine decidiendo'),
   aprobadaPor: z.string().nullable(),
   solicitadaEn: z.string().describe('Fecha ISO 8601'),
   venceEl: z.string().describe('Fecha yyyy-mm-dd'),
@@ -177,6 +180,10 @@ export const NuevaExcepcion = z.object({
   justificacion: z.string(),
   venceEl: z.string(),
   aprobador: z.string().min(1).describe('A quién se le pide la aprobación'),
+  // Viene en el cuerpo porque aún no hay autenticación. Cuando exista OIDC
+  // (ver «Autenticación» en el README) saldrá del token: dejar que el cliente
+  // declare quién es permitiría solicitar a nombre de otro.
+  solicitante: z.string().min(1).describe('Quién solicita la excepción'),
   planRemediacion: z.string().optional(),
 })
 

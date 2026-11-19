@@ -546,6 +546,8 @@ export interface paths {
                                 ambiente: "Dev" | "QA" | "Prod";
                                 justificacion: string;
                                 solicitadaPor: string;
+                                /** @description A quién se le pidió la aprobación; puede no ser quien termine decidiendo */
+                                aprobadorSolicitado: string;
                                 aprobadaPor: string | null;
                                 /** @description Fecha ISO 8601 */
                                 solicitadaEn: string;
@@ -583,6 +585,8 @@ export interface paths {
                         venceEl: string;
                         /** @description A quién se le pide la aprobación */
                         aprobador: string;
+                        /** @description Quién solicita la excepción */
+                        solicitante: string;
                         planRemediacion?: string;
                     };
                 };
@@ -610,6 +614,8 @@ export interface paths {
                             ambiente: "Dev" | "QA" | "Prod";
                             justificacion: string;
                             solicitadaPor: string;
+                            /** @description A quién se le pidió la aprobación; puede no ser quien termine decidiendo */
+                            aprobadorSolicitado: string;
                             aprobadaPor: string | null;
                             /** @description Fecha ISO 8601 */
                             solicitadaEn: string;

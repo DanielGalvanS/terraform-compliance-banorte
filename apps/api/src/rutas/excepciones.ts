@@ -88,8 +88,10 @@ export function rutasExcepciones(
           recurso: peticion.body.recurso,
           ambiente: peticion.body.ambiente,
           justificacion: peticion.body.justificacion.trim(),
-          solicitadaPor: 'Ana Martínez',
-          // Se registra a quién se le pide, no quién aprobó: aún nadie lo hizo.
+          // Del cuerpo mientras no haya OIDC; después, del token.
+          solicitadaPor: peticion.body.solicitante.trim(),
+          aprobadorSolicitado: peticion.body.aprobador.trim(),
+          // A quién se le pide no es quién aprobó: aún nadie lo hizo.
           aprobadaPor: null,
           solicitadaEn: new Date().toISOString(),
           venceEl: peticion.body.venceEl,

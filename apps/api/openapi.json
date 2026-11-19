@@ -1288,6 +1288,10 @@
                           "solicitadaPor": {
                             "type": "string"
                           },
+                          "aprobadorSolicitado": {
+                            "type": "string",
+                            "description": "A quién se le pidió la aprobación; puede no ser quien termine decidiendo"
+                          },
                           "aprobadaPor": {
                             "nullable": true,
                             "type": "string"
@@ -1326,6 +1330,7 @@
                           "ambiente",
                           "justificacion",
                           "solicitadaPor",
+                          "aprobadorSolicitado",
                           "aprobadaPor",
                           "solicitadaEn",
                           "venceEl",
@@ -1386,6 +1391,11 @@
                     "minLength": 1,
                     "description": "A quién se le pide la aprobación"
                   },
+                  "solicitante": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Quién solicita la excepción"
+                  },
                   "planRemediacion": {
                     "type": "string"
                   }
@@ -1396,7 +1406,8 @@
                   "ambiente",
                   "justificacion",
                   "venceEl",
-                  "aprobador"
+                  "aprobador",
+                  "solicitante"
                 ]
               }
             }
@@ -1455,6 +1466,10 @@
                     "solicitadaPor": {
                       "type": "string"
                     },
+                    "aprobadorSolicitado": {
+                      "type": "string",
+                      "description": "A quién se le pidió la aprobación; puede no ser quien termine decidiendo"
+                    },
                     "aprobadaPor": {
                       "nullable": true,
                       "type": "string"
@@ -1493,6 +1508,7 @@
                     "ambiente",
                     "justificacion",
                     "solicitadaPor",
+                    "aprobadorSolicitado",
                     "aprobadaPor",
                     "solicitadaEn",
                     "venceEl",

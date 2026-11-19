@@ -101,6 +101,7 @@ describe('rutas de excepciones', () => {
     justificacion: 'Ventana de migración coordinada con el equipo de seguridad.',
     venceEl: new Date(Date.now() + 20 * 86_400_000).toISOString().slice(0, 10),
     aprobador: 'Roberto Silva',
+    solicitante: 'Carlos Vega',
   }
 
   it('completa el control desde el catálogo', async () => {
@@ -128,6 +129,16 @@ describe('rutas de excepciones', () => {
     expect(r.json().estado).toBe('Pendiente')
     expect(r.json().aprobadaPor).toBeNull()
     expect(r.json().codigo).toMatch(/^EXC-\d+$/)
+  })
+
+  it('la solicitud guarda a quién se le pidió la aprobación', async () => {
+    const r = await app.inject({
+      method: 'POST',
+      url: `${PREFIJO}/excepciones`,
+      payload: solicitud,
+    })
+    expect(r.json().aprobadorSolicitado).toBe('Roberto Silva')
+    expect(r.json().solicitadaPor).toBe('Carlos Vega')
   })
 
   it('la severidad la decide el control, no quien solicita', async () => {
