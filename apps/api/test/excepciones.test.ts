@@ -232,4 +232,83 @@ describe('rutas de excepciones', () => {
       .excepciones.length
     expect(despues).toBe(antes + 1)
   })
+
+  describe('decisión', () => {
+    const crear = async () =>
+      (
+        await app.inject({ method: 'POST', url: `${PREFIJO}/excepciones`, payload: solicitud })
+      ).json().id as string
+
+    const aprobar = (id: string, cuerpo: Record<string, string> = {}) =>
+      app.inject({
+        method: 'POST',
+        url: `${PREFIJO}/excepciones/${id}/aprobar`,
+        payload: {
+          aprobadaPor: 'Roberto Silva',
+          comentario: 'Riesgo aceptado hasta la ventana de cambio',
+          ...cuerpo,
+        },
+      })
+
+    it('GET por id devuelve la excepción completa', async () => {
+      const id = await crear()
+      const r = await app.inject({ method: 'GET', url: `${PREFIJO}/excepciones/${id}` })
+      expect(r.statusCode).toBe(200)
+      expect(r.json().id).toBe(id)
+      expect(r.json().controlNombre).not.toBe('Control desconocido')
+      expect(r.json().estado).toBe('Pendiente')
+    })
+
+    it('GET por id responde 404 si no existe', async () => {
+      const r = await app.inject({
+        method: 'GET',
+        url: `${PREFIJO}/excepciones/00000000-0000-4000-8000-000000000000`,
+      })
+      expect(r.statusCode).toBe(404)
+    })
+
+    it('aprobar una pendiente la activa y guarda quién y por qué', async () => {
+      const r = await aprobar(await crear())
+      expect(r.statusCode).toBe(200)
+      expect(r.json().estado).toBe('Activa')
+      expect(r.json().aprobadaPor).toBe('Roberto Silva')
+      expect(r.json().comentarioDecision).toBe('Riesgo aceptado hasta la ventana de cambio')
+      expect(r.json().decididaEn).not.toBeNull()
+      // Aprobar no cambia la vigencia.
+      expect(r.json().venceEl).toBe(solicitud.venceEl)
+    })
+
+    it('aprobarla otra vez responde 409', async () => {
+      const id = await crear()
+      await aprobar(id)
+      expect((await aprobar(id)).statusCode).toBe(409)
+    })
+
+    it('rechazar una pendiente la deja Rechazada', async () => {
+      const r = await app.inject({
+        method: 'POST',
+        url: `${PREFIJO}/excepciones/${await crear()}/rechazar`,
+        payload: { rechazadaPor: 'Roberto Silva', comentario: 'Hay alternativa sin excepción' },
+      })
+      expect(r.statusCode).toBe(200)
+      expect(r.json().estado).toBe('Rechazada')
+    })
+
+    it('el solicitante no puede aprobar su propia excepción', async () => {
+      const r = await aprobar(await crear(), { aprobadaPor: ' carlos vega' })
+      expect(r.statusCode).toBe(422)
+      expect(r.json().motivos.map((m: { campo: string }) => m.campo)).toEqual(['decididaPor'])
+    })
+
+    it('una vencida de la semilla no se puede aprobar', async () => {
+      const vencida = (
+        await app.inject({ method: 'GET', url: `${PREFIJO}/excepciones?estado=Vencida` })
+      ).json().excepciones[0]
+      expect((await aprobar(vencida.id)).statusCode).toBe(409)
+    })
+
+    it('un id que no es UUID responde 400', async () => {
+      expect((await aprobar('no-es-uuid')).statusCode).toBe(400)
+    })
+  })
 })
