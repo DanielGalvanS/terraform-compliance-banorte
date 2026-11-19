@@ -13,3 +13,4 @@ Un directorio por módulo. Cada uno expone `main.tf`, `variables.tf`,
 | `sql`     | listo      | Cloud SQL PostgreSQL: IP privada, CMEK, backups  |
 | `compute` | listo      | VM de pruebas, sin IP pública, acceso por IAP    |
 | `logging` | listo      | Sinks de auditoría y retención                   |
+| `costos`  | listo      | Presupuesto mensual y avisos de gasto por correo |
