@@ -327,6 +327,18 @@ describe('rutas de excepciones', () => {
       expect((await aprobar(vencida.id)).statusCode).toBe(409)
     })
 
+    it('decidir una de la semilla no la cambia en otra instancia de la app', async () => {
+      const pendiente = (
+        await app.inject({ method: 'GET', url: `${PREFIJO}/excepciones?estado=Pendiente` })
+      ).json().excepciones.find((e: { codigo: string }) => e.codigo === 'EXC-1044')
+      expect((await aprobar(pendiente.id)).statusCode).toBe(200)
+
+      const otra = await construirApp({ config: cargarConfig({ NIVEL_LOG: 'fatal' }) })
+      const r = await otra.inject({ method: 'GET', url: `${PREFIJO}/excepciones/${pendiente.id}` })
+      expect(r.json().estado).toBe('Pendiente')
+      await otra.close()
+    })
+
     it('un id que no es UUID responde 400', async () => {
       expect((await aprobar('no-es-uuid')).statusCode).toBe(400)
     })
