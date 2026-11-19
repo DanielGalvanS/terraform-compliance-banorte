@@ -35,6 +35,8 @@ resource "google_project_service" "apis" {
     "logging.googleapis.com",
     "storage.googleapis.com",
     "iap.googleapis.com",
+    "monitoring.googleapis.com",
+    "billingbudgets.googleapis.com",
   ])
 
   project            = var.project_id
@@ -183,6 +185,21 @@ module "logging" {
 
   # En dev la retención no se bloquea: es irreversible y aquí solo estorbaría.
   bloquear_retencion = false
+
+  depends_on = [google_project_service.apis]
+}
+
+# Red de seguridad de gasto. El corte real es destruir el ambiente al terminar
+# cada sesión; el presupuesto avisa cuando eso se olvida.
+module "costos" {
+  source = "../../modules/costos"
+
+  project_id         = var.project_id
+  nombre             = local.nombre
+  cuenta_facturacion = var.cuenta_facturacion
+  monto_mensual      = var.presupuesto_mensual
+  moneda             = var.moneda_facturacion
+  correos            = var.correos_alertas_costo
 
   depends_on = [google_project_service.apis]
 }

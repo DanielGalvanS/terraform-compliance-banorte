@@ -36,3 +36,25 @@ variable "centro_costos" {
   description = "Centro de costos, para la etiqueta obligatoria."
   type        = string
 }
+
+variable "cuenta_facturacion" {
+  description = "Cuenta de facturación del proyecto, para el presupuesto (XXXXXX-XXXXXX-XXXXXX)."
+  type        = string
+}
+
+variable "presupuesto_mensual" {
+  description = "Tope mensual de gasto de dev, en unidades enteras de la moneda."
+  type        = number
+  default     = 50
+}
+
+variable "moneda_facturacion" {
+  description = "Moneda de la cuenta de facturación."
+  type        = string
+  default     = "USD"
+}
+
+variable "correos_alertas_costo" {
+  description = "Correos del equipo que reciben los avisos de gasto."
+  type        = list(string)
+}

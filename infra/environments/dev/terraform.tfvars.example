@@ -5,3 +5,9 @@
 project_id       = "mi-proyecto-dev"
 bucket_evidencia = "mi-proyecto-dev-evidencia"
 centro_costos    = "cc-0000"
+
+# Presupuesto y avisos de gasto (módulo costos).
+cuenta_facturacion    = "000000-000000-000000"
+presupuesto_mensual   = 50
+moneda_facturacion    = "USD"
+correos_alertas_costo = ["equipo@example.com"]

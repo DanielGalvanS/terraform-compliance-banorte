@@ -20,4 +20,9 @@ terraform {
 provider "google" {
   project = var.project_id
   region  = var.region
+
+  # La API de presupuestos exige un proyecto que pague su cuota; sin esto
+  # responde 403 aunque los permisos sobre la cuenta de facturación estén bien.
+  user_project_override = true
+  billing_project       = var.project_id
 }
