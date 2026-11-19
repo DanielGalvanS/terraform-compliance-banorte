@@ -15,7 +15,7 @@ Cómo levantar el ambiente desde cero, y cómo destruirlo.
 | `terraform` ≥ 1.9 | Versión fijada en los módulos |
 | `conftest` 0.71.1 | Para correr la compuerta en local |
 | `gcloud` autenticado | `gcloud auth application-default login` |
-| Rol `roles/billing.costsManager` en la cuenta de facturación | El módulo `costos` crea el presupuesto en la cuenta, no en el proyecto |
+| Rol `roles/billing.costsManager` en la cuenta de facturación | El módulo `costos` crea el presupuesto en la cuenta, no en el proyecto. Opcional: sin `cuenta_facturacion` el presupuesto no se crea |
 
 ## Paso 1: el bucket del estado
 

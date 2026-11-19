@@ -38,8 +38,9 @@ variable "centro_costos" {
 }
 
 variable "cuenta_facturacion" {
-  description = "Cuenta de facturación del proyecto, para el presupuesto (XXXXXX-XXXXXX-XXXXXX)."
+  description = "Cuenta de facturación del proyecto, para el presupuesto (XXXXXX-XXXXXX-XXXXXX). Sin ella no se crea el presupuesto."
   type        = string
+  default     = null
 }
 
 variable "presupuesto_mensual" {
@@ -55,6 +56,7 @@ variable "moneda_facturacion" {
 }
 
 variable "correos_alertas_costo" {
-  description = "Correos del equipo que reciben los avisos de gasto."
+  description = "Correos del equipo que reciben los avisos de gasto. Sin ellos no se crea el presupuesto."
   type        = list(string)
+  default     = []
 }

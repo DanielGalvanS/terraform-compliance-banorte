@@ -41,6 +41,24 @@ provider "google" {
 
 Sin eso, la API de presupuestos responde `403` aunque los permisos estén bien.
 
+**Ese ajuste va en un proveedor con alias, no en el principal.** Con
+`user_project_override` cada llamada exige `serviceusage.services.use`, que
+`roles/viewer` no incluye: la cuenta `tf-plan` del pipeline dejaría de poder
+planear cualquier recurso. Así lo hace `environments/dev`:
+
+```hcl
+module "costos" {
+  source    = "../../modules/costos"
+  providers = { google = google.facturacion }
+  # ...
+}
+```
+
+**El plan también necesita leer el presupuesto.** Una vez creado, cada
+`terraform plan` lo consulta. La cuenta que planea necesita
+`roles/billing.viewer` sobre la cuenta de facturación; se otorga a mano, porque
+un módulo de proyecto no puede dar permisos sobre la cuenta de facturación.
+
 ## Uso
 
 ```hcl

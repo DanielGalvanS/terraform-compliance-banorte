@@ -191,8 +191,17 @@ module "logging" {
 
 # Red de seguridad de gasto. El corte real es destruir el ambiente al terminar
 # cada sesión; el presupuesto avisa cuando eso se olvida.
+#
+# Es opcional: sin cuenta de facturación ni correos no se crea, y el resto del
+# ambiente se planea igual. Así no se rompe el plan de quien no tiene acceso a
+# la cuenta de facturación.
 module "costos" {
   source = "../../modules/costos"
+  count  = var.cuenta_facturacion != null && length(var.correos_alertas_costo) > 0 ? 1 : 0
+
+  providers = {
+    google = google.facturacion
+  }
 
   project_id         = var.project_id
   nombre             = local.nombre
