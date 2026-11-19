@@ -215,6 +215,109 @@ roles_apply() {
   rol_en_bucket_estado "${CUENTA_APPLY}" roles/storage.objectUser
 }
 
+# --- 6. Pool de Workload Identity ---------------------------------------------
+
+POOL="github"
+PROVEEDOR="github"
+
+crear_pool() {
+  titulo "6. Pool de Workload Identity '${POOL}'"
+  if existe gcloud iam workload-identity-pools describe "${POOL}" \
+    --project="${PROJECT_ID}" --location=global; then
+    echo "    Ya existe."
+  else
+    ejecutar gcloud iam workload-identity-pools create "${POOL}" \
+      --project="${PROJECT_ID}" \
+      --location=global \
+      --display-name="GitHub Actions"
+  fi
+}
+
+# --- 7. Proveedor OIDC --------------------------------------------------------
+
+crear_proveedor() {
+  titulo "7. Proveedor OIDC '${PROVEEDOR}' restringido a ${REPO}"
+  local mapeo="google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.ref=assertion.ref,attribute.environment=assertion.environment"
+  # OBLIGATORIA. Sin esta condición, cualquier repositorio de GitHub podría
+  # pedir tokens a este pool: el emisor es el mismo para todos.
+  local condicion="assertion.repository=='${REPO}'"
+
+  if existe gcloud iam workload-identity-pools providers describe "${PROVEEDOR}" \
+    --project="${PROJECT_ID}" --location=global --workload-identity-pool="${POOL}"; then
+    # Si ya existía se reescriben el mapeo y la condición: así un proveedor
+    # creado a mano sin la condición queda corregido.
+    echo "    Ya existe; se reafirman el mapeo y la condición."
+    ejecutar gcloud iam workload-identity-pools providers update-oidc "${PROVEEDOR}" \
+      --project="${PROJECT_ID}" \
+      --location=global \
+      --workload-identity-pool="${POOL}" \
+      --attribute-mapping="${mapeo}" \
+      --attribute-condition="${condicion}"
+  else
+    ejecutar gcloud iam workload-identity-pools providers create-oidc "${PROVEEDOR}" \
+      --project="${PROJECT_ID}" \
+      --location=global \
+      --workload-identity-pool="${POOL}" \
+      --display-name="GitHub Actions" \
+      --issuer-uri="https://token.actions.githubusercontent.com" \
+      --attribute-mapping="${mapeo}" \
+      --attribute-condition="${condicion}"
+  fi
+}
+
+# --- 8. Quién puede hacerse pasar por cada cuenta -----------------------------
+
+numero_proyecto() {
+  if [[ "${SIMULAR}" -eq 1 ]]; then
+    echo "NUMERO_DEL_PROYECTO"
+  else
+    gcloud projects describe "${PROJECT_ID}" --format='value(projectNumber)'
+  fi
+}
+
+permitir_suplantacion() {
+  local correo="$1" miembro="$2"
+  echo "    roles/iam.workloadIdentityUser → ${correo%%@*}"
+  echo "      para ${miembro}"
+  ejecutar_callado gcloud iam service-accounts add-iam-policy-binding "${correo}" \
+    --project="${PROJECT_ID}" \
+    --role=roles/iam.workloadIdentityUser \
+    --member="${miembro}"
+}
+
+vincular_cuentas() {
+  titulo "8. Quién puede usar cada cuenta"
+  local base="principalSet://iam.googleapis.com/projects/${NUMERO}/locations/global/workloadIdentityPools/${POOL}"
+
+  # ci-plan: cualquier job del repositorio, incluidos los de pull request.
+  permitir_suplantacion "${CUENTA_PLAN}" "${base}/attribute.repository/${REPO}"
+
+  # ci-apply: SOLO los jobs que corren dentro del environment "dev" de GitHub,
+  # es decir, los que pasaron por su aprobación. Un pull request cualquiera no
+  # puede obtener la cuenta de escritura. Que el job sea de este repositorio
+  # ya lo garantiza la condición del proveedor (paso 7).
+  permitir_suplantacion "${CUENTA_APPLY}" "${base}/attribute.environment/dev"
+}
+
+# --- 9. Variables para GitHub -------------------------------------------------
+
+imprimir_variables() {
+  titulo "9. Listo"
+  cat <<EOF
+
+Configura en GitHub → Settings → Secrets and variables → Actions → Variables:
+
+  GCP_WORKLOAD_IDENTITY_PROVIDER = projects/${NUMERO}/locations/global/workloadIdentityPools/${POOL}/providers/${PROVEEDOR}
+  GCP_SERVICE_ACCOUNT_PLAN       = ${CUENTA_PLAN}
+  GCP_SERVICE_ACCOUNT_APPLY      = ${CUENTA_APPLY}
+  GCP_PROJECT_ID                 = ${PROJECT_ID}
+  TF_STATE_BUCKET                = ${BUCKET_ESTADO}
+
+Y a mano: BUCKET_EVIDENCIA y CENTRO_COSTOS.
+Crea también el environment "dev" en Settings → Environments.
+EOF
+}
+
 # --- Principal ----------------------------------------------------------------
 
 main() {
@@ -228,6 +331,12 @@ main() {
   crear_cuentas
   roles_plan
   roles_apply
+  crear_pool
+  crear_proveedor
+
+  NUMERO="$(numero_proyecto)"
+  vincular_cuentas
+  imprimir_variables
 }
 
 main
