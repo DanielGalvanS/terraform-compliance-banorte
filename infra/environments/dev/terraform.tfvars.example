@@ -6,8 +6,12 @@ project_id       = "mi-proyecto-dev"
 bucket_evidencia = "mi-proyecto-dev-evidencia"
 centro_costos    = "cc-0000"
 
-# Presupuesto y avisos de gasto (módulo costos).
-cuenta_facturacion    = "000000-000000-000000"
-presupuesto_mensual   = 50
-moneda_facturacion    = "USD"
-correos_alertas_costo = ["equipo@example.com"]
+# Presupuesto y avisos de gasto (módulo costos). Opcional y comentado a
+# propósito: en cuanto se definen, el presupuesto pasa a existir y entonces
+# cada `terraform plan` lo consulta, así que la cuenta que planea necesita
+# roles/billing.viewer sobre la cuenta de facturación. Descoméntalo cuando ese
+# permiso esté otorgado (ver infra/modules/costos/README.md).
+# cuenta_facturacion    = "000000-000000-000000"
+# presupuesto_mensual   = 50
+# moneda_facturacion    = "USD"
+# correos_alertas_costo = ["equipo@example.com"]

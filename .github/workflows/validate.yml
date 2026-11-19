@@ -67,3 +67,41 @@ jobs:
             fi
           done
           exit "${hubo_error}"
+
+  pruebas_modulos:
+    name: Pruebas de módulos
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      # Un módulo con pruebas que nadie ejecuta es un módulo sin pruebas: pasan
+      # el día que se escriben y se rompen en silencio después. Los proveedores
+      # van simulados (mock_provider), así que no hace falta tocar GCP.
+      - name: terraform test en cada módulo con pruebas
+        run: |
+          set -euo pipefail
+          hubo_error=0
+          encontrados=0
+          for dir in infra/modules/*/; do
+            # find en vez de un glob: su resultado no depende del shell.
+            [ -n "$(find "${dir}tests" -maxdepth 1 -name '*.tftest.hcl' -print -quit 2>/dev/null)" ] || continue
+            encontrados=$((encontrados + 1))
+            echo "::group::${dir}"
+            if terraform -chdir="${dir}" init -backend=false -input=false -no-color \
+               && terraform -chdir="${dir}" test -no-color; then
+              echo "::endgroup::"
+            else
+              echo "::endgroup::"
+              echo "::error title=terraform test::Falló en ${dir}"
+              hubo_error=1
+            fi
+          done
+          # Si el bucle no encuentra nada, el job pasaría en verde sin haber
+          # probado nada. Mejor decirlo que fingir que se comprobó algo.
+          echo "Módulos con pruebas: ${encontrados}"
+          exit "${hubo_error}"
