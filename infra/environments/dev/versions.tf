@@ -27,7 +27,7 @@ provider "google" {
 #
 # Va en un alias y no en el proveedor principal a propósito: con
 # user_project_override, cada llamada exige serviceusage.services.use, que
-# roles/viewer no incluye, y el plan del pipeline (cuenta tf-plan) fallaría en
+# roles/viewer no incluye, y el plan del pipeline (cuenta ci-plan) fallaría en
 # todos los recursos.
 provider "google" {
   alias                 = "facturacion"

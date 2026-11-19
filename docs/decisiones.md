@@ -176,7 +176,29 @@ Con la lista en el catálogo hay un solo origen, y
 coincidan en los cuatro sitios donde viven: catálogo, política, módulos de
 Terraform y frontend.
 
-## 17. El presupuesto usa un proveedor con alias, no el principal
+## 17. Las identidades del pipeline las crea el arranque, no Terraform
+
+**Decisión.** Las cuentas `ci-plan` y `ci-apply`, el pool de Workload Identity
+y su proveedor OIDC los crea `scripts/bootstrap/gcp_pipeline.sh`, una vez y a
+mano. `module "iam"` ya no crea la cuenta `tf-plan`.
+
+**Por qué.** Es el huevo y la gallina: el pipeline necesita esas identidades
+para correr su **primer** plan, así que no pueden ser recursos del mismo
+Terraform que el pipeline aplica. Además, una cuenta que el pipeline pudiera
+modificar sería una cuenta que el pipeline puede ampliarse a sí mismo. Pasa lo
+mismo con el bucket del estado.
+
+`ci-apply` lleva `roles/editor` y administradores de IAM, que `module "iam"`
+rechaza. No es una contradicción: esa regla es para las cuentas de la
+plataforma. La cuenta que aplica Terraform necesita crear lo que el código
+declara, y a cambio solo la pueden usar jobs dentro del environment `dev` de
+GitHub, que es donde vive la aprobación.
+
+**Si se cambiara,** y las cuentas volvieran a Terraform, un ambiente nuevo no
+podría desplegarse desde el pipeline, y un `terraform destroy` borraría la
+identidad con la que se corre el propio destroy a mitad de camino.
+
+## 18. El presupuesto usa un proveedor con alias, no el principal
 
 **Decisión.** El módulo `costos` recibe un proveedor `google.facturacion` con
 `user_project_override` y `billing_project`; el proveedor principal de
@@ -187,7 +209,7 @@ Terraform y frontend.
 estén bien. Lo directo sería ponerlo en el proveedor principal, y ahí está la
 trampa: con esa opción **cada** llamada del proveedor exige
 `serviceusage.services.use`, un permiso que `roles/viewer` no incluye. La
-cuenta `tf-plan` del pipeline dejaría de poder planear **cualquier** recurso,
+cuenta `ci-plan` del pipeline dejaría de poder planear **cualquier** recurso,
 no solo el presupuesto. Acotarlo a un alias deja el resto del ambiente
 intacto.
 

@@ -43,7 +43,7 @@ Sin eso, la API de presupuestos responde `403` aunque los permisos estén bien.
 
 **Ese ajuste va en un proveedor con alias, no en el principal.** Con
 `user_project_override` cada llamada exige `serviceusage.services.use`, que
-`roles/viewer` no incluye: la cuenta `tf-plan` del pipeline dejaría de poder
+`roles/viewer` no incluye: la cuenta `ci-plan` del pipeline dejaría de poder
 planear cualquier recurso. Así lo hace `environments/dev`:
 
 ```hcl

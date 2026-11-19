@@ -47,9 +47,31 @@ de incumplimientos que luego se reporta al auditor.
 | GET | `/api/v1/hallazgos` | Hallazgos, con filtros |
 | GET | `/api/v1/hallazgos/:id` | Un hallazgo |
 | POST | `/api/v1/hallazgos` | Registra uno; acepta `Idempotency-Key` |
+| GET | `/api/v1/excepciones` | Excepciones, con filtros; el estado se deriva de la fecha |
+| POST | `/api/v1/excepciones` | Solicita una; siempre nace `Pendiente` |
+| GET | `/api/v1/excepciones/:id` | Una excepción |
+| POST | `/api/v1/excepciones/:id/aprobar` | La aprueba: pasa a `Activa` |
+| POST | `/api/v1/excepciones/:id/rechazar` | La rechaza: pasa a `Rechazada` |
 
-Los demás del diseño —decisiones, aprobaciones, excepciones, evidencia— siguen
-pendientes.
+Los demás del diseño —decisiones del agente, aprobaciones de despliegue,
+evidencia— siguen pendientes.
+
+## Decidir una excepción
+
+Aprobar y rechazar son `POST` y no un `PATCH` del estado: son acciones con
+reglas, no la edición de un campo. Las reglas viven en
+`src/model/reglasExcepciones.ts` (`validarDecision`) para probarlas sin
+servidor.
+
+| Regla | Respuesta | Por qué |
+| --- | --- | --- |
+| Solo se decide una excepción **Pendiente y vigente** | 409 | Decidir dos veces, o aprobar algo vencido, rompe la trazabilidad |
+| Quien decide no puede ser quien la solicitó (sin distinguir mayúsculas ni espacios) | 422 | Segregación de funciones: nadie se aprueba a sí mismo |
+| El comentario es obligatorio, de al menos 10 caracteres | 422 | La decisión sin fundamento no es evidencia |
+| Aprobar no cambia `venceEl` | — | La vigencia la acotó la solicitud (máximo 90 días) |
+
+Quien solicita y quien decide llegan hoy en el cuerpo de la petición. Cuando
+exista OIDC saldrán del token.
 
 ## Autenticación
 

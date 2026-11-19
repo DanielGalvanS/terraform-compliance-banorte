@@ -546,7 +546,14 @@ export interface paths {
                                 ambiente: "Dev" | "QA" | "Prod";
                                 justificacion: string;
                                 solicitadaPor: string;
+                                /** @description A quién se le pidió la aprobación; puede no ser quien termine decidiendo */
+                                aprobadorSolicitado: string;
+                                /** @description Quién decidió, aprobando o rechazando; nulo mientras está pendiente */
                                 aprobadaPor: string | null;
+                                /** @description Fundamento de la decisión; nulo mientras está pendiente */
+                                comentarioDecision: string | null;
+                                /** @description Fecha ISO 8601; nula mientras está pendiente */
+                                decididaEn: string | null;
                                 /** @description Fecha ISO 8601 */
                                 solicitadaEn: string;
                                 /** @description Fecha yyyy-mm-dd */
@@ -583,6 +590,8 @@ export interface paths {
                         venceEl: string;
                         /** @description A quién se le pide la aprobación */
                         aprobador: string;
+                        /** @description Quién solicita la excepción */
+                        solicitante: string;
                         planRemediacion?: string;
                     };
                 };
@@ -610,7 +619,14 @@ export interface paths {
                             ambiente: "Dev" | "QA" | "Prod";
                             justificacion: string;
                             solicitadaPor: string;
+                            /** @description A quién se le pidió la aprobación; puede no ser quien termine decidiendo */
+                            aprobadorSolicitado: string;
+                            /** @description Quién decidió, aprobando o rechazando; nulo mientras está pendiente */
                             aprobadaPor: string | null;
+                            /** @description Fundamento de la decisión; nulo mientras está pendiente */
+                            comentarioDecision: string | null;
+                            /** @description Fecha ISO 8601; nula mientras está pendiente */
+                            decididaEn: string | null;
                             /** @description Fecha ISO 8601 */
                             solicitadaEn: string;
                             /** @description Fecha yyyy-mm-dd */
@@ -618,6 +634,332 @@ export interface paths {
                             /** @enum {string} */
                             estado: "Pendiente" | "Activa" | "Vencida" | "Rechazada" | "Revocada";
                             planRemediacion: string | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                            motivos: {
+                                campo: string;
+                                mensaje: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/excepciones/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Una excepción por identificador
+         * @description Con el control completado desde el catálogo y el estado derivado de la fecha, igual que en la lista.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            id: string;
+                            /** @description Identificador legible, por ejemplo EXC-1048 */
+                            codigo: string;
+                            /** @description Código del catálogo, por ejemplo CO-NET-01 */
+                            control: string;
+                            controlNombre: string;
+                            marco: string;
+                            /** @enum {string} */
+                            severidad: "Crítica" | "Alta" | "Media" | "Baja";
+                            recurso: string;
+                            /** @enum {string} */
+                            ambiente: "Dev" | "QA" | "Prod";
+                            justificacion: string;
+                            solicitadaPor: string;
+                            /** @description A quién se le pidió la aprobación; puede no ser quien termine decidiendo */
+                            aprobadorSolicitado: string;
+                            /** @description Quién decidió, aprobando o rechazando; nulo mientras está pendiente */
+                            aprobadaPor: string | null;
+                            /** @description Fundamento de la decisión; nulo mientras está pendiente */
+                            comentarioDecision: string | null;
+                            /** @description Fecha ISO 8601; nula mientras está pendiente */
+                            decididaEn: string | null;
+                            /** @description Fecha ISO 8601 */
+                            solicitadaEn: string;
+                            /** @description Fecha yyyy-mm-dd */
+                            venceEl: string;
+                            /** @enum {string} */
+                            estado: "Pendiente" | "Activa" | "Vencida" | "Rechazada" | "Revocada";
+                            planRemediacion: string | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/excepciones/{id}/aprobar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Aprueba una excepción
+         * @description Solo una excepción pendiente y vigente se puede decidir; si ya se decidió o venció responde 409. Quien la solicitó no puede aprobarla y el comentario es obligatorio (422). Aprobar no cambia la vigencia: la acotó la solicitud.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description Quién aprueba; saldrá del token con OIDC */
+                        aprobadaPor: string;
+                        /** @description Fundamento de la decisión */
+                        comentario: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            id: string;
+                            /** @description Identificador legible, por ejemplo EXC-1048 */
+                            codigo: string;
+                            /** @description Código del catálogo, por ejemplo CO-NET-01 */
+                            control: string;
+                            controlNombre: string;
+                            marco: string;
+                            /** @enum {string} */
+                            severidad: "Crítica" | "Alta" | "Media" | "Baja";
+                            recurso: string;
+                            /** @enum {string} */
+                            ambiente: "Dev" | "QA" | "Prod";
+                            justificacion: string;
+                            solicitadaPor: string;
+                            /** @description A quién se le pidió la aprobación; puede no ser quien termine decidiendo */
+                            aprobadorSolicitado: string;
+                            /** @description Quién decidió, aprobando o rechazando; nulo mientras está pendiente */
+                            aprobadaPor: string | null;
+                            /** @description Fundamento de la decisión; nulo mientras está pendiente */
+                            comentarioDecision: string | null;
+                            /** @description Fecha ISO 8601; nula mientras está pendiente */
+                            decididaEn: string | null;
+                            /** @description Fecha ISO 8601 */
+                            solicitadaEn: string;
+                            /** @description Fecha yyyy-mm-dd */
+                            venceEl: string;
+                            /** @enum {string} */
+                            estado: "Pendiente" | "Activa" | "Vencida" | "Rechazada" | "Revocada";
+                            planRemediacion: string | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                            motivos: {
+                                campo: string;
+                                mensaje: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/excepciones/{id}/rechazar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rechaza una excepción
+         * @description Mismas reglas que aprobar: solo una pendiente y vigente (409), nadie decide su propia solicitud y el rechazo también exige fundamento (422).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description Quién rechaza; saldrá del token con OIDC */
+                        rechazadaPor: string;
+                        /** @description Fundamento de la decisión */
+                        comentario: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            id: string;
+                            /** @description Identificador legible, por ejemplo EXC-1048 */
+                            codigo: string;
+                            /** @description Código del catálogo, por ejemplo CO-NET-01 */
+                            control: string;
+                            controlNombre: string;
+                            marco: string;
+                            /** @enum {string} */
+                            severidad: "Crítica" | "Alta" | "Media" | "Baja";
+                            recurso: string;
+                            /** @enum {string} */
+                            ambiente: "Dev" | "QA" | "Prod";
+                            justificacion: string;
+                            solicitadaPor: string;
+                            /** @description A quién se le pidió la aprobación; puede no ser quien termine decidiendo */
+                            aprobadorSolicitado: string;
+                            /** @description Quién decidió, aprobando o rechazando; nulo mientras está pendiente */
+                            aprobadaPor: string | null;
+                            /** @description Fundamento de la decisión; nulo mientras está pendiente */
+                            comentarioDecision: string | null;
+                            /** @description Fecha ISO 8601; nula mientras está pendiente */
+                            decididaEn: string | null;
+                            /** @description Fecha ISO 8601 */
+                            solicitadaEn: string;
+                            /** @description Fecha yyyy-mm-dd */
+                            venceEl: string;
+                            /** @enum {string} */
+                            estado: "Pendiente" | "Activa" | "Vencida" | "Rechazada" | "Revocada";
+                            planRemediacion: string | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
                         };
                     };
                 };

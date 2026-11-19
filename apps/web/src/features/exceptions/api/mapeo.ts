@@ -12,7 +12,8 @@ export function desdeApi(excepcion: ExcepcionApi): ComplianceException {
     environment: excepcion.ambiente,
     severity: excepcion.severidad,
     justification: excepcion.justificacion,
-    approver: excepcion.aprobadaPor ?? 'Pendiente de asignar',
+    // Mientras nadie decide, se muestra a quién se le pidió la aprobación.
+    approver: excepcion.aprobadaPor ?? excepcion.aprobadorSolicitado,
     requestedBy: excepcion.solicitadaPor,
     requestedAtLabel: new Date(excepcion.solicitadaEn).toLocaleDateString('es-MX', {
       day: 'numeric',

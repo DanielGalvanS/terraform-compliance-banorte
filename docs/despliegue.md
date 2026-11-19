@@ -20,16 +20,16 @@ Cómo levantar el ambiente desde cero, y cómo destruirlo.
 ## Paso 1: el bucket del estado
 
 Es el huevo y la gallina del estado remoto: Terraform necesita un bucket que
-Terraform todavía no puede crear. Se hace una vez, a mano.
+Terraform todavía no puede crear. **Lo crea el script de arranque**, junto con
+las identidades del pipeline:
 
 ```bash
-gcloud storage buckets create gs://TU-PROYECTO-tfstate \
-  --location=us-central1 \
-  --uniform-bucket-level-access
-
-# El versionado permite recuperar un estado anterior si algo sale mal.
-gcloud storage buckets update gs://TU-PROYECTO-tfstate --versioning
+PROJECT_ID=TU-PROYECTO scripts/bootstrap/gcp_pipeline.sh
 ```
+
+Crea `gs://TU-PROYECTO-tfstate` con versionado, acceso uniforme y sin acceso
+público. Se corre una vez; el detalle está en
+[compuerta.md](compuerta.md#workload-identity-federation).
 
 ## Paso 2: configurar el ambiente
 
