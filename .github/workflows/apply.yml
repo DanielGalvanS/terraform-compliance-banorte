@@ -16,7 +16,11 @@ on:
       ambiente:
         description: Ambiente a desplegar
         type: choice
-        options: [dev, qa, produccion]
+        # Solo dev: infra/environments/qa y prod todavía están vacíos. Se
+        # reactivan cuando tengan configuración, su environment de GitHub con
+        # revisores y su propia cuenta de apply (hoy ci-apply solo acepta el
+        # environment dev).
+        options: [dev]
         default: dev
         required: true
 
@@ -27,6 +31,7 @@ permissions:
 env:
   TERRAFORM_VERSION: '1.16.4'
   CONFTEST_VERSION: '0.71.1'
+  AMBIENTE: ${{ inputs.ambiente }}
 
 concurrency:
   # Un despliegue a la vez por ambiente: dos applies simultáneos se pelean por
@@ -42,7 +47,46 @@ jobs:
     outputs:
       huella: ${{ steps.huella.outputs.sha256 }}
       resultado: ${{ steps.compuerta.outputs.resultado }}
+    # Variables de Terraform desde las variables de GitHub. Las opcionales se
+    # exportan en un paso aparte.
+    env:
+      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      TF_VAR_project_id: ${{ vars.GCP_PROJECT_ID }}
+      TF_VAR_bucket_evidencia: ${{ vars.BUCKET_EVIDENCIA }}
+      TF_VAR_centro_costos: ${{ vars.CENTRO_COSTOS }}
     steps:
+      # Falla al principio y dice qué falta, en vez de un error de Terraform
+      # a mitad del job.
+      - name: Comprobar configuración
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+          BUCKET_EVIDENCIA: ${{ vars.BUCKET_EVIDENCIA }}
+          CENTRO_COSTOS: ${{ vars.CENTRO_COSTOS }}
+        run: |
+          faltan=0
+          for nombre in GCP_PROJECT_ID TF_STATE_BUCKET BUCKET_EVIDENCIA CENTRO_COSTOS; do
+            if [ -z "${!nombre}" ]; then
+              echo "::error title=Falta configuración::La variable de GitHub ${nombre} no está definida (Settings → Secrets and variables → Actions → Variables). Ver docs/compuerta.md"
+              faltan=1
+            fi
+          done
+          exit "${faltan}"
+
+      # Una variable de GitHub que no existe vale cadena vacía, no "nada": las
+      # opcionales se exportan solo si traen valor (ver plan.yml).
+      - name: Variables opcionales de Terraform
+        env:
+          CUENTA_FACTURACION: ${{ vars.CUENTA_FACTURACION }}
+          CORREOS_ALERTAS_COSTO: ${{ vars.CORREOS_ALERTAS_COSTO }}
+        run: |
+          if [ -n "${CUENTA_FACTURACION}" ]; then
+            echo "TF_VAR_cuenta_facturacion=${CUENTA_FACTURACION}" >> "$GITHUB_ENV"
+          fi
+          if [ -n "${CORREOS_ALERTAS_COSTO}" ]; then
+            echo "TF_VAR_correos_alertas_costo=${CORREOS_ALERTAS_COSTO}" >> "$GITHUB_ENV"
+          fi
+
       - uses: actions/checkout@v4
 
       - uses: hashicorp/setup-terraform@v3
@@ -54,6 +98,7 @@ jobs:
         with:
           version: ${{ env.CONFTEST_VERSION }}
 
+      # ci-plan: la misma cuenta de solo lectura que plan.yml.
       - name: Autenticar en GCP (solo lectura)
         uses: google-github-actions/auth@v2
         with:
@@ -64,7 +109,11 @@ jobs:
         working-directory: infra/environments/${{ inputs.ambiente }}
         run: |
           set -euo pipefail
-          terraform init -input=false -no-color -backend-config=backend.tfbackend
+          # backend.tfbackend no está en el runner (.gitignore): el backend se
+          # pasa por línea de comandos, con el mismo prefijo que en local.
+          terraform init -input=false -no-color \
+            -backend-config="bucket=${TF_STATE_BUCKET}" \
+            -backend-config="prefix=mdc/${AMBIENTE}"
           terraform plan -out=plan.bin -input=false -no-color -lock-timeout=5m
           terraform show -json plan.bin > plan.json
 
@@ -106,7 +155,46 @@ jobs:
     # en el environment de GitHub, no en este archivo: así no se pueden
     # eliminar con un commit.
     environment: ${{ inputs.ambiente }}
+    # El init y el post-check necesitan el backend y las variables igual que
+    # el job que planea.
+    env:
+      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      TF_VAR_project_id: ${{ vars.GCP_PROJECT_ID }}
+      TF_VAR_bucket_evidencia: ${{ vars.BUCKET_EVIDENCIA }}
+      TF_VAR_centro_costos: ${{ vars.CENTRO_COSTOS }}
     steps:
+      # Falla al principio y dice qué falta, en vez de un error de Terraform
+      # a mitad del job.
+      - name: Comprobar configuración
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+          BUCKET_EVIDENCIA: ${{ vars.BUCKET_EVIDENCIA }}
+          CENTRO_COSTOS: ${{ vars.CENTRO_COSTOS }}
+        run: |
+          faltan=0
+          for nombre in GCP_PROJECT_ID TF_STATE_BUCKET BUCKET_EVIDENCIA CENTRO_COSTOS; do
+            if [ -z "${!nombre}" ]; then
+              echo "::error title=Falta configuración::La variable de GitHub ${nombre} no está definida (Settings → Secrets and variables → Actions → Variables). Ver docs/compuerta.md"
+              faltan=1
+            fi
+          done
+          exit "${faltan}"
+
+      # Una variable de GitHub que no existe vale cadena vacía, no "nada": las
+      # opcionales se exportan solo si traen valor (ver plan.yml).
+      - name: Variables opcionales de Terraform
+        env:
+          CUENTA_FACTURACION: ${{ vars.CUENTA_FACTURACION }}
+          CORREOS_ALERTAS_COSTO: ${{ vars.CORREOS_ALERTAS_COSTO }}
+        run: |
+          if [ -n "${CUENTA_FACTURACION}" ]; then
+            echo "TF_VAR_cuenta_facturacion=${CUENTA_FACTURACION}" >> "$GITHUB_ENV"
+          fi
+          if [ -n "${CORREOS_ALERTAS_COSTO}" ]; then
+            echo "TF_VAR_correos_alertas_costo=${CORREOS_ALERTAS_COSTO}" >> "$GITHUB_ENV"
+          fi
+
       - uses: actions/checkout@v4
 
       - uses: hashicorp/setup-terraform@v3
@@ -135,6 +223,8 @@ jobs:
           fi
           echo "El plan coincide con el aprobado: ${obtenida}"
 
+      # ci-apply. GCP solo deja usarla a jobs que corren dentro del
+      # environment dev, así que este paso fallaría fuera de este job.
       - name: Autenticar en GCP (escritura)
         uses: google-github-actions/auth@v2
         with:
@@ -146,7 +236,11 @@ jobs:
         run: |
           set -euo pipefail
           cp "${GITHUB_WORKSPACE}/descarga/plan.bin" plan.bin
-          terraform init -input=false -no-color -backend-config=backend.tfbackend
+          # backend.tfbackend no está en el runner (.gitignore): el backend se
+          # pasa por línea de comandos, con el mismo prefijo que en local.
+          terraform init -input=false -no-color \
+            -backend-config="bucket=${TF_STATE_BUCKET}" \
+            -backend-config="prefix=mdc/${AMBIENTE}"
           # Se aplica el archivo de plan, no una ejecución nueva.
           terraform apply -input=false -no-color -auto-approve plan.bin
 

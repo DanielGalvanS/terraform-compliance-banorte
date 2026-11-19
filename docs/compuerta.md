@@ -109,21 +109,89 @@ aprobaciones— se acuerda con el equipo y se documenta aquí.
 
 ### Workload Identity Federation
 
-Para que `plan.yml` se autentique sin llaves hay que crear un pool de identidad
-y un proveedor OIDC en GCP, y una cuenta de servicio de **solo lectura** para el
-plan. Después, en **Settings → Secrets and variables → Actions → Variables**:
+`plan.yml` y `apply.yml` se autentican en GCP sin llaves: el runner cambia su
+token OIDC de GitHub por credenciales temporales. Todo lo que eso necesita en
+GCP lo crea un script de arranque. Mientras no se corra, `plan.yml` se salta
+solo.
 
-| Variable | Contenido |
+#### 1. Correr el script de arranque
+
+Lo corre **una vez** quien tenga rol **Owner** en el proyecto, el día que el
+proyecto exista, con `gcloud` autenticado como esa persona:
+
+```bash
+# Primero, ver qué haría sin tocar nada:
+PROJECT_ID=mi-proyecto scripts/bootstrap/gcp_pipeline.sh --simular
+
+# Después, de verdad:
+PROJECT_ID=mi-proyecto scripts/bootstrap/gcp_pipeline.sh
+```
+
+`REGION` (por defecto `us-central1`) y `REPO` (por defecto este repositorio)
+son opcionales. El script es idempotente: si algo ya existe lo dice y sigue,
+así que se puede volver a correr para agregar un permiso.
+
+Qué crea:
+
+| Recurso | Para qué |
 | --- | --- |
-| `GCP_WORKLOAD_IDENTITY_PROVIDER` | Ruta completa del proveedor OIDC |
-| `GCP_SERVICE_ACCOUNT_PLAN` | Correo de la cuenta de servicio del plan |
+| APIs `iam`, `iamcredentials`, `sts`, `cloudresourcemanager`, `storage`, `serviceusage` | Las que necesita el arranque |
+| Bucket `gs://<proyecto>-tfstate` | Estado de Terraform. Versionado, acceso uniforme y sin acceso público |
+| Cuenta `ci-plan` | Solo lectura: `roles/viewer`, `roles/iam.securityReviewer` y escritura **solo** en el bucket del estado, para el lock |
+| Cuenta `ci-apply` | Escritura. La lista de roles está en el script y se ajusta en el primer apply real. Nunca `roles/owner` |
+| Pool `github` y proveedor OIDC `github` | Solo acepta tokens de **este** repositorio (`attribute-condition`) |
 
-Son *variables*, no *secrets*: ninguno de los dos valores es una credencial.
-La credencial es el token OIDC que GitHub emite en cada ejecución y que caduca
+Quién puede usar cada cuenta:
+
+- **`ci-plan`:** cualquier job del repositorio, incluidos los de pull request.
+- **`ci-apply`:** **solo** jobs que corren dentro del environment `dev` de
+  GitHub, es decir, los que pasaron por su aprobación. Un pull request
+  cualquiera no puede obtener la cuenta de escritura, aunque alguien edite el
+  workflow para pedirla.
+
+El script **nunca** crea llaves JSON de cuenta de servicio. Tampoco se deben
+crear a mano ni guardar como secret de GitHub.
+
+#### 2. Pegar las variables en GitHub
+
+Al terminar, el script imprime los valores. Van en **Settings → Secrets and
+variables → Actions → Variables**:
+
+| Variable | Ejemplo | Para qué | La imprime el script |
+| --- | --- | --- | --- |
+| `GCP_WORKLOAD_IDENTITY_PROVIDER` | `projects/123/locations/global/workloadIdentityPools/github/providers/github` | Proveedor OIDC. Si no existe, `plan.yml` se salta | Sí |
+| `GCP_SERVICE_ACCOUNT_PLAN` | `ci-plan@mdc-dev-123.iam.gserviceaccount.com` | Cuenta del plan | Sí |
+| `GCP_SERVICE_ACCOUNT_APPLY` | `ci-apply@mdc-dev-123.iam.gserviceaccount.com` | Cuenta del apply | Sí |
+| `GCP_PROJECT_ID` | `mdc-dev-123` | `TF_VAR_project_id` | Sí |
+| `TF_STATE_BUCKET` | `mdc-dev-123-tfstate` | Backend (`prefix=mdc/dev`, el mismo que en local) | Sí |
+| `BUCKET_EVIDENCIA` | `mdc-dev-123-evidencia` | `TF_VAR_bucket_evidencia` | No |
+| `CENTRO_COSTOS` | `cc-0001` | `TF_VAR_centro_costos` | No |
+| `CUENTA_FACTURACION` | opcional | `TF_VAR_cuenta_facturacion` (presupuesto de DEV-16) | No |
+| `CORREOS_ALERTAS_COSTO` | opcional, JSON: `["a@x.com"]` | `TF_VAR_correos_alertas_costo` | No |
+
+Son *variables*, no *secrets*: ninguno de los valores es una credencial. La
+credencial es el token OIDC que GitHub emite en cada ejecución y que caduca
 sola.
 
-**Nunca** se debe guardar un archivo JSON de cuenta de servicio como secret.
+Si falta una obligatoria, el primer paso de los jobs, **Comprobar
+configuración**, falla y dice cuál. Las opcionales solo se pasan a Terraform
+si tienen valor: una variable de GitHub que no existe vale cadena vacía, y
+`""` no es lo mismo que `null` para Terraform.
 
+#### 3. Crear el environment `dev`
+
+En **Settings → Environments → New environment**, con el nombre `dev`
+exacto. GCP solo entrega `ci-apply` a jobs de ese environment, así que sin él
+`apply.yml` no puede aplicar.
+
+#### 4. Qué esperar en el primer PR
+
+El job **Plan y veredicto del ambiente dev** deja de saltarse: hace el
+`terraform plan` real, lo somete a la compuerta y comenta el veredicto en el
+PR. Sigue sin ser un check obligatorio de `main`.
+
+Si algo da `403`, falta un rol: se agrega en el script, se vuelve a correr y se
+anota aquí.
 
 ## El despliegue: por qué no se vuelve a planear
 
@@ -184,6 +252,10 @@ commit no sería un control.
 | `qa` | 1 | Cambios revisados antes de la validación formal |
 | `produccion` | 2 | Producción nunca se aplica sin aprobación humana |
 
+Hoy `apply.yml` solo ofrece `dev`: `infra/environments/qa` y `prod` están
+vacíos. `qa` y `produccion` se reactivan cuando tengan configuración y su
+propia cuenta de apply.
+
 En `produccion` conviene además marcar *Prevent self-review*, para que quien
 lanza el despliegue no pueda aprobarse a sí mismo.
 
@@ -191,7 +263,7 @@ lanza el despliegue no pueda aprobarse a sí mismo.
 
 | Variable | Contenido |
 | --- | --- |
-| `GCP_SERVICE_ACCOUNT_APPLY` | Cuenta con permisos de escritura, usada solo por `apply.yml` |
+| `GCP_SERVICE_ACCOUNT_APPLY` | `ci-apply`, con permisos de escritura, usada solo por `apply.yml` |
 
 La cuenta del plan es de solo lectura y la del apply es distinta: así un fallo
 en el workflow de validación no puede modificar nada.
