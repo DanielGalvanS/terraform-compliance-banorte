@@ -3,12 +3,9 @@ name: Aplicaciones
 # Compila y prueba el frontend y la API. Hasta ahora ningún workflow miraba
 # apps/, así que un cambio que no compilara llegaba a main sin avisar.
 on:
+  # Sin filtro de rutas en los PR: este workflow es un check obligatorio de
+  # main, y uno que no corre deja el PR esperando para siempre.
   pull_request:
-    paths:
-      - 'apps/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/aplicaciones.yml'
   push:
     branches: [main]
     paths:

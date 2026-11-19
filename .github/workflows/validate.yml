@@ -1,12 +1,11 @@
 name: Validar Terraform
 
-# Se ejecuta en cada pull request que toque infraestructura. Es el primer
+# Se ejecuta en cada pull request. Es el primer
 # filtro: formato y sintaxis, antes de gastar tiempo en políticas o en un plan.
 on:
+  # Sin filtro de rutas en los PR: este workflow es un check obligatorio de
+  # main, y uno que no corre deja el PR esperando para siempre.
   pull_request:
-    paths:
-      - 'infra/**'
-      - '.github/workflows/validate.yml'
   push:
     branches: [main]
     paths:
