@@ -87,3 +87,61 @@ export function estadoVigente(
   if (estadoGuardado !== 'Activa' && estadoGuardado !== 'Pendiente') return estadoGuardado
   return diasHasta(venceEl, ahora) < 0 ? 'Vencida' : estadoGuardado
 }
+
+/**
+ * Mínimo de caracteres del comentario al decidir. La tabla `aprobaciones` lo
+ * exige: la decisión sin fundamento no es evidencia.
+ */
+export const MINIMO_COMENTARIO_DECISION = 10
+
+export type ResultadoDecision = {
+  /** El estado de la excepción no permite decidirla (409). */
+  conflicto: string | null
+  /** Lo que está mal en la petición (422). */
+  motivos: MotivoRechazo[]
+}
+
+/** Para comparar personas sin que un espacio o una mayúscula las distinga. */
+const normalizar = (nombre: string) => nombre.trim().toLocaleLowerCase('es')
+
+/**
+ * Valida que una persona pueda aprobar o rechazar una excepción.
+ *
+ * Separa dos tipos de error porque significan cosas distintas para quien
+ * llama: el conflicto es del estado de la excepción (409) y no se arregla
+ * corrigiendo la petición; los motivos son de los datos enviados (422) y sí.
+ * Los motivos se calculan aunque haya conflicto, para que las pruebas puras
+ * vean todo; la ruta decide cuál responder primero.
+ */
+export function validarDecision(
+  guardada: { estadoGuardado: EstadoExcepcion; venceEl: string; solicitadaPor: string },
+  decision: { decididaPor: string; comentario: string },
+  ahora: Date = new Date(),
+): ResultadoDecision {
+  // Se usa el estado vigente y no el guardado: una pendiente cuya fecha pasó
+  // ya está vencida, y aprobarla daría por buena una vigencia que no existe.
+  const estado = estadoVigente(guardada.estadoGuardado, guardada.venceEl, ahora)
+  const conflicto =
+    estado === 'Pendiente'
+      ? null
+      : `Solo se decide una excepción pendiente; esta está ${estado}.`
+
+  const motivos: MotivoRechazo[] = []
+
+  // Segregación de funciones: nadie se aprueba a sí mismo.
+  if (normalizar(decision.decididaPor) === normalizar(guardada.solicitadaPor)) {
+    motivos.push({
+      campo: 'decididaPor',
+      mensaje: 'Quien solicitó la excepción no puede decidirla.',
+    })
+  }
+
+  if (decision.comentario.trim().length < MINIMO_COMENTARIO_DECISION) {
+    motivos.push({
+      campo: 'comentario',
+      mensaje: `El comentario debe tener al menos ${MINIMO_COMENTARIO_DECISION} caracteres.`,
+    })
+  }
+
+  return { conflicto, motivos }
+}
