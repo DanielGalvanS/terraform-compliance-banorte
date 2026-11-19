@@ -29,6 +29,7 @@ import {
   recursosDeEjemplo,
 } from './repositorios/semilla.ts'
 import { rutasCatalogo } from './rutas/catalogo.ts'
+import { rutasEvidencia } from './rutas/evidencia.ts'
 import { rutasExcepciones } from './rutas/excepciones.ts'
 import { rutasRecursos } from './rutas/recursos.ts'
 import { rutasHallazgos } from './rutas/hallazgos.ts'
@@ -117,6 +118,7 @@ export async function construirApp({ config, hallazgos, excepciones, evidencia }
   await app.register(rutasHallazgos(repositorio, repositorioEvidencia), { prefix: PREFIJO })
   await app.register(rutasResumen(catalogo, repositorio), { prefix: PREFIJO })
   await app.register(rutasExcepciones(catalogo, repositorioExcepciones, repositorioEvidencia), { prefix: PREFIJO })
+  await app.register(rutasEvidencia(repositorioEvidencia), { prefix: PREFIJO })
   await app.register(rutasRecursos(catalogo, recursosDeEjemplo, repositorio), { prefix: PREFIJO })
 
   return app

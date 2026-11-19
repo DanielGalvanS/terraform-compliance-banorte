@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { construirApp, PREFIJO } from '../src/app.ts'
+import { cargarConfig } from '../src/config.ts'
 import type { EventoEvidencia } from '../src/model/esquemas.ts'
 import {
   calcularHash,
@@ -76,5 +78,61 @@ describe('registro de evidencia', () => {
     const { registro } = await registroConTres()
     expect((await registro.listar({})).map((e) => e.objetoId)).toEqual(['c', 'b', 'a'])
     expect((await registro.listar({ objetoId: 'b' })).map((e) => e.objetoId)).toEqual(['b'])
+  })
+})
+
+describe('ruta de evidencia', () => {
+  it('trae la aprobación y el cambio de estado, el más reciente primero', async () => {
+    const app = await construirApp({ config: cargarConfig({ NIVEL_LOG: 'fatal' }) })
+
+    const excepcion = (
+      await app.inject({
+        method: 'POST',
+        url: `${PREFIJO}/excepciones`,
+        payload: {
+          control: 'CO-NET-01',
+          recurso: 'google_compute_firewall.allow_ssh',
+          ambiente: 'Prod',
+          justificacion: 'Ventana de migración coordinada con el equipo de seguridad.',
+          venceEl: new Date(Date.now() + 20 * 86_400_000).toISOString().slice(0, 10),
+          aprobador: 'Roberto Silva',
+          solicitante: 'Carlos Vega',
+        },
+      })
+    ).json()
+    await app.inject({
+      method: 'POST',
+      url: `${PREFIJO}/excepciones/${excepcion.id}/aprobar`,
+      payload: { aprobadaPor: 'Roberto Silva', comentario: 'Riesgo aceptado hasta la ventana' },
+    })
+
+    const hallazgo = (
+      await app.inject({ method: 'GET', url: `${PREFIJO}/hallazgos?estado=Abierto` })
+    ).json().hallazgos[0]
+    await app.inject({
+      method: 'PATCH',
+      url: `${PREFIJO}/hallazgos/${hallazgo.id}/estado`,
+      payload: { estado: 'En remediación', comentario: 'Asignado a red', cambiadoPor: 'Ana Martínez' },
+    })
+
+    const todo = (await app.inject({ method: 'GET', url: `${PREFIJO}/evidencia` })).json()
+    expect(todo.integra).toBe(true)
+    expect(todo.eventos.map((e: EventoEvidencia) => e.tipo)).toEqual([
+      'hallazgo.estado',
+      'excepcion.aprobada',
+    ])
+    expect(todo.eventos[0].detalle).toEqual({
+      de: 'Abierto',
+      a: 'En remediación',
+      comentario: 'Asignado a red',
+    })
+
+    const filtrado = (
+      await app.inject({ method: 'GET', url: `${PREFIJO}/evidencia?objetoId=${excepcion.id}` })
+    ).json()
+    expect(filtrado.eventos).toHaveLength(1)
+    expect(filtrado.eventos[0].objetoId).toBe(excepcion.id)
+
+    await app.close()
   })
 })

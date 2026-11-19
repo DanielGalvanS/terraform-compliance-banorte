@@ -1117,6 +1117,72 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/evidencia": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Registro de evidencia
+         * @description Decisiones sobre excepciones y cambios de estado de hallazgos, del más reciente al más antiguo. Cada evento guarda el hash del anterior; `integra` dice si la cadena completa sigue coincidiendo, no solo los eventos filtrados.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    tipo?: "excepcion.aprobada" | "excepcion.rechazada" | "hallazgo.estado";
+                    objetoId?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            eventos: {
+                                /** Format: uuid */
+                                id: string;
+                                /** @description 1, 2, 3… sin huecos */
+                                secuencia: number;
+                                /** @enum {string} */
+                                tipo: "excepcion.aprobada" | "excepcion.rechazada" | "hallazgo.estado";
+                                /** @description Id de la excepción o del hallazgo */
+                                objetoId: string;
+                                actor: string;
+                                /** @description Por ejemplo { de: "Abierto", a: "En remediación", comentario: "…" } */
+                                detalle: {
+                                    [key: string]: string;
+                                };
+                                /** @description Fecha ISO 8601 */
+                                registradoEn: string;
+                                /** @description sha256 del evento anterior; el primero usa 64 ceros */
+                                hashAnterior: string;
+                                /** @description sha256 de hashAnterior más el JSON canónico del evento sin hash */
+                                hash: string;
+                            }[];
+                            /** @description Si ningún evento del registro fue alterado */
+                            integra: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/recursos": {
         parameters: {
             query?: never;
