@@ -205,3 +205,29 @@ export type Excepcion = z.infer<typeof Excepcion>
 export type NuevaExcepcion = z.infer<typeof NuevaExcepcion>
 export type FiltroExcepciones = z.infer<typeof FiltroExcepciones>
 export type EstadoExcepcion = z.infer<typeof EstadoExcepcion>
+
+export const TipoEvento = z.enum(['excepcion.aprobada', 'excepcion.rechazada', 'hallazgo.estado'])
+
+/**
+ * Un evento del registro de evidencia.
+ *
+ * Cada uno guarda el hash del anterior: alterar uno intermedio rompe su hash y
+ * el de todos los que siguen, así que la alteración se detecta en vez de pasar
+ * desapercibida.
+ */
+export const EventoEvidencia = z.object({
+  id: z.uuid(),
+  secuencia: z.number().int().positive().describe('1, 2, 3… sin huecos'),
+  tipo: TipoEvento,
+  objetoId: z.string().describe('Id de la excepción o del hallazgo'),
+  actor: z.string(),
+  detalle: z
+    .record(z.string(), z.string())
+    .describe('Por ejemplo { de: "Abierto", a: "En remediación", comentario: "…" }'),
+  registradoEn: z.string().describe('Fecha ISO 8601'),
+  hashAnterior: z.string().describe('sha256 del evento anterior; el primero usa 64 ceros'),
+  hash: z.string().describe('sha256 de hashAnterior más el JSON canónico del evento sin hash'),
+})
+
+export type TipoEvento = z.infer<typeof TipoEvento>
+export type EventoEvidencia = z.infer<typeof EventoEvidencia>
