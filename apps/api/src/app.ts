@@ -57,7 +57,9 @@ export async function construirApp({ config, hallazgos, excepciones, evidencia }
   // explícita: un '*' abriría la API a cualquier página del navegador.
   await app.register(fastifyCors, {
     origin: config.ORIGENES_PERMITIDOS,
-    methods: ['GET', 'POST'],
+    // PATCH para cambiar el estado de un hallazgo. Si falta aquí, las pruebas
+    // pasan (inject no aplica CORS) pero el navegador bloquea la petición.
+    methods: ['GET', 'POST', 'PATCH'],
     allowedHeaders: ['content-type', 'idempotency-key'],
   })
 
@@ -112,7 +114,7 @@ export async function construirApp({ config, hallazgos, excepciones, evidencia }
   )
 
   await app.register(rutasCatalogo(catalogo), { prefix: PREFIJO })
-  await app.register(rutasHallazgos(repositorio), { prefix: PREFIJO })
+  await app.register(rutasHallazgos(repositorio, repositorioEvidencia), { prefix: PREFIJO })
   await app.register(rutasResumen(catalogo, repositorio), { prefix: PREFIJO })
   await app.register(rutasExcepciones(catalogo, repositorioExcepciones, repositorioEvidencia), { prefix: PREFIJO })
   await app.register(rutasRecursos(catalogo, recursosDeEjemplo, repositorio), { prefix: PREFIJO })

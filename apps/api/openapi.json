@@ -1090,6 +1090,318 @@
         }
       }
     },
+    "/hallazgos/{id}/estado": {
+      "patch": {
+        "summary": "Cambia el estado de un hallazgo",
+        "tags": [
+          "hallazgos"
+        ],
+        "description": "Solo se permiten estas transiciones: Abierto → En remediación, Cerrado; En remediación → Abierto, Cerrado; Cerrado → Abierto; Excepción → ninguno. Otra responde 409. A Excepción no se llega por aquí sino aprobando una excepción (422), para no saltarse la aprobación humana. El comentario es obligatorio (422) y el cambio queda en el registro de evidencia.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "estado": {
+                    "type": "string",
+                    "enum": [
+                      "Abierto",
+                      "En remediación",
+                      "Excepción",
+                      "Cerrado"
+                    ]
+                  },
+                  "comentario": {
+                    "type": "string",
+                    "description": "Por qué cambia; queda en la evidencia"
+                  },
+                  "cambiadoPor": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Quién lo cambia; saldrá del token con OIDC"
+                  }
+                },
+                "required": [
+                  "estado",
+                  "comentario",
+                  "cambiadoPor"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "control": {
+                      "nullable": true,
+                      "description": "Código del control; nulo si ninguna política lo cubre",
+                      "type": "string"
+                    },
+                    "titulo": {
+                      "type": "string"
+                    },
+                    "recurso": {
+                      "type": "string"
+                    },
+                    "severidad": {
+                      "type": "string",
+                      "enum": [
+                        "Crítica",
+                        "Alta",
+                        "Media",
+                        "Baja"
+                      ]
+                    },
+                    "ambiente": {
+                      "type": "string",
+                      "enum": [
+                        "Dev",
+                        "QA",
+                        "Prod"
+                      ]
+                    },
+                    "origen": {
+                      "type": "string",
+                      "enum": [
+                        "Plan",
+                        "Drift",
+                        "Evento",
+                        "Auditoría"
+                      ]
+                    },
+                    "estado": {
+                      "type": "string",
+                      "enum": [
+                        "Abierto",
+                        "En remediación",
+                        "Excepción",
+                        "Cerrado"
+                      ]
+                    },
+                    "mensaje": {
+                      "type": "string"
+                    },
+                    "detectadoEn": {
+                      "type": "string",
+                      "description": "Fecha ISO 8601"
+                    },
+                    "detalle": {
+                      "type": "object",
+                      "properties": {
+                        "controlViolado": {
+                          "type": "object",
+                          "properties": {
+                            "codigo": {
+                              "type": "string"
+                            },
+                            "enunciado": {
+                              "type": "string"
+                            },
+                            "equivalentes": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "description": "Referencias del mismo control en otros marcos"
+                            }
+                          },
+                          "required": [
+                            "codigo",
+                            "enunciado",
+                            "equivalentes"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "evidencia": {
+                          "type": "string",
+                          "description": "Extracto del plan que prueba el hallazgo"
+                        },
+                        "explicacion": {
+                          "type": "object",
+                          "properties": {
+                            "texto": {
+                              "type": "string"
+                            },
+                            "confianza": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 100
+                            },
+                            "motor": {
+                              "type": "string",
+                              "description": "Herramientas que produjeron el veredicto"
+                            }
+                          },
+                          "required": [
+                            "texto",
+                            "confianza",
+                            "motor"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "remediacion": {
+                          "type": "object",
+                          "properties": {
+                            "quitadas": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            },
+                            "anadidas": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          },
+                          "required": [
+                            "quitadas",
+                            "anadidas"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "controlViolado",
+                        "evidencia",
+                        "explicacion",
+                        "remediacion"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "control",
+                    "titulo",
+                    "recurso",
+                    "severidad",
+                    "ambiente",
+                    "origen",
+                    "estado",
+                    "mensaje",
+                    "detectadoEn"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "detalle": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "detalle": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "detalle": {
+                      "type": "string"
+                    },
+                    "motivos": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "campo": {
+                            "type": "string"
+                          },
+                          "mensaje": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "campo",
+                          "mensaje"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "motivos"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/resumen": {
       "get": {
         "summary": "Postura de cumplimiento en cifras",

@@ -96,6 +96,17 @@ export const NuevoHallazgo = z.object({
   mensaje: z.string().min(1),
 })
 
+/**
+ * Cambio de estado de un hallazgo. `cambiadoPor` viene en el cuerpo porque aún
+ * no hay autenticación; cuando exista OIDC saldrá del token. El comentario no
+ * lleva mínimo aquí para que la regla responda 422 con `motivos`.
+ */
+export const CambioEstadoHallazgo = z.object({
+  estado: EstadoHallazgo,
+  comentario: z.string().describe('Por qué cambia; queda en la evidencia'),
+  cambiadoPor: z.string().min(1).describe('Quién lo cambia; saldrá del token con OIDC'),
+})
+
 export const FiltroHallazgos = z.object({
   severidad: Severidad.optional(),
   ambiente: Ambiente.optional(),
@@ -134,6 +145,7 @@ export type Hallazgo = z.infer<typeof Hallazgo>
 export type DetalleHallazgo = z.infer<typeof DetalleHallazgo>
 export type NuevoHallazgo = z.infer<typeof NuevoHallazgo>
 export type FiltroHallazgos = z.infer<typeof FiltroHallazgos>
+export type EstadoHallazgo = z.infer<typeof EstadoHallazgo>
 export type Resumen = z.infer<typeof Resumen>
 export type CoberturaMarco = z.infer<typeof CoberturaMarco>
 

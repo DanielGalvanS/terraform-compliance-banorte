@@ -1,14 +1,29 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
 import {
+  CambioEstadoHallazgo,
   Error as ErrorRespuesta,
   FiltroHallazgos,
   Hallazgo,
   NuevoHallazgo,
 } from '../model/esquemas.ts'
+import { TRANSICIONES, validarCambioEstado } from '../model/reglasHallazgos.ts'
+import type { EvidenciaRepositorio } from '../repositorios/evidenciaRepositorio.ts'
 import type { HallazgosRepositorio } from '../repositorios/hallazgosRepositorio.ts'
 
-export function rutasHallazgos(repositorio: HallazgosRepositorio): FastifyPluginAsyncZod {
+/** Error con el detalle de cada campo rechazado, no solo un mensaje suelto. */
+const ErrorValidacion = ErrorRespuesta.extend({
+  motivos: z.array(z.object({ campo: z.string(), mensaje: z.string() })),
+})
+
+const transicionesLegibles = Object.entries(TRANSICIONES)
+  .map(([de, a]) => `${de} → ${a.length > 0 ? a.join(', ') : 'ninguno'}`)
+  .join('; ')
+
+export function rutasHallazgos(
+  repositorio: HallazgosRepositorio,
+  evidencia: EvidenciaRepositorio,
+): FastifyPluginAsyncZod {
   return async (app) => {
     app.get(
       '/hallazgos',
@@ -63,6 +78,64 @@ export function rutasHallazgos(repositorio: HallazgosRepositorio): FastifyPlugin
         const { hallazgo, yaExistia } = await repositorio.crear(peticion.body, clave)
         // 200 y no 201: con un reintento no se creó nada nuevo.
         return respuesta.code(yaExistia ? 200 : 201).send(hallazgo)
+      },
+    )
+
+    // PATCH y no POST: cambia un campo del hallazgo. A diferencia de aprobar
+    // una excepción, no crea nada; las reglas acotan a qué valor puede pasar.
+    app.patch(
+      '/hallazgos/:id/estado',
+      {
+        schema: {
+          summary: 'Cambia el estado de un hallazgo',
+          description:
+            `Solo se permiten estas transiciones: ${transicionesLegibles}. Otra responde ` +
+            '409. A Excepción no se llega por aquí sino aprobando una excepción (422), para ' +
+            'no saltarse la aprobación humana. El comentario es obligatorio (422) y el ' +
+            'cambio queda en el registro de evidencia.',
+          tags: ['hallazgos'],
+          params: z.object({ id: z.uuid() }),
+          body: CambioEstadoHallazgo,
+          response: {
+            200: Hallazgo,
+            404: ErrorRespuesta,
+            409: ErrorRespuesta,
+            422: ErrorValidacion,
+          },
+        },
+      },
+      async (peticion, respuesta) => {
+        const { estado, comentario, cambiadoPor } = peticion.body
+        const hallazgo = await repositorio.obtener(peticion.params.id)
+        if (hallazgo === null) {
+          return respuesta.code(404).send({ error: 'No existe ese hallazgo' })
+        }
+
+        const { conflicto, motivos } = validarCambioEstado(hallazgo.estado, estado, comentario)
+        // El conflicto va primero, como al decidir una excepción: si el estado
+        // actual no lo permite, corregir los datos no cambiaría la respuesta.
+        // Pedir Excepción nunca da conflicto, así que siempre llega al 422.
+        if (conflicto !== null) {
+          return respuesta.code(409).send({ error: conflicto })
+        }
+        if (motivos.length > 0) {
+          return respuesta.code(422).send({
+            error: 'El cambio no cumple las reglas de estado',
+            motivos,
+          })
+        }
+
+        const cambiado = await repositorio.cambiarEstado(hallazgo.id, estado)
+        if (cambiado === null) {
+          return respuesta.code(404).send({ error: 'No existe ese hallazgo' })
+        }
+        await evidencia.registrar({
+          tipo: 'hallazgo.estado',
+          objetoId: cambiado.id,
+          actor: cambiadoPor.trim(),
+          detalle: { de: hallazgo.estado, a: cambiado.estado, comentario: comentario.trim() },
+        })
+        return cambiado
       },
     )
   }
