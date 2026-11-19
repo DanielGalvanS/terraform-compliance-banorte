@@ -28,9 +28,22 @@ deny contains msg if {
 	)
 }
 
+# Protocolos que no tienen puertos. ICMP, ESP y AH no transportan ninguno, así
+# que una regla que los permite no expone el 22 ni el 3389 por mucho que no
+# declare puertos. Se listan también por número, que GCP acepta igual.
+#
+# Es una lista de excepciones y no de protocolos con puertos a propósito: ante
+# un protocolo que no reconoce, el control prefiere avisar de más.
+protocolos_sin_puertos := {"icmp", "1", "ipip", "4", "esp", "50", "ah", "51", "icmpv6", "58"}
+
+sin_puertos(permiso) if lower(permiso.protocol) in protocolos_sin_puertos
+
 # Un permiso sin lista de puertos abre el protocolo completo, así que incluye
-# los puertos de administración.
+# los puertos de administración. Salvo que el protocolo no tenga puertos: decir
+# que una regla ICMP «expone el puerto 22» manda a buscar algo que no existe.
+# Abrir ICMP a internet sigue siendo malo, y CO-NET-02 lo rechaza por su cuenta.
 puertos_expuestos(permiso) := puertos if {
+	not sin_puertos(permiso)
 	not permiso.ports
 	puertos := puertos_administracion
 }

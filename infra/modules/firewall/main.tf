@@ -69,3 +69,27 @@ resource "google_compute_firewall" "permitir_interno" {
     metadata = "INCLUDE_ALL_METADATA"
   }
 }
+
+# ICMP solo dentro de la subred y solo si se pide. El origen queda fijo en la
+# subred a propósito: ningún control del catálogo rechaza hoy ICMP abierto a
+# internet, así que la protección está aquí y no en la compuerta.
+resource "google_compute_firewall" "permitir_icmp_interno" {
+  count = var.permitir_icmp_interno ? 1 : 0
+
+  project     = var.project_id
+  name        = "${var.nombre}-permitir-icmp-interno"
+  network     = var.red
+  description = "Permite ICMP entre instancias de la subred, para medir latencia."
+  direction   = "INGRESS"
+  priority    = 1100
+
+  allow {
+    protocol = "icmp"
+  }
+
+  source_ranges = [var.subred_cidr]
+
+  log_config {
+    metadata = "INCLUDE_ALL_METADATA"
+  }
+}

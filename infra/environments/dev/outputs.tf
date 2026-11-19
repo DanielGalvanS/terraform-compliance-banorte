@@ -8,6 +8,11 @@ output "instancias" {
   value       = module.compute.ips_privadas
 }
 
+output "sql_ip_privada" {
+  description = "IP privada de Cloud SQL, para la prueba de rendimiento con pgbench."
+  value       = module.sql.ip_privada
+}
+
 output "sql_conexion" {
   description = "Nombre de conexión de Cloud SQL, para el conector."
   value       = module.sql.conexion
