@@ -70,8 +70,9 @@ resource "google_compute_firewall" "permitir_interno" {
   }
 }
 
-# ICMP solo dentro de la subred y solo si se pide. No se abre desde internet:
-# CO-NET-02 lo trataría como protocolo completo expuesto.
+# ICMP solo dentro de la subred y solo si se pide. El origen queda fijo en la
+# subred a propósito: ningún control del catálogo rechaza hoy ICMP abierto a
+# internet, así que la protección está aquí y no en la compuerta.
 resource "google_compute_firewall" "permitir_icmp_interno" {
   count = var.permitir_icmp_interno ? 1 : 0
 
