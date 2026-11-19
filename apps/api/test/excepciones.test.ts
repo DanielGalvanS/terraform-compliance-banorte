@@ -4,7 +4,9 @@ import { cargarConfig } from '../src/config.ts'
 import {
   estadoVigente,
   MAXIMO_DIAS_VIGENCIA,
+  MINIMO_COMENTARIO_DECISION,
   MINIMO_JUSTIFICACION,
+  validarDecision,
   validarSolicitud,
 } from '../src/model/reglasExcepciones.ts'
 
@@ -83,6 +85,64 @@ describe('estado vigente', () => {
 
   it('una revocada tampoco', () => {
     expect(estadoVigente('Revocada', enDias(-30), AHORA)).toBe('Revocada')
+  })
+})
+
+describe('reglas de la decisión', () => {
+  const pendiente = {
+    estadoGuardado: 'Pendiente' as const,
+    venceEl: enDias(30),
+    solicitadaPor: 'Carlos Vega',
+  }
+  const decision = {
+    decididaPor: 'Roberto Silva',
+    comentario: 'Riesgo aceptado hasta la ventana de cambio',
+  }
+  const camposDecision = (d: typeof decision) =>
+    validarDecision(pendiente, d, AHORA).motivos.map((m) => m.campo)
+
+  it('se puede decidir una pendiente vigente', () => {
+    expect(validarDecision(pendiente, decision, AHORA)).toEqual({ conflicto: null, motivos: [] })
+  })
+
+  it.each(['Activa', 'Rechazada', 'Revocada'] as const)(
+    'no se puede decidir una %s',
+    (estadoGuardado) => {
+      const r = validarDecision({ ...pendiente, estadoGuardado }, decision, AHORA)
+      expect(r.conflicto).not.toBeNull()
+    },
+  )
+
+  it('no se puede aprobar una pendiente vencida', () => {
+    const r = validarDecision({ ...pendiente, venceEl: enDias(-1) }, decision, AHORA)
+    expect(r.conflicto).toContain('Vencida')
+  })
+
+  it('el solicitante no decide su propia excepción, aunque cambien mayúsculas o espacios', () => {
+    expect(camposDecision({ ...decision, decididaPor: '  carlos VEGA ' })).toEqual(['decididaPor'])
+  })
+
+  it('el comentario es obligatorio', () => {
+    expect(camposDecision({ ...decision, comentario: '' })).toEqual(['comentario'])
+  })
+
+  it('no acepta espacios como comentario', () => {
+    expect(camposDecision({ ...decision, comentario: ' '.repeat(40) })).toEqual(['comentario'])
+  })
+
+  it('acepta justo el mínimo de comentario', () => {
+    const comentario = 'x'.repeat(MINIMO_COMENTARIO_DECISION)
+    expect(camposDecision({ ...decision, comentario })).toEqual([])
+  })
+
+  it('acumula todos los motivos, no solo el primero', () => {
+    const r = validarDecision(
+      { ...pendiente, estadoGuardado: 'Activa' },
+      { decididaPor: 'Carlos Vega', comentario: 'ok' },
+      AHORA,
+    )
+    expect(r.conflicto).not.toBeNull()
+    expect(r.motivos.map((m) => m.campo).sort()).toEqual(['comentario', 'decididaPor'])
   })
 })
 
