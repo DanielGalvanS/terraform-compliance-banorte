@@ -38,9 +38,14 @@ case "${1:-}" in
         fallar "${destino} no responde a ping. ¿Está aplicada la regla permitir-icmp-interno?"
       # Varios flujos en paralelo: un solo flujo TCP no llena el enlace y
       # mediría el límite de la ventana, no el de la red.
+      salida="${RESULTADOS}/red-corrida-${n}.json"
       iperf3 --client "${destino}" --time "${DURACION}" --parallel "${FLUJOS}" \
-        --json >"${RESULTADOS}/red-corrida-${n}.json" ||
-        fallar "iperf3 no conectó con ${destino}:5201. ¿Corre red.sh servidor allá y está abierto el puerto?"
+        --json >"${salida}" || true
+      # Con --json, iperf3 3.12 (el de Debian 12) termina en 0 aunque no se
+      # conecte: el error solo aparece dentro del JSON.
+      if grep -q '"error":' "${salida}"; then
+        fallar "iperf3 no conectó con ${destino}:5201. ¿Corre red.sh servidor allá y está abierto el puerto? Detalle en ${salida}"
+      fi
     done
 
     info "listo: ${RESULTADOS}/red-corrida-*.json y latencia-corrida-*.txt"
