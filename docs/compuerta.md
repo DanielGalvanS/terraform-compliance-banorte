@@ -23,12 +23,14 @@ Corriendo en el runner, la única dependencia es el binario de `conftest`, que s
 descarga con versión fija y verificación de integridad. Además mantiene la
 validación por debajo de los 5 minutos que exige el reto.
 
-## Los tres workflows
+## Los workflows
 
 | Workflow | Cuándo | Qué hace | Necesita GCP |
 | --- | --- | --- | --- |
-| `validate.yml` | PR que toca `infra/` | `terraform fmt` y `validate` | No |
-| `policies.yml` | PR que toca `infra/` o el frontend | Prueba el catálogo, lo ejerce contra los planes de ejemplo y comprueba que las pantallas concuerdan con él | No |
+| `validate.yml` | Todo PR | `terraform fmt` y `validate` | No |
+| `policies.yml` | Todo PR | Prueba el catálogo, lo ejerce contra los planes de ejemplo y comprueba que las pantallas concuerdan con él | No |
+| `aplicaciones.yml` | Todo PR | Tipos, pruebas y build del frontend y la API | No |
+| `secretos.yml` | Todo PR | Escaneo de secretos con gitleaks | No |
 | `plan.yml` | PR que toca `infra/` | `terraform plan` real, veredicto y comentario en el PR | Sí |
 | `apply.yml` | A mano, por ambiente | Plan, aprobación humana y despliegue | Sí |
 
@@ -55,13 +57,55 @@ ejecución.
 ### Protección de la rama `main`
 
 Sin esto los workflows informan pero no bloquean nada. En
-**Settings → Branches → Add rule** sobre `main`:
+**Settings → Branches → Add branch protection rule** (o **Rules → Rulesets**)
+sobre `main`:
 
-- Require a pull request before merging.
-- Require status checks to pass: `Formato`, `Sintaxis`, `Pruebas del catálogo`
-  y `Compuerta sobre los planes de ejemplo`.
-- Require branches to be up to date before merging.
-- Do not allow bypassing the above settings.
+- Require a pull request before merging, con **1 aprobación**.
+  - Dismiss stale pull request approvals when new commits are pushed.
+  - *Require review from Code Owners* queda **apagado**. `CODEOWNERS` solo
+    sirve para pedir revisión automáticamente.
+- Require status checks to pass before merging.
+  - Require branches to be up to date before merging.
+- Require conversation resolution before merging.
+- Do not allow bypassing the above settings: el dueño del repo también pasa
+  por PR.
+- Force pushes y borrado de la rama, apagados.
+
+**Checks obligatorios.** Son los `name:` de los jobs y se escriben
+exactamente así:
+
+| Check | Workflow |
+| --- | --- |
+| `Formato` | `validate.yml` |
+| `Sintaxis` | `validate.yml` |
+| `Pruebas del catálogo` | `policies.yml` |
+| `Compuerta sobre los planes de ejemplo` | `policies.yml` |
+| `El frontend concuerda con el catálogo` | `policies.yml` |
+| `Tipos, pruebas y build` | `aplicaciones.yml` |
+| `Escaneo del repositorio` | `secretos.yml` |
+
+`Plan y veredicto del ambiente dev` **no** es obligatorio: necesita GCP y se
+salta mientras no exista el proyecto.
+
+#### Por qué los checks corren en todo PR
+
+Un check obligatorio cuyo workflow no corre se queda en *Expected — Waiting
+for status to be reported* para siempre, y el PR no se puede fusionar. Si
+`validate.yml` solo corriera en PR que tocan `infra/`, un PR que solo cambie
+`apps/` quedaría bloqueado.
+
+Por eso los cuatro workflows obligatorios no tienen filtro de rutas en
+`pull_request`. Los filtros de `push` a `main` se conservan. El costo es que
+cada PR corre los cuatro, unos 2–4 minutos en paralelo.
+
+Si se agrega un check obligatorio nuevo, su workflow tampoco debe filtrar
+rutas en `pull_request`.
+
+#### Quién cambia la regla
+
+Los cambios a la regla los hace **solo el dueño del repo** (`DanielGalvanS`).
+Cualquier cambio —agregar o quitar un check, cambiar el número de
+aprobaciones— se acuerda con el equipo y se documenta aquí.
 
 ### Workload Identity Federation
 
