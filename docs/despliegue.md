@@ -15,6 +15,7 @@ Cómo levantar el ambiente desde cero, y cómo destruirlo.
 | `terraform` ≥ 1.9 | Versión fijada en los módulos |
 | `conftest` 0.71.1 | Para correr la compuerta en local |
 | `gcloud` autenticado | `gcloud auth application-default login` |
+| Rol `roles/billing.costsManager` en la cuenta de facturación | El módulo `costos` crea el presupuesto en la cuenta, no en el proyecto |
 
 ## Paso 1: el bucket del estado
 
@@ -76,6 +77,23 @@ datos, que son los que mueven la factura:
 
 **Apaga lo que no uses.** El ambiente de dev no necesita estar encendido entre
 sesiones de trabajo.
+
+### Presupuesto y avisos
+
+El módulo [`costos`](../infra/modules/costos/README.md) crea un presupuesto
+mensual del proyecto (50 USD por defecto en dev, variable
+`presupuesto_mensual`) que manda correo a `correos_alertas_costo`:
+
+| Aviso | Cuándo llega | Qué hacer |
+| --- | --- | --- |
+| 50 % del gasto real | A mitad del presupuesto | Revisar que no haya quedado nada encendido |
+| 80 % del gasto real | Cerca del límite | Destruir dev en cuanto termine la sesión |
+| 100 % del gasto real | Presupuesto agotado | Destruir dev ya y avisar al equipo |
+| Pronóstico ≥ 100 % | GCP prevé que el mes cerrará por encima | Igual que el 80 % |
+
+**El presupuesto no apaga nada.** GCP solo avisa; el gasto sigue corriendo hasta
+que alguien destruye los recursos. La regla del equipo es la de abajo: cada
+sesión termina con `terraform destroy`.
 
 ## Destruir el ambiente
 
