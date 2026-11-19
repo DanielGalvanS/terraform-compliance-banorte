@@ -47,14 +47,15 @@ de incumplimientos que luego se reporta al auditor.
 | GET | `/api/v1/hallazgos` | Hallazgos, con filtros |
 | GET | `/api/v1/hallazgos/:id` | Un hallazgo |
 | POST | `/api/v1/hallazgos` | Registra uno; acepta `Idempotency-Key` |
+| PATCH | `/api/v1/hallazgos/:id/estado` | Cambia su estado; ver «Estados de un hallazgo» |
 | GET | `/api/v1/excepciones` | Excepciones, con filtros; el estado se deriva de la fecha |
 | POST | `/api/v1/excepciones` | Solicita una; siempre nace `Pendiente` |
 | GET | `/api/v1/excepciones/:id` | Una excepción |
 | POST | `/api/v1/excepciones/:id/aprobar` | La aprueba: pasa a `Activa` |
 | POST | `/api/v1/excepciones/:id/rechazar` | La rechaza: pasa a `Rechazada` |
+| GET | `/api/v1/evidencia` | Registro de evidencia y si la cadena está íntegra; filtra por `?tipo=` y `?objetoId=` |
 
-Los demás del diseño —decisiones del agente, aprobaciones de despliegue,
-evidencia— siguen pendientes.
+Siguen pendientes las decisiones del agente y las aprobaciones de despliegue.
 
 ## Decidir una excepción
 
@@ -72,6 +73,44 @@ servidor.
 
 Quien solicita y quien decide llegan hoy en el cuerpo de la petición. Cuando
 exista OIDC saldrán del token.
+
+Cada decisión queda en el registro de evidencia.
+
+## Estados de un hallazgo
+
+`PATCH /hallazgos/:id/estado` solo acepta estas transiciones, definidas como
+tabla en `src/model/reglasHallazgos.ts`:
+
+| De | A |
+| --- | --- |
+| Abierto | En remediación, Cerrado |
+| En remediación | Abierto, Cerrado |
+| Cerrado | Abierto (reapertura, por ejemplo si el drift lo vuelve a detectar) |
+| Excepción | ninguno por esta vía |
+
+- Una transición que no está en la tabla, o pedir el estado actual, responde **409**.
+- A **Excepción** no se llega por aquí, solo aprobando una excepción: pedirlo
+  responde **422**. Si se pudiera marcar a mano, cualquiera se saltaría la
+  aprobación humana.
+- El comentario es obligatorio, de al menos 10 caracteres (**422**).
+- Cada cambio queda en el registro de evidencia con `{ de, a, comentario }`.
+
+## Evidencia
+
+`GET /evidencia` devuelve las decisiones sobre excepciones y los cambios de
+estado de hallazgos, del más reciente al más antiguo.
+
+El registro **solo agrega**: no hay forma de editar ni borrar un evento. Cada
+evento guarda el hash del anterior, y su propio hash es el sha256 de ese hash
+más el JSON canónico del evento (claves ordenadas, para que el mismo evento dé
+siempre el mismo hash). El primero se encadena a 64 ceros. Si alguien altera o
+borra un evento intermedio, su hash y los de todos los siguientes dejan de
+coincidir, y `integra` pasa a `false`.
+
+**El límite:** en memoria esto no es inmutable de verdad, porque quien tenga
+el proceso puede reescribir el arreglo. Lo que sí hace es que una alteración
+sea **detectable**. La inmutabilidad real la da el bucket con retención del
+módulo `infra/modules/logging`; esta estructura queda lista para escribir ahí.
 
 ## Autenticación
 
