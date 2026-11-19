@@ -1294,6 +1294,17 @@
                           },
                           "aprobadaPor": {
                             "nullable": true,
+                            "description": "Quién decidió, aprobando o rechazando; nulo mientras está pendiente",
+                            "type": "string"
+                          },
+                          "comentarioDecision": {
+                            "nullable": true,
+                            "description": "Fundamento de la decisión; nulo mientras está pendiente",
+                            "type": "string"
+                          },
+                          "decididaEn": {
+                            "nullable": true,
+                            "description": "Fecha ISO 8601; nula mientras está pendiente",
                             "type": "string"
                           },
                           "solicitadaEn": {
@@ -1332,6 +1343,8 @@
                           "solicitadaPor",
                           "aprobadorSolicitado",
                           "aprobadaPor",
+                          "comentarioDecision",
+                          "decididaEn",
                           "solicitadaEn",
                           "venceEl",
                           "estado",
@@ -1472,6 +1485,17 @@
                     },
                     "aprobadaPor": {
                       "nullable": true,
+                      "description": "Quién decidió, aprobando o rechazando; nulo mientras está pendiente",
+                      "type": "string"
+                    },
+                    "comentarioDecision": {
+                      "nullable": true,
+                      "description": "Fundamento de la decisión; nulo mientras está pendiente",
+                      "type": "string"
+                    },
+                    "decididaEn": {
+                      "nullable": true,
+                      "description": "Fecha ISO 8601; nula mientras está pendiente",
                       "type": "string"
                     },
                     "solicitadaEn": {
@@ -1510,6 +1534,8 @@
                     "solicitadaPor",
                     "aprobadorSolicitado",
                     "aprobadaPor",
+                    "comentarioDecision",
+                    "decididaEn",
                     "solicitadaEn",
                     "venceEl",
                     "estado",

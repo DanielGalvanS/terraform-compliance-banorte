@@ -548,7 +548,12 @@ export interface paths {
                                 solicitadaPor: string;
                                 /** @description A quién se le pidió la aprobación; puede no ser quien termine decidiendo */
                                 aprobadorSolicitado: string;
+                                /** @description Quién decidió, aprobando o rechazando; nulo mientras está pendiente */
                                 aprobadaPor: string | null;
+                                /** @description Fundamento de la decisión; nulo mientras está pendiente */
+                                comentarioDecision: string | null;
+                                /** @description Fecha ISO 8601; nula mientras está pendiente */
+                                decididaEn: string | null;
                                 /** @description Fecha ISO 8601 */
                                 solicitadaEn: string;
                                 /** @description Fecha yyyy-mm-dd */
@@ -616,7 +621,12 @@ export interface paths {
                             solicitadaPor: string;
                             /** @description A quién se le pidió la aprobación; puede no ser quien termine decidiendo */
                             aprobadorSolicitado: string;
+                            /** @description Quién decidió, aprobando o rechazando; nulo mientras está pendiente */
                             aprobadaPor: string | null;
+                            /** @description Fundamento de la decisión; nulo mientras está pendiente */
+                            comentarioDecision: string | null;
+                            /** @description Fecha ISO 8601; nula mientras está pendiente */
+                            decididaEn: string | null;
                             /** @description Fecha ISO 8601 */
                             solicitadaEn: string;
                             /** @description Fecha yyyy-mm-dd */

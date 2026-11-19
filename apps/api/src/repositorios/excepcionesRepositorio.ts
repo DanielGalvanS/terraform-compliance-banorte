@@ -13,9 +13,28 @@ export type DatosDeControl = {
   severidad: Excepcion['severidad']
 }
 
+export type Decision = {
+  estado: 'Activa' | 'Rechazada'
+  decididaPor: string
+  comentario: string
+  decididaEn: string
+}
+
 export type ExcepcionesRepositorio = {
   listar(filtro: FiltroExcepciones): Promise<ExcepcionGuardada[]>
-  crear(datos: Omit<ExcepcionGuardada, 'id' | 'codigo' | 'estadoGuardado'>): Promise<ExcepcionGuardada>
+  obtener(id: string): Promise<ExcepcionGuardada | null>
+  crear(
+    datos: Omit<
+      ExcepcionGuardada,
+      'id' | 'codigo' | 'estadoGuardado' | 'comentarioDecision' | 'decididaEn'
+    >,
+  ): Promise<ExcepcionGuardada>
+  /**
+   * Registra la decisión. Solo cambia el estado: las reglas (quién puede
+   * decidir y cuándo) ya las validó `validarDecision` antes de llamar. Repetirlas
+   * aquí sería tener dos versiones que tarde o temprano discrepan.
+   */
+  decidir(id: string, decision: Decision): Promise<ExcepcionGuardada | null>
 }
 
 export function excepcionesEnMemoria(semilla: ExcepcionGuardada[] = []): ExcepcionesRepositorio {
@@ -35,15 +54,33 @@ export function excepcionesEnMemoria(semilla: ExcepcionGuardada[] = []): Excepci
       )
     },
 
+    async obtener(id) {
+      return excepciones.find((e) => e.id === id) ?? null
+    },
+
     async crear(datos) {
       const excepcion: ExcepcionGuardada = {
         ...datos,
+        comentarioDecision: null,
+        decididaEn: null,
         id: randomUUID(),
         codigo: `EXC-${siguiente++}`,
         // Nunca nace activa: nada se exceptúa sin aprobación humana.
         estadoGuardado: 'Pendiente',
       }
       excepciones.unshift(excepcion)
+      return excepcion
+    },
+
+    async decidir(id, { estado, decididaPor, comentario, decididaEn }) {
+      const excepcion = excepciones.find((e) => e.id === id)
+      if (excepcion === undefined) return null
+      excepcion.estadoGuardado = estado
+      // `aprobadaPor` guarda a quien decidió también al rechazar: es la columna
+      // que ya existe en `db/esquema.ts`, y el estado dice en qué sentido.
+      excepcion.aprobadaPor = decididaPor
+      excepcion.comentarioDecision = comentario
+      excepcion.decididaEn = decididaEn
       return excepcion
     },
   }
