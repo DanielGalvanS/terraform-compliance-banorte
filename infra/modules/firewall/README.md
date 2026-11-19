@@ -13,6 +13,9 @@ Identity-Aware Proxy.
   expuesto a internet, que es lo que rechaza CO-NET-01.
 - **Tráfico interno acotado a puertos declarados.** Abrir la subred completa a
   todos los protocolos es justo lo que rechaza CO-NET-02.
+- **ICMP interno solo si se pide.** `permitir_icmp_interno` abre ping dentro de
+  la subred, para medir latencia en las pruebas de rendimiento. Está apagado por
+  defecto y nunca se abre desde internet.
 - **Logging en todas las reglas.** Sin logs no hay evidencia de qué se permitió.
 
 ## Uso

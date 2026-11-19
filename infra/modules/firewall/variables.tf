@@ -29,3 +29,12 @@ variable "puertos_internos" {
   type        = list(string)
   default     = ["443"]
 }
+
+variable "permitir_icmp_interno" {
+  description = <<-DESC
+    Permite ICMP entre instancias de la subred. Hace falta para medir la
+    latencia con ping en las pruebas de rendimiento; fuera de eso no aporta.
+  DESC
+  type        = bool
+  default     = false
+}

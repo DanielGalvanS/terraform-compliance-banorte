@@ -1,0 +1,50 @@
+name: Scripts
+
+# Los scripts del repositorio también se prueban. Sin esto, las pruebas que
+# acompañan a un script pasan el día que se escriben y se rompen en silencio
+# después: nadie vuelve a ejecutarlas a mano.
+on:
+  # Sin filtro de rutas en los PR: para poder exigirlo como check obligatorio
+  # de main. Uno que no corre deja el pull request esperando para siempre.
+  pull_request:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/**'
+
+permissions:
+  contents: read
+
+jobs:
+  pruebas:
+    name: Pruebas de los scripts
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      # Los scripts solo usan la biblioteca estándar, a propósito: corren en la
+      # VM sin instalar nada. Por eso aquí tampoco se instala nada.
+      - name: unittest en cada carpeta con pruebas
+        run: |
+          set -euo pipefail
+          hubo_error=0
+          encontrados=0
+          for dir in scripts/*/; do
+            # find en vez de un glob: su resultado no depende del shell.
+            [ -n "$(find "${dir}" -maxdepth 1 -name 'test_*.py' -print -quit)" ] || continue
+            encontrados=$((encontrados + 1))
+            echo "::group::${dir}"
+            # -I aísla el intérprete: no toma módulos del directorio de trabajo
+            # ni del entorno, solo los de la carpeta que se está probando.
+            if python3 -I -m unittest discover --start-directory "${dir}" --verbose; then
+              echo "::endgroup::"
+            else
+              echo "::endgroup::"
+              echo "::error title=unittest::Falló en ${dir}"
+              hubo_error=1
+            fi
+          done
+          # Si el bucle no encuentra nada, el job pasaría en verde sin haber
+          # probado nada. Mejor decirlo que fingir que se comprobó algo.
+          echo "Carpetas con pruebas: ${encontrados}"
+          exit "${hubo_error}"
