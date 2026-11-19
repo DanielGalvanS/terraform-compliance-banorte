@@ -91,7 +91,7 @@ caché de páginas en RAM y daría un número que el disco no tiene.
 
 ### 4. Base de datos
 
-Contra la IP privada de Cloud SQL (`terraform output sql`):
+Contra la IP privada de Cloud SQL (`terraform output sql_ip_privada`):
 
 ```bash
 ~/rendimiento/sql.sh IP_PRIVADA_SQL USUARIO

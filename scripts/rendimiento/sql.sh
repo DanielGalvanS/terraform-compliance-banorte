@@ -3,7 +3,7 @@
 #
 #   scripts/rendimiento/sql.sh IP_PRIVADA_SQL USUARIO [BASE]
 #
-# La IP sale de `terraform output sql`. La contraseña se pide por teclado o se
+# La IP sale de `terraform output sql_ip_privada`. La contraseña se pide por teclado o se
 # toma de PGPASSWORD; nunca se guarda en un archivo. Para obtenerla desde tu
 # equipo, con permisos sobre el secreto:
 #
