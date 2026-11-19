@@ -65,6 +65,8 @@ class Resumir(unittest.TestCase):
             self.escribir(f"iops-corrida-{n}.json", fio(15000))
             self.escribir(f"sql-corrida-{n}.txt", PGBENCH.format(lat="19.52"))
         self.assertEqual(self.fila("IOPS")[4:], ["15 000", "≥ 12 000", "Sí"])
+        # Sin unidad no debe quedar un espacio colgando en la celda.
+        self.assertIn("| ≥ 12 000 |", resumir.tabla(self.carpeta))
         self.assertEqual(self.fila("Cloud SQL")[4:], ["19.52", "≤ 50 ms", "Sí"])
 
     def test_despliegue_en_minutos(self):

@@ -8,7 +8,7 @@
 # La IP privada sale de `terraform output instancias`.
 
 set -euo pipefail
-# shellcheck source=comun.sh
+# shellcheck source-path=SCRIPTDIR
 source "$(dirname "$0")/comun.sh"
 
 DURACION="${DURACION:-30}"
@@ -34,11 +34,13 @@ case "${1:-}" in
       info "red: corrida ${n} de ${CORRIDAS}"
       # Latencia primero, con la red en reposo: medirla durante iperf3 daría
       # la latencia bajo carga, que es otra métrica.
-      ping -c 20 -i 0.2 -q "${destino}" >"${RESULTADOS}/latencia-corrida-${n}.txt"
+      ping -c 20 -i 0.2 -q "${destino}" >"${RESULTADOS}/latencia-corrida-${n}.txt" ||
+        fallar "${destino} no responde a ping. ¿Está aplicada la regla permitir-icmp-interno?"
       # Varios flujos en paralelo: un solo flujo TCP no llena el enlace y
       # mediría el límite de la ventana, no el de la red.
       iperf3 --client "${destino}" --time "${DURACION}" --parallel "${FLUJOS}" \
-        --json >"${RESULTADOS}/red-corrida-${n}.json"
+        --json >"${RESULTADOS}/red-corrida-${n}.json" ||
+        fallar "iperf3 no conectó con ${destino}:5201. ¿Corre red.sh servidor allá y está abierto el puerto?"
     done
 
     info "listo: ${RESULTADOS}/red-corrida-*.json y latencia-corrida-*.txt"

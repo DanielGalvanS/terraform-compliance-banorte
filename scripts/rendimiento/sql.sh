@@ -13,7 +13,7 @@
 # la API tiene ese permiso.
 
 set -euo pipefail
-# shellcheck source=comun.sh
+# shellcheck source-path=SCRIPTDIR
 source "$(dirname "$0")/comun.sh"
 
 host="${1:-}"
@@ -36,7 +36,16 @@ if [ -z "${PGPASSWORD:-}" ]; then
   export PGPASSWORD
 fi
 
-requerir pgbench postgresql-client
+# En Debian, pgbench no viene en postgresql-client sino con el servidor. Ojo:
+# /usr/bin/pgbench existe aunque no esté instalado (es un envoltorio de
+# postgresql-client-common), así que se comprueba que funcione, no que exista.
+# El servicio local se detiene para que no compita por la RAM de la VM.
+if ! pgbench --version >/dev/null 2>&1; then
+  info "instalando pgbench (paquete postgresql)"
+  sudo apt-get update -qq
+  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq postgresql >/dev/null
+  sudo systemctl disable --now postgresql >/dev/null 2>&1 || true
+fi
 preparar_resultados
 
 # Las tablas de pgbench se crean una sola vez. Con SALTAR_INICIO=1 se reutilizan

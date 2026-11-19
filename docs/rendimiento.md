@@ -58,7 +58,7 @@ done
 gcloud compute ssh vm-mdc-dev-01 --zone=us-central1-a --tunnel-through-iap
 ```
 
-Cada script instala lo que le falte (`iperf3`, `fio`, `postgresql-client`).
+Cada script instala lo que le falte (`iperf3`, `fio`, `pgbench`).
 
 ### 2. Red
 

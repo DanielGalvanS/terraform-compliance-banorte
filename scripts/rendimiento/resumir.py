@@ -41,7 +41,8 @@ class Metrica:
 
     def objetivo_texto(self) -> str:
         signo = "≥" if self.mayor_es_mejor else "≤"
-        return f"{signo} {formatear(self.objetivo)} {self.unidad}"
+        texto = f"{signo} {formatear(self.objetivo)}"
+        return f"{texto} {self.unidad}" if self.unidad else texto
 
 
 def latencia_ping(archivo: Path) -> float:

@@ -6,7 +6,7 @@
 # Corre en cualquiera de las dos instancias y mide su disco de arranque.
 
 set -euo pipefail
-# shellcheck source=comun.sh
+# shellcheck source-path=SCRIPTDIR
 source "$(dirname "$0")/comun.sh"
 
 TAMANIO="${TAMANIO:-1G}"
