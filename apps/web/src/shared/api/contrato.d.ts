@@ -33,6 +33,8 @@ export interface paths {
                             /** @description Versión del catálogo cargado */
                             catalogo: string;
                             persistencia: boolean;
+                            /** @enum {string} */
+                            evidencia: "memoria" | "bucket";
                         };
                     };
                 };

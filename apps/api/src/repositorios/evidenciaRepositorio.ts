@@ -18,6 +18,8 @@ export type NuevoEvento = Omit<
  * evidencia que se puede corregir después no prueba nada.
  */
 export type EvidenciaRepositorio = {
+  /** Dónde vive: lo informa /salud, para que nadie confunda una con otra. */
+  readonly almacen: 'memoria' | 'bucket'
   registrar(evento: NuevoEvento): Promise<EventoEvidencia>
   /** Del más reciente al más antiguo. */
   listar(filtro: { tipo?: TipoEvento; objetoId?: string }): Promise<EventoEvidencia[]>
@@ -61,6 +63,7 @@ export function calcularHash(evento: Omit<EventoEvidencia, 'hash'>): string {
  */
 export function evidenciaEnMemoria(eventos: EventoEvidencia[] = []): EvidenciaRepositorio {
   return {
+    almacen: 'memoria',
     async registrar(nuevo) {
       const evento = encadenar(nuevo, eventos.at(-1))
       eventos.push(evento)
@@ -171,19 +174,28 @@ async function leerCadena(
 export async function evidenciaEnBucket(almacen: AlmacenObjetos): Promise<EvidenciaRepositorio> {
   const recargar = async () => {
     try {
-      return (await leerCadena(almacen)).eventos
+      return await leerCadena(almacen)
     } catch (error) {
       throw new EvidenciaNoDisponible(error)
     }
   }
 
-  let eventos = await recargar()
+  let { eventos, ilegible } = await recargar()
 
   return {
+    almacen: 'bucket',
     async registrar(nuevo) {
       // Dos intentos: el segundo, después de recargar, cubre que otra
       // instancia haya escrito esa secuencia entre tanto.
       for (let intento = 0; intento < 2; intento++) {
+        // Con un objeto ilegible en la cadena no hay hash anterior del que
+        // colgar el siguiente evento. Se cierra en vez de improvisar: hasta
+        // que alguien lo revise, ningún cambio se aplica sin evidencia.
+        if (ilegible !== null) {
+          throw new EvidenciaNoDisponible(
+            new Error(`El evento ${ilegible} de la cadena es ilegible; requiere revisión`),
+          )
+        }
         const evento = encadenar(nuevo, eventos.at(-1))
         let resultado: 'creado' | 'existe'
         try {
@@ -195,7 +207,9 @@ export async function evidenciaEnBucket(almacen: AlmacenObjetos): Promise<Eviden
           eventos = [...eventos, evento]
           return evento
         }
-        eventos = await recargar()
+        const recargada = await recargar()
+        eventos = recargada.eventos
+        ilegible = recargada.ilegible
       }
       throw new EvidenciaNoDisponible(new Error('La secuencia siguió ocupada después de recargar'))
     },

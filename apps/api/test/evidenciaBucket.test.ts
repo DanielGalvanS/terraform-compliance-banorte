@@ -99,6 +99,17 @@ describe('evidencia en el bucket', () => {
     expect((await registro.verificar()).integra).toBe(false)
   })
 
+  it('con un objeto ilegible no se sigue encadenando: falla cerrado hasta que se revise', async () => {
+    const objetos = new Map<string, string>()
+    const previa = await evidenciaEnBucket(almacenEnMemoria(objetos))
+    for (const id of ['a', 'b']) await previa.registrar(evento(id))
+    objetos.set(nombreDeEvento(2), 'no es un evento')
+
+    const reiniciada = await evidenciaEnBucket(almacenEnMemoria(objetos))
+    await expect(reiniciada.registrar(evento('c'))).rejects.toThrow(EvidenciaNoDisponible)
+    expect(objetos.size).toBe(2)
+  })
+
   it('dos instancias no crean dos eventos con la misma secuencia', async () => {
     const almacen = almacenEnMemoria()
     // Las dos cargan la cadena vacía antes de que cualquiera escriba.
@@ -252,15 +263,59 @@ describe('sin evidencia no hay cambio', () => {
   it('si el bucket no responde al verificar, GET /evidencia responde 503', async () => {
     let llamadas = 0
     const base = almacenEnMemoria()
-    // Responde al cargar y falla después, como un bucket que se cae.
+    // Responde al cargar y a la verificación del arranque, y falla después,
+    // como un bucket que se cae con la API ya corriendo.
     const inestable: AlmacenObjetos = {
       ...base,
       listar: (prefijo) =>
-        llamadas++ === 0 ? base.listar(prefijo) : Promise.reject(new Error('503 del bucket')),
+        llamadas++ < 2 ? base.listar(prefijo) : Promise.reject(new Error('503 del bucket')),
     }
     const otra = await construirApp({ config: configDePrueba(), evidencia: await evidenciaEnBucket(inestable) })
     const r = await otra.inject(conToken({ method: 'GET', url: `${PREFIJO}/evidencia` }))
     expect(r.statusCode).toBe(503)
     await otra.close()
+  })
+})
+
+describe('arranque y salud', () => {
+  it('por defecto la evidencia vive en memoria, y /salud lo dice', async () => {
+    const app = await construirApp({ config: configDePrueba() })
+    expect((await app.inject({ method: 'GET', url: '/salud' })).json().evidencia).toBe('memoria')
+    await app.close()
+  })
+
+  it('con el registro sobre el bucket, /salud dice bucket', async () => {
+    const app = await construirApp({
+      config: configDePrueba(),
+      evidencia: await evidenciaEnBucket(almacenEnMemoria()),
+    })
+    expect((await app.inject({ method: 'GET', url: '/salud' })).json().evidencia).toBe('bucket')
+    await app.close()
+  })
+
+  it('una cadena alterada no impide arrancar: GET /evidencia la muestra', async () => {
+    const objetos = new Map<string, string>()
+    const previa = await evidenciaEnBucket(almacenEnMemoria(objetos))
+    for (const id of ['a', 'b']) await previa.registrar(evento(id))
+    objetos.set(nombreDeEvento(1), '{"alterado":true}')
+
+    const app = await construirApp({
+      config: configDePrueba(),
+      evidencia: await evidenciaEnBucket(almacenEnMemoria(objetos)),
+    })
+    const r = await app.inject(conToken({ method: 'GET', url: `${PREFIJO}/evidencia` }))
+    expect(r.statusCode).toBe(200)
+    expect(r.json().integra).toBe(false)
+    await app.close()
+  })
+
+  it('si el bucket no responde al arrancar, la API no arranca', async () => {
+    await expect(
+      (async () =>
+        construirApp({
+          config: configDePrueba(),
+          evidencia: await evidenciaEnBucket(almacenCaido({ listar: true })),
+        }))(),
+    ).rejects.toBeInstanceOf(EvidenciaNoDisponible)
   })
 })

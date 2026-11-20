@@ -43,12 +43,20 @@
                     },
                     "persistencia": {
                       "type": "boolean"
+                    },
+                    "evidencia": {
+                      "type": "string",
+                      "enum": [
+                        "memoria",
+                        "bucket"
+                      ]
                     }
                   },
                   "required": [
                     "estado",
                     "catalogo",
-                    "persistencia"
+                    "persistencia",
+                    "evidencia"
                   ],
                   "additionalProperties": false
                 }
