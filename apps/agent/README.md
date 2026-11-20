@@ -115,6 +115,9 @@ del pipeline y `hashEntradas` liga los dos.
 
 - **Si el registro falla, sale con código 1** y el pipeline bloquea: una
   decisión sin evidencia no debe dejar pasar un despliegue.
+- **Un 200 no basta.** Solo cuenta como registrada si la respuesta es JSON
+  con el mismo `ejecucionId` y `hashEntradas` que se enviaron. Un proxy o
+  balanceador que responda 200 con una página HTML no debe pasar por éxito.
 - También se registra un `error_agente`: que el agente falló es evidencia.
 - Reenviar la misma ejecución no la duplica (la API es idempotente por
   `ejecucionId`).

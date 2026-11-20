@@ -152,11 +152,25 @@ async def registrar_en_api(decision: Decision, api_url: str) -> str | None:
             )
     except httpx.HTTPError as error:
         return f"no se pudo contactar con la API ({type(error).__name__})"
+    cuerpo = _json_o_none(respuesta)
     if respuesta.status_code in (200, 201):
-        return None
-    detalle = ""
-    try:
-        detalle = str(respuesta.json().get("error", ""))
-    except ValueError:
-        pass
+        # Un 200 no basta: un proxy o balanceador puede responder 200 con una
+        # página HTML sin que la decisión haya llegado a la API. Solo cuenta
+        # como registrada si la respuesta es esta misma decisión.
+        if (
+            isinstance(cuerpo, dict)
+            and cuerpo.get("ejecucionId") == decision.ejecucion_id
+            and cuerpo.get("hashEntradas") == decision.hash_entradas
+        ):
+            return None
+        return f"la API respondió {respuesta.status_code}, pero no con la decisión enviada"
+    detalle = str(cuerpo.get("error", "")) if isinstance(cuerpo, dict) else ""
     return f"la API respondió {respuesta.status_code}" + (f": {detalle}" if detalle else "")
+
+
+def _json_o_none(respuesta: httpx.Response) -> Any:
+    """El cuerpo como JSON, o None si no lo es (HTML de un proxy, vacío…)."""
+    try:
+        return respuesta.json()
+    except ValueError:
+        return None
