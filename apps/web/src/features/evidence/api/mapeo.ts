@@ -1,11 +1,19 @@
 import type { EventoEvidenciaApi } from '@/shared/api'
 import type { EvidenceEntry } from '../model'
 
-/** Qué ocurrió, en palabras, según el tipo de evento. */
+/**
+ * Qué ocurrió, en palabras, según el tipo de evento.
+ *
+ * El `Record` es deliberado y no un índice abierto: cuando la API añade un
+ * tipo de evento, esto deja de compilar y alguien tiene que decidir cómo se
+ * llama en pantalla. Con un `string` suelto saldría el identificador crudo en
+ * la tabla de auditoría, y nadie se enteraría.
+ */
 const DESCRIPCIONES: Record<EventoEvidenciaApi['tipo'], string> = {
   'excepcion.aprobada': 'Excepción aprobada',
   'excepcion.rechazada': 'Excepción rechazada',
   'hallazgo.estado': 'Cambio de estado de hallazgo',
+  'agente.decision': 'Decisión del agente',
 }
 
 /**
