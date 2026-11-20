@@ -46,7 +46,8 @@ export function rutasDecisiones(
           description:
             'Lo envía `python -m agente analizar` al terminar. Si la compuerta bloqueó y el ' +
             'agente analizó, registra un hallazgo por violación (o reutiliza el que ya existía) ' +
-            'con la severidad del catálogo, no la del cuerpo. Siempre agrega un evento ' +
+            'con la severidad del catálogo, no la del cuerpo; si estaba Cerrado, lo reabre. ' +
+            'Siempre agrega un evento ' +
             'agente.decision a la evidencia con el hash de la decisión completa. Reenviar la ' +
             'misma ejecución responde 200 sin duplicar nada; reenviarla con otro contenido, 409.',
           tags: ['agente'],
@@ -89,7 +90,7 @@ export function rutasDecisiones(
           // seguro que alguien lo revise de más a que pase desapercibido.
           const severidad: Hallazgo['severidad'] = control?.severidad ?? 'Crítica'
           const recurso = c.recurso ?? 'desconocido'
-          const { hallazgo } = await hallazgos.crear(
+          const { hallazgo, yaExistia } = await hallazgos.crear(
             {
               control: control?.codigo ?? null,
               titulo: control?.titulo ?? `Control desconocido (${c.control})`,
@@ -101,6 +102,24 @@ export function rutasDecisiones(
             },
             claveHallazgo(nueva.ambiente, c.control, recurso, c.mensaje),
           )
+          // Si alguien lo cerró y la compuerta lo vuelve a ver, no está
+          // resuelto: se reabre, y el cambio queda en la evidencia como
+          // cualquier otro. Una Excepción no se toca: la cubre su aprobación.
+          if (yaExistia && hallazgo.estado === 'Cerrado') {
+            const reabierto = await hallazgos.cambiarEstado(hallazgo.id, 'Abierto')
+            if (reabierto !== null) {
+              await evidencia.registrar({
+                tipo: 'hallazgo.estado',
+                objetoId: hallazgo.id,
+                actor: ACTOR_AGENTE,
+                detalle: {
+                  de: 'Cerrado',
+                  a: 'Abierto',
+                  comentario: `La compuerta volvió a detectar la violación (ejecución ${nueva.ejecucionId}).`,
+                },
+              })
+            }
+          }
           clasificaciones.push({ ...c, hallazgoId: hallazgo.id })
         }
 

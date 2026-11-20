@@ -105,6 +105,26 @@ describe('POST /decisiones', () => {
     expect((await servidor.inject(`${PREFIJO}/evidencia`)).json().eventos).toHaveLength(2)
   })
 
+  it('si la violación reaparece, reabre el hallazgo cerrado y lo deja en la evidencia', async () => {
+    const servidor = await app()
+    const primera = (await registrar(servidor, nueva())).json()
+    const id = primera.clasificaciones[0].hallazgoId
+    await servidor.inject({
+      method: 'PATCH',
+      url: `${PREFIJO}/hallazgos/${id}/estado`,
+      payload: { estado: 'Cerrado', comentario: 'Se corrigió en main', cambiadoPor: 'Roberto Silva' },
+    })
+
+    const segunda = nueva()
+    await registrar(servidor, segunda)
+
+    expect((await servidor.inject(`${PREFIJO}/hallazgos/${id}`)).json().estado).toBe('Abierto')
+    const { eventos, integra } = (await servidor.inject(`${PREFIJO}/evidencia?objetoId=${id}`)).json()
+    expect(integra).toBe(true)
+    expect(eventos[0]).toMatchObject({ actor: 'app-agente', detalle: { de: 'Cerrado', a: 'Abierto' } })
+    expect(eventos[0].detalle.comentario).toContain(segunda.ejecucionId)
+  })
+
   it('un error del agente se registra en la evidencia sin crear hallazgos', async () => {
     const servidor = await app()
     const respuesta = await registrar(

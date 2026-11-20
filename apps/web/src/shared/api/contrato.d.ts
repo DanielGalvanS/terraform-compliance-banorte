@@ -1287,7 +1287,7 @@ export interface paths {
         put?: never;
         /**
          * Registra una decisión del agente de cumplimiento
-         * @description Lo envía `python -m agente analizar` al terminar. Si la compuerta bloqueó y el agente analizó, registra un hallazgo por violación (o reutiliza el que ya existía) con la severidad del catálogo, no la del cuerpo. Siempre agrega un evento agente.decision a la evidencia con el hash de la decisión completa. Reenviar la misma ejecución responde 200 sin duplicar nada; reenviarla con otro contenido, 409.
+         * @description Lo envía `python -m agente analizar` al terminar. Si la compuerta bloqueó y el agente analizó, registra un hallazgo por violación (o reutiliza el que ya existía) con la severidad del catálogo, no la del cuerpo; si estaba Cerrado, lo reabre. Siempre agrega un evento agente.decision a la evidencia con el hash de la decisión completa. Reenviar la misma ejecución responde 200 sin duplicar nada; reenviarla con otro contenido, 409.
          */
         post: {
             parameters: {
