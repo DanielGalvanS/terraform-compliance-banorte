@@ -1,0 +1,331 @@
+{
+  "version": "1",
+  "ejecucionId": "3f1c2a9e-5b7d-4e8f-9a6b-1c2d3e4f5a6b",
+  "fecha": "2026-11-23T00:00:00+00:00",
+  "origen": "Plan",
+  "ambiente": "Dev",
+  "commit": "0000000000000000000000000000000000000000",
+  "resultadoCompuerta": "bloqueado",
+  "motivoCompuerta": "13 violación(es) de política",
+  "estado": "analizado",
+  "resumen": "Resumen de prueba.",
+  "clasificaciones": [
+    {
+      "violacion": "V01",
+      "control": "CO-DB-01",
+      "tituloControl": "Cloud SQL con dirección IP pública",
+      "severidad": "Crítica",
+      "marcos": [
+        "CIS GCP 6.6",
+        "LFPDPPP Principio de seguridad",
+        "NIST 800-53 SC-7",
+        "SOC 2 CC6.6"
+      ],
+      "recurso": "google_sql_database_instance.publica",
+      "mensaje": "CO-DB-01: la instancia 'google_sql_database_instance.publica' tiene IP pública habilitada. Usa ipv4_enabled = false con private_network.",
+      "prioridad": 1,
+      "explicacion": "La regla deja expuesto el recurso.",
+      "riesgo": "Acceso no autorizado.",
+      "remediacion": "Acotar el rango de origen.",
+      "accionSugerida": "proponer_pr",
+      "confianza": 80,
+      "citas": [
+        "CO-NET-01"
+      ]
+    },
+    {
+      "violacion": "V02",
+      "control": "CO-DB-02",
+      "tituloControl": "Cloud SQL sin llave administrada por el cliente",
+      "severidad": "Alta",
+      "marcos": [
+        "CIS GCP 6.x",
+        "LFPDPPP Principio de seguridad",
+        "NIST 800-53 SC-28",
+        "NIST 800-53 SC-12",
+        "SOC 2 CC6.1"
+      ],
+      "recurso": "google_sql_database_instance.publica",
+      "mensaje": "CO-DB-02: la instancia 'google_sql_database_instance.publica' no declara una llave CMEK. Asigna encryption_key_name con una llave de KMS.",
+      "prioridad": 2,
+      "explicacion": "La regla deja expuesto el recurso.",
+      "riesgo": "Acceso no autorizado.",
+      "remediacion": "Acotar el rango de origen.",
+      "accionSugerida": "proponer_pr",
+      "confianza": 80,
+      "citas": [
+        "CO-NET-01"
+      ]
+    },
+    {
+      "violacion": "V03",
+      "control": "CO-IAM-01",
+      "tituloControl": "Permisos de IAM excesivos",
+      "severidad": "Alta",
+      "marcos": [
+        "CIS GCP 1.x",
+        "NIST 800-53 AC-6",
+        "SOC 2 CC6.3"
+      ],
+      "recurso": "google_project_iam_member.deployer_editor",
+      "mensaje": "CO-IAM-01: 'google_project_iam_member.deployer_editor' concede el rol roles/editor a nivel de proyecto. Usa un rol acotado al recurso que la cuenta necesita.",
+      "prioridad": 2,
+      "explicacion": "La regla deja expuesto el recurso.",
+      "riesgo": "Acceso no autorizado.",
+      "remediacion": "Acotar el rango de origen.",
+      "accionSugerida": "escalar_jira",
+      "confianza": 80,
+      "citas": [
+        "CO-NET-01"
+      ]
+    },
+    {
+      "violacion": "V04",
+      "control": "CO-NET-01",
+      "tituloControl": "Administración remota expuesta a internet",
+      "severidad": "Crítica",
+      "marcos": [
+        "CIS GCP 3.6",
+        "CIS GCP 3.7",
+        "NIST 800-53 SC-7",
+        "NIST 800-53 AC-4",
+        "SOC 2 CC6.6"
+      ],
+      "recurso": "google_compute_firewall.allow_all",
+      "mensaje": "CO-NET-01: la regla 'google_compute_firewall.allow_all' expone el puerto 22 a 0.0.0.0/0. Usa el rango de IAP (35.235.240.0/20) o un rango corporativo.",
+      "prioridad": 1,
+      "explicacion": "La regla deja expuesto el recurso.",
+      "riesgo": "Acceso no autorizado.",
+      "remediacion": "Acotar el rango de origen.",
+      "accionSugerida": "proponer_pr",
+      "confianza": 80,
+      "citas": [
+        "CO-NET-01"
+      ]
+    },
+    {
+      "violacion": "V05",
+      "control": "CO-NET-01",
+      "tituloControl": "Administración remota expuesta a internet",
+      "severidad": "Crítica",
+      "marcos": [
+        "CIS GCP 3.6",
+        "CIS GCP 3.7",
+        "NIST 800-53 SC-7",
+        "NIST 800-53 AC-4",
+        "SOC 2 CC6.6"
+      ],
+      "recurso": "google_compute_firewall.allow_all",
+      "mensaje": "CO-NET-01: la regla 'google_compute_firewall.allow_all' expone el puerto 3389 a 0.0.0.0/0. Usa el rango de IAP (35.235.240.0/20) o un rango corporativo.",
+      "prioridad": 1,
+      "explicacion": "La regla deja expuesto el recurso.",
+      "riesgo": "Acceso no autorizado.",
+      "remediacion": "Acotar el rango de origen.",
+      "accionSugerida": "proponer_pr",
+      "confianza": 80,
+      "citas": [
+        "CO-NET-01"
+      ]
+    },
+    {
+      "violacion": "V06",
+      "control": "CO-NET-01",
+      "tituloControl": "Administración remota expuesta a internet",
+      "severidad": "Crítica",
+      "marcos": [
+        "CIS GCP 3.6",
+        "CIS GCP 3.7",
+        "NIST 800-53 SC-7",
+        "NIST 800-53 AC-4",
+        "SOC 2 CC6.6"
+      ],
+      "recurso": "google_compute_firewall.allow_ssh",
+      "mensaje": "CO-NET-01: la regla 'google_compute_firewall.allow_ssh' expone el puerto 22 a 0.0.0.0/0. Usa el rango de IAP (35.235.240.0/20) o un rango corporativo.",
+      "prioridad": 1,
+      "explicacion": "La regla deja expuesto el recurso.",
+      "riesgo": "Acceso no autorizado.",
+      "remediacion": "Acotar el rango de origen.",
+      "accionSugerida": "proponer_pr",
+      "confianza": 80,
+      "citas": [
+        "CO-NET-01"
+      ]
+    },
+    {
+      "violacion": "V07",
+      "control": "CO-NET-02",
+      "tituloControl": "Firewall que permite todo el tráfico desde internet",
+      "severidad": "Crítica",
+      "marcos": [
+        "CIS GCP 3.x",
+        "NIST 800-53 SC-7",
+        "SOC 2 CC6.6"
+      ],
+      "recurso": "google_compute_firewall.allow_all",
+      "mensaje": "CO-NET-02: la regla 'google_compute_firewall.allow_all' permite todo el tráfico desde 0.0.0.0/0. Acota protocolo, puertos y origen.",
+      "prioridad": 1,
+      "explicacion": "La regla deja expuesto el recurso.",
+      "riesgo": "Acceso no autorizado.",
+      "remediacion": "Acotar el rango de origen.",
+      "accionSugerida": "proponer_pr",
+      "confianza": 80,
+      "citas": [
+        "CO-NET-01"
+      ]
+    },
+    {
+      "violacion": "V08",
+      "control": "CO-SEC-01",
+      "tituloControl": "Secretos declarados en Terraform",
+      "severidad": "Crítica",
+      "marcos": [
+        "CIS GCP 1.x",
+        "LFPDPPP Principio de seguridad",
+        "NIST 800-53 IA-5",
+        "SOC 2 CC6.1"
+      ],
+      "recurso": "google_sql_user.app",
+      "mensaje": "CO-SEC-01: 'google_sql_user.app' declara password como valor sensible. Terraform lo oculta en la salida, pero lo guarda en el estado.",
+      "prioridad": 1,
+      "explicacion": "La regla deja expuesto el recurso.",
+      "riesgo": "Acceso no autorizado.",
+      "remediacion": "Acotar el rango de origen.",
+      "accionSugerida": "escalar_jira",
+      "confianza": 80,
+      "citas": [
+        "CO-NET-01"
+      ]
+    },
+    {
+      "violacion": "V09",
+      "control": "CO-TAG-01",
+      "tituloControl": "Etiquetas obligatorias ausentes",
+      "severidad": "Media",
+      "marcos": [
+        "NIST 800-53 CM-8",
+        "SOC 2 CC6.1",
+        "LFPDPPP Principio de responsabilidad"
+      ],
+      "recurso": "google_compute_instance.sin_etiquetas",
+      "mensaje": "CO-TAG-01: a 'google_compute_instance.sin_etiquetas' le faltan las etiquetas obligatorias: centro_costos, clasificacion_datos, marco_aplicable.",
+      "prioridad": 2,
+      "explicacion": "La regla deja expuesto el recurso.",
+      "riesgo": "Acceso no autorizado.",
+      "remediacion": "Acotar el rango de origen.",
+      "accionSugerida": "proponer_pr",
+      "confianza": 80,
+      "citas": [
+        "CO-NET-01"
+      ]
+    },
+    {
+      "violacion": "V10",
+      "control": "CO-TAG-01",
+      "tituloControl": "Etiquetas obligatorias ausentes",
+      "severidad": "Media",
+      "marcos": [
+        "NIST 800-53 CM-8",
+        "SOC 2 CC6.1",
+        "LFPDPPP Principio de responsabilidad"
+      ],
+      "recurso": "google_secret_manager_secret.sin_etiquetas",
+      "mensaje": "CO-TAG-01: a 'google_secret_manager_secret.sin_etiquetas' le faltan las etiquetas obligatorias: ambiente, centro_costos, clasificacion_datos, duenio, marco_aplicable.",
+      "prioridad": 2,
+      "explicacion": "La regla deja expuesto el recurso.",
+      "riesgo": "Acceso no autorizado.",
+      "remediacion": "Acotar el rango de origen.",
+      "accionSugerida": "proponer_pr",
+      "confianza": 80,
+      "citas": [
+        "CO-NET-01"
+      ]
+    },
+    {
+      "violacion": "V11",
+      "control": "CO-TAG-01",
+      "tituloControl": "Etiquetas obligatorias ausentes",
+      "severidad": "Media",
+      "marcos": [
+        "NIST 800-53 CM-8",
+        "SOC 2 CC6.1",
+        "LFPDPPP Principio de responsabilidad"
+      ],
+      "recurso": "google_sql_database_instance.publica",
+      "mensaje": "CO-TAG-01: a 'google_sql_database_instance.publica' le faltan las etiquetas obligatorias: ambiente, centro_costos, clasificacion_datos, duenio, marco_aplicable.",
+      "prioridad": 2,
+      "explicacion": "La regla deja expuesto el recurso.",
+      "riesgo": "Acceso no autorizado.",
+      "remediacion": "Acotar el rango de origen.",
+      "accionSugerida": "proponer_pr",
+      "confianza": 80,
+      "citas": [
+        "CO-NET-01"
+      ]
+    },
+    {
+      "violacion": "V12",
+      "control": "CO-VM-01",
+      "tituloControl": "Instancia expuesta o con cuenta por defecto",
+      "severidad": "Alta",
+      "marcos": [
+        "CIS GCP 4.x",
+        "NIST 800-53 SC-7",
+        "NIST 800-53 AC-6",
+        "SOC 2 CC6.6"
+      ],
+      "recurso": "google_compute_instance.expuesta",
+      "mensaje": "CO-VM-01: la instancia 'google_compute_instance.expuesta' tiene IP pública. Quita el bloque access_config y usa IAP para el acceso.",
+      "prioridad": 2,
+      "explicacion": "La regla deja expuesto el recurso.",
+      "riesgo": "Acceso no autorizado.",
+      "remediacion": "Acotar el rango de origen.",
+      "accionSugerida": "proponer_pr",
+      "confianza": 80,
+      "citas": [
+        "CO-NET-01"
+      ]
+    },
+    {
+      "violacion": "V13",
+      "control": "CO-VM-01",
+      "tituloControl": "Instancia expuesta o con cuenta por defecto",
+      "severidad": "Alta",
+      "marcos": [
+        "CIS GCP 4.x",
+        "NIST 800-53 SC-7",
+        "NIST 800-53 AC-6",
+        "SOC 2 CC6.6"
+      ],
+      "recurso": "google_compute_instance.expuesta",
+      "mensaje": "CO-VM-01: la instancia 'google_compute_instance.expuesta' usa la cuenta de servicio por defecto de Compute, que tiene rol de editor. Asigna una cuenta con permisos acotados.",
+      "prioridad": 2,
+      "explicacion": "La regla deja expuesto el recurso.",
+      "riesgo": "Acceso no autorizado.",
+      "remediacion": "Acotar el rango de origen.",
+      "accionSugerida": "proponer_pr",
+      "confianza": 80,
+      "citas": [
+        "CO-NET-01"
+      ]
+    }
+  ],
+  "herramientasUsadas": [
+    "consultar_control",
+    "consultar_recurso"
+  ],
+  "ajustes": [
+    "V01: prioridad 2 → 1; no puede ser menos urgente que su severidad (Crítica)",
+    "V03: acción proponer_pr → escalar_jira; quitar un permiso amplio lo decide el dueño de la cuenta",
+    "V04: prioridad 2 → 1; no puede ser menos urgente que su severidad (Crítica)",
+    "V05: prioridad 2 → 1; no puede ser menos urgente que su severidad (Crítica)",
+    "V06: prioridad 2 → 1; no puede ser menos urgente que su severidad (Crítica)",
+    "V07: prioridad 2 → 1; no puede ser menos urgente que su severidad (Crítica)",
+    "V08: prioridad 2 → 1; no puede ser menos urgente que su severidad (Crítica)",
+    "V08: acción proponer_pr → escalar_jira; un secreto expuesto se tiene que rotar, no basta con cambiar el código"
+  ],
+  "intentosFallidos": [],
+  "modelo": "modelo-falso",
+  "versionPrompt": "2026-11-23.2",
+  "hashEntradas": "sha256:84f11ec1acde946159afb13605e05e29a9b3a59e8f4ce44d7588d5290d389a4b",
+  "error": null
+}

@@ -1126,12 +1126,12 @@ export interface paths {
         };
         /**
          * Registro de evidencia
-         * @description Decisiones sobre excepciones y cambios de estado de hallazgos, del más reciente al más antiguo. Cada evento guarda el hash del anterior; `integra` dice si la cadena completa sigue coincidiendo, no solo los eventos filtrados.
+         * @description Decisiones sobre excepciones, cambios de estado de hallazgos y decisiones del agente, del más reciente al más antiguo. Cada evento guarda el hash del anterior; `integra` dice si la cadena completa sigue coincidiendo, no solo los eventos filtrados.
          */
         get: {
             parameters: {
                 query?: {
-                    tipo?: "excepcion.aprobada" | "excepcion.rechazada" | "hallazgo.estado";
+                    tipo?: "excepcion.aprobada" | "excepcion.rechazada" | "hallazgo.estado" | "agente.decision";
                     objetoId?: string;
                 };
                 header?: never;
@@ -1153,7 +1153,7 @@ export interface paths {
                                 /** @description 1, 2, 3… sin huecos */
                                 secuencia: number;
                                 /** @enum {string} */
-                                tipo: "excepcion.aprobada" | "excepcion.rechazada" | "hallazgo.estado";
+                                tipo: "excepcion.aprobada" | "excepcion.rechazada" | "hallazgo.estado" | "agente.decision";
                                 /** @description Id de la excepción o del hallazgo */
                                 objetoId: string;
                                 actor: string;
@@ -1170,6 +1170,457 @@ export interface paths {
                             }[];
                             /** @description Si ningún evento del registro fue alterado */
                             integra: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/decisiones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Decisiones del agente
+         * @description De la más reciente a la más antigua. Con `hallazgoId`, las que explican ese hallazgo: el detalle del dashboard toma de aquí la explicación y la prioridad.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    hallazgoId?: string;
+                    commit?: string;
+                    estado?: "analizado" | "sin_violaciones" | "sin_analisis" | "error_agente";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            decisiones: {
+                                /**
+                                 * Format: uuid
+                                 * @description Identifica la ejecución; reenviarla no duplica nada
+                                 */
+                                ejecucionId: string;
+                                /** @description Fecha ISO 8601 de la ejecución */
+                                fecha: string;
+                                /** @enum {string} */
+                                origen: "Plan" | "Drift" | "Evento" | "Auditoría";
+                                /** @enum {string} */
+                                ambiente: "Dev" | "QA" | "Prod";
+                                commit: string;
+                                /** @enum {string} */
+                                resultadoCompuerta: "conforme" | "bloqueado" | "error";
+                                /** @default  */
+                                motivoCompuerta: string;
+                                /** @enum {string} */
+                                estado: "analizado" | "sin_violaciones" | "sin_analisis" | "error_agente";
+                                resumen: string;
+                                clasificaciones: {
+                                    /** @description Id de la violación en el veredicto, por ejemplo V01 */
+                                    violacion: string;
+                                    control: string;
+                                    /** @description Dirección de Terraform; nula si el mensaje no la traía */
+                                    recurso: string | null;
+                                    /** @description El mensaje de la compuerta, sin cambios */
+                                    mensaje: string;
+                                    /** @description 1 = atender ya */
+                                    prioridad: number;
+                                    explicacion: string;
+                                    riesgo: string;
+                                    remediacion: string;
+                                    /** @enum {string} */
+                                    accionSugerida: "proponer_pr" | "escalar_jira" | "ninguna";
+                                    confianza: number;
+                                    citas: string[];
+                                    /**
+                                     * Format: uuid
+                                     * @description El hallazgo que registró esta violación
+                                     */
+                                    hallazgoId: string | null;
+                                }[];
+                                /** @default [] */
+                                herramientasUsadas: string[];
+                                /**
+                                 * @description Correcciones del código a la opinión del modelo
+                                 * @default []
+                                 */
+                                ajustes: string[];
+                                /** @default [] */
+                                intentosFallidos: string[];
+                                modelo: string | null;
+                                versionPrompt: string;
+                                /** @description Hash del veredicto y el plan analizados */
+                                hashEntradas: string;
+                                error: string | null;
+                                /** @description Fecha ISO 8601 */
+                                registradaEn: string;
+                                /** @description El evento agente.decision que la respalda */
+                                evidencia: {
+                                    secuencia: number;
+                                    hash: string;
+                                };
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Registra una decisión del agente de cumplimiento
+         * @description Lo envía `python -m agente analizar` al terminar. Si la compuerta bloqueó y el agente analizó, registra un hallazgo por violación (o reutiliza el que ya existía) con la severidad del catálogo, no la del cuerpo. Siempre agrega un evento agente.decision a la evidencia con el hash de la decisión completa. Reenviar la misma ejecución responde 200 sin duplicar nada; reenviarla con otro contenido, 409.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /**
+                         * Format: uuid
+                         * @description Identifica la ejecución; reenviarla no duplica nada
+                         */
+                        ejecucionId: string;
+                        /** @description Fecha ISO 8601 de la ejecución */
+                        fecha: string;
+                        /** @enum {string} */
+                        origen: "Plan" | "Drift" | "Evento" | "Auditoría";
+                        /** @enum {string} */
+                        ambiente: "Dev" | "QA" | "Prod";
+                        commit: string;
+                        /** @enum {string} */
+                        resultadoCompuerta: "conforme" | "bloqueado" | "error";
+                        /** @default  */
+                        motivoCompuerta?: string;
+                        /** @enum {string} */
+                        estado: "analizado" | "sin_violaciones" | "sin_analisis" | "error_agente";
+                        resumen: string;
+                        clasificaciones: {
+                            /** @description Id de la violación en el veredicto, por ejemplo V01 */
+                            violacion: string;
+                            control: string;
+                            /** @description Dirección de Terraform; nula si el mensaje no la traía */
+                            recurso: string | null;
+                            /** @description El mensaje de la compuerta, sin cambios */
+                            mensaje: string;
+                            /** @description 1 = atender ya */
+                            prioridad: number;
+                            explicacion: string;
+                            riesgo: string;
+                            remediacion: string;
+                            /** @enum {string} */
+                            accionSugerida: "proponer_pr" | "escalar_jira" | "ninguna";
+                            confianza: number;
+                            citas: string[];
+                        }[];
+                        /** @default [] */
+                        herramientasUsadas?: string[];
+                        /**
+                         * @description Correcciones del código a la opinión del modelo
+                         * @default []
+                         */
+                        ajustes?: string[];
+                        /** @default [] */
+                        intentosFallidos?: string[];
+                        modelo: string | null;
+                        versionPrompt: string;
+                        /** @description Hash del veredicto y el plan analizados */
+                        hashEntradas: string;
+                        error: string | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /**
+                             * Format: uuid
+                             * @description Identifica la ejecución; reenviarla no duplica nada
+                             */
+                            ejecucionId: string;
+                            /** @description Fecha ISO 8601 de la ejecución */
+                            fecha: string;
+                            /** @enum {string} */
+                            origen: "Plan" | "Drift" | "Evento" | "Auditoría";
+                            /** @enum {string} */
+                            ambiente: "Dev" | "QA" | "Prod";
+                            commit: string;
+                            /** @enum {string} */
+                            resultadoCompuerta: "conforme" | "bloqueado" | "error";
+                            /** @default  */
+                            motivoCompuerta: string;
+                            /** @enum {string} */
+                            estado: "analizado" | "sin_violaciones" | "sin_analisis" | "error_agente";
+                            resumen: string;
+                            clasificaciones: {
+                                /** @description Id de la violación en el veredicto, por ejemplo V01 */
+                                violacion: string;
+                                control: string;
+                                /** @description Dirección de Terraform; nula si el mensaje no la traía */
+                                recurso: string | null;
+                                /** @description El mensaje de la compuerta, sin cambios */
+                                mensaje: string;
+                                /** @description 1 = atender ya */
+                                prioridad: number;
+                                explicacion: string;
+                                riesgo: string;
+                                remediacion: string;
+                                /** @enum {string} */
+                                accionSugerida: "proponer_pr" | "escalar_jira" | "ninguna";
+                                confianza: number;
+                                citas: string[];
+                                /**
+                                 * Format: uuid
+                                 * @description El hallazgo que registró esta violación
+                                 */
+                                hallazgoId: string | null;
+                            }[];
+                            /** @default [] */
+                            herramientasUsadas: string[];
+                            /**
+                             * @description Correcciones del código a la opinión del modelo
+                             * @default []
+                             */
+                            ajustes: string[];
+                            /** @default [] */
+                            intentosFallidos: string[];
+                            modelo: string | null;
+                            versionPrompt: string;
+                            /** @description Hash del veredicto y el plan analizados */
+                            hashEntradas: string;
+                            error: string | null;
+                            /** @description Fecha ISO 8601 */
+                            registradaEn: string;
+                            /** @description El evento agente.decision que la respalda */
+                            evidencia: {
+                                secuencia: number;
+                                hash: string;
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /**
+                             * Format: uuid
+                             * @description Identifica la ejecución; reenviarla no duplica nada
+                             */
+                            ejecucionId: string;
+                            /** @description Fecha ISO 8601 de la ejecución */
+                            fecha: string;
+                            /** @enum {string} */
+                            origen: "Plan" | "Drift" | "Evento" | "Auditoría";
+                            /** @enum {string} */
+                            ambiente: "Dev" | "QA" | "Prod";
+                            commit: string;
+                            /** @enum {string} */
+                            resultadoCompuerta: "conforme" | "bloqueado" | "error";
+                            /** @default  */
+                            motivoCompuerta: string;
+                            /** @enum {string} */
+                            estado: "analizado" | "sin_violaciones" | "sin_analisis" | "error_agente";
+                            resumen: string;
+                            clasificaciones: {
+                                /** @description Id de la violación en el veredicto, por ejemplo V01 */
+                                violacion: string;
+                                control: string;
+                                /** @description Dirección de Terraform; nula si el mensaje no la traía */
+                                recurso: string | null;
+                                /** @description El mensaje de la compuerta, sin cambios */
+                                mensaje: string;
+                                /** @description 1 = atender ya */
+                                prioridad: number;
+                                explicacion: string;
+                                riesgo: string;
+                                remediacion: string;
+                                /** @enum {string} */
+                                accionSugerida: "proponer_pr" | "escalar_jira" | "ninguna";
+                                confianza: number;
+                                citas: string[];
+                                /**
+                                 * Format: uuid
+                                 * @description El hallazgo que registró esta violación
+                                 */
+                                hallazgoId: string | null;
+                            }[];
+                            /** @default [] */
+                            herramientasUsadas: string[];
+                            /**
+                             * @description Correcciones del código a la opinión del modelo
+                             * @default []
+                             */
+                            ajustes: string[];
+                            /** @default [] */
+                            intentosFallidos: string[];
+                            modelo: string | null;
+                            versionPrompt: string;
+                            /** @description Hash del veredicto y el plan analizados */
+                            hashEntradas: string;
+                            error: string | null;
+                            /** @description Fecha ISO 8601 */
+                            registradaEn: string;
+                            /** @description El evento agente.decision que la respalda */
+                            evidencia: {
+                                secuencia: number;
+                                hash: string;
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/decisiones/{ejecucionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Una decisión por ejecución */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    ejecucionId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /**
+                             * Format: uuid
+                             * @description Identifica la ejecución; reenviarla no duplica nada
+                             */
+                            ejecucionId: string;
+                            /** @description Fecha ISO 8601 de la ejecución */
+                            fecha: string;
+                            /** @enum {string} */
+                            origen: "Plan" | "Drift" | "Evento" | "Auditoría";
+                            /** @enum {string} */
+                            ambiente: "Dev" | "QA" | "Prod";
+                            commit: string;
+                            /** @enum {string} */
+                            resultadoCompuerta: "conforme" | "bloqueado" | "error";
+                            /** @default  */
+                            motivoCompuerta: string;
+                            /** @enum {string} */
+                            estado: "analizado" | "sin_violaciones" | "sin_analisis" | "error_agente";
+                            resumen: string;
+                            clasificaciones: {
+                                /** @description Id de la violación en el veredicto, por ejemplo V01 */
+                                violacion: string;
+                                control: string;
+                                /** @description Dirección de Terraform; nula si el mensaje no la traía */
+                                recurso: string | null;
+                                /** @description El mensaje de la compuerta, sin cambios */
+                                mensaje: string;
+                                /** @description 1 = atender ya */
+                                prioridad: number;
+                                explicacion: string;
+                                riesgo: string;
+                                remediacion: string;
+                                /** @enum {string} */
+                                accionSugerida: "proponer_pr" | "escalar_jira" | "ninguna";
+                                confianza: number;
+                                citas: string[];
+                                /**
+                                 * Format: uuid
+                                 * @description El hallazgo que registró esta violación
+                                 */
+                                hallazgoId: string | null;
+                            }[];
+                            /** @default [] */
+                            herramientasUsadas: string[];
+                            /**
+                             * @description Correcciones del código a la opinión del modelo
+                             * @default []
+                             */
+                            ajustes: string[];
+                            /** @default [] */
+                            intentosFallidos: string[];
+                            modelo: string | null;
+                            versionPrompt: string;
+                            /** @description Hash del veredicto y el plan analizados */
+                            hashEntradas: string;
+                            error: string | null;
+                            /** @description Fecha ISO 8601 */
+                            registradaEn: string;
+                            /** @description El evento agente.decision que la respalda */
+                            evidencia: {
+                                secuencia: number;
+                                hash: string;
+                            };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
                         };
                     };
                 };

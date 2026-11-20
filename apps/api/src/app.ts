@@ -12,6 +12,10 @@ import { z } from 'zod'
 import type { Config } from './config.ts'
 import { cargarCatalogo } from './repositorios/catalogoRepositorio.ts'
 import {
+  decisionesEnMemoria,
+  type DecisionesRepositorio,
+} from './repositorios/decisionesRepositorio.ts'
+import {
   evidenciaEnMemoria,
   type EvidenciaRepositorio,
 } from './repositorios/evidenciaRepositorio.ts'
@@ -29,6 +33,7 @@ import {
   recursosDeEjemplo,
 } from './repositorios/semilla.ts'
 import { rutasCatalogo } from './rutas/catalogo.ts'
+import { rutasDecisiones } from './rutas/decisiones.ts'
 import { rutasEvidencia } from './rutas/evidencia.ts'
 import { rutasExcepciones } from './rutas/excepciones.ts'
 import { rutasRecursos } from './rutas/recursos.ts'
@@ -43,6 +48,7 @@ type Opciones = {
   hallazgos?: HallazgosRepositorio
   excepciones?: ExcepcionesRepositorio
   evidencia?: EvidenciaRepositorio
+  decisiones?: DecisionesRepositorio
 }
 
 /**
@@ -51,7 +57,7 @@ type Opciones = {
  * Separarlo de `main.ts` permite que las pruebas lo levanten en memoria con
  * `app.inject()`, sin abrir un puerto ni depender del entorno.
  */
-export async function construirApp({ config, hallazgos, excepciones, evidencia }: Opciones) {
+export async function construirApp({ config, hallazgos, excepciones, evidencia, decisiones }: Opciones) {
   const app = Fastify({ logger: { level: config.NIVEL_LOG } }).withTypeProvider<ZodTypeProvider>()
 
   // El frontend se sirve desde otro origen en desarrollo. La lista es
@@ -89,6 +95,7 @@ export async function construirApp({ config, hallazgos, excepciones, evidencia }
   // Sin semilla: la evidencia de ejemplo no probaría nada, y una cadena que
   // empieza vacía es la que se puede verificar desde el primer evento.
   const repositorioEvidencia = evidencia ?? evidenciaEnMemoria()
+  const repositorioDecisiones = decisiones ?? decisionesEnMemoria()
 
   app.get(
     '/salud',
@@ -119,6 +126,10 @@ export async function construirApp({ config, hallazgos, excepciones, evidencia }
   await app.register(rutasResumen(catalogo, repositorio), { prefix: PREFIJO })
   await app.register(rutasExcepciones(catalogo, repositorioExcepciones, repositorioEvidencia), { prefix: PREFIJO })
   await app.register(rutasEvidencia(repositorioEvidencia), { prefix: PREFIJO })
+  await app.register(
+    rutasDecisiones(catalogo, repositorioDecisiones, repositorio, repositorioEvidencia),
+    { prefix: PREFIJO },
+  )
   await app.register(rutasRecursos(catalogo, recursosDeEjemplo, repositorio), { prefix: PREFIJO })
 
   return app

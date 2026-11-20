@@ -53,6 +53,9 @@ de incumplimientos que luego se reporta al auditor.
 | GET | `/api/v1/excepciones/:id` | Una excepción |
 | POST | `/api/v1/excepciones/:id/aprobar` | La aprueba: pasa a `Activa` |
 | POST | `/api/v1/excepciones/:id/rechazar` | La rechaza: pasa a `Rechazada` |
+| POST | `/api/v1/decisiones` | Registra una decisión del agente; crea los hallazgos y el evento de evidencia |
+| GET | `/api/v1/decisiones` | Decisiones del agente; filtra por `?hallazgoId=`, `?commit=` y `?estado=` |
+| GET | `/api/v1/decisiones/:ejecucionId` | Una decisión |
 | GET | `/api/v1/evidencia` | Registro de evidencia y si la cadena está íntegra; filtra por `?tipo=` y `?objetoId=` |
 
 Siguen pendientes las decisiones del agente y las aprobaciones de despliegue.
@@ -95,10 +98,34 @@ tabla en `src/model/reglasHallazgos.ts`:
 - El comentario es obligatorio, de al menos 10 caracteres (**422**).
 - Cada cambio queda en el registro de evidencia con `{ de, a, comentario }`.
 
+## Decisiones del agente
+
+`apps/agent` envía a `POST /decisiones` el mismo contenido de `decision.json`,
+en camelCase. La API:
+
+- **No cambia el bloqueo.** El resultado de la compuerta se copia; el agente
+  solo explica y prioriza.
+- **Crea un hallazgo por violación** cuando la compuerta bloqueó y el agente
+  analizó. La severidad y el título salen del catálogo, no del cuerpo; un
+  control que no está en el catálogo se registra como `Crítica`.
+- **No duplica hallazgos.** La misma violación (ambiente, control, recurso y
+  mensaje) vista en otro push reutiliza el hallazgo que ya existe.
+- **No duplica decisiones.** Reenviar la misma `ejecucionId` responde 200 con lo
+  ya registrado; reenviarla con otro contenido responde 409, porque una
+  decisión no se corrige.
+- **Registra el evento `agente.decision`** en la evidencia en todos los
+  estados, también `error_agente`, con actor `app-agente` y el hash de la
+  decisión completa.
+
+`test/datos/decision_agente.json` es una salida real del agente. Si el agente
+cambia sus campos, su prueba de contrato falla y hay que regenerarlo (ver
+`apps/agent/README.md`).
+
 ## Evidencia
 
-`GET /evidencia` devuelve las decisiones sobre excepciones y los cambios de
-estado de hallazgos, del más reciente al más antiguo.
+`GET /evidencia` devuelve las decisiones sobre excepciones, los cambios de
+estado de hallazgos y las decisiones del agente, del más reciente al más
+antiguo.
 
 El registro **solo agrega**: no hay forma de editar ni borrar un evento. Cada
 evento guarda el hash del anterior, y su propio hash es el sha256 de ese hash

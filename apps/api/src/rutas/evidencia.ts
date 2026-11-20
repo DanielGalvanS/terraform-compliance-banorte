@@ -11,7 +11,8 @@ export function rutasEvidencia(evidencia: EvidenciaRepositorio): FastifyPluginAs
         schema: {
           summary: 'Registro de evidencia',
           description:
-            'Decisiones sobre excepciones y cambios de estado de hallazgos, del más reciente ' +
+            'Decisiones sobre excepciones, cambios de estado de hallazgos y decisiones del ' +
+            'agente, del más reciente ' +
             'al más antiguo. Cada evento guarda el hash del anterior; `integra` dice si la ' +
             'cadena completa sigue coincidiendo, no solo los eventos filtrados.',
           tags: ['evidencia'],

@@ -218,7 +218,12 @@ export type NuevaExcepcion = z.infer<typeof NuevaExcepcion>
 export type FiltroExcepciones = z.infer<typeof FiltroExcepciones>
 export type EstadoExcepcion = z.infer<typeof EstadoExcepcion>
 
-export const TipoEvento = z.enum(['excepcion.aprobada', 'excepcion.rechazada', 'hallazgo.estado'])
+export const TipoEvento = z.enum([
+  'excepcion.aprobada',
+  'excepcion.rechazada',
+  'hallazgo.estado',
+  'agente.decision',
+])
 
 /**
  * Un evento del registro de evidencia.
@@ -243,3 +248,72 @@ export const EventoEvidencia = z.object({
 
 export type TipoEvento = z.infer<typeof TipoEvento>
 export type EventoEvidencia = z.infer<typeof EventoEvidencia>
+
+/**
+ * Decisiones del agente de cumplimiento (apps/agent).
+ *
+ * El agente no decide el bloqueo: lo decide la compuerta, y aquí solo se copia
+ * su resultado. Lo que el agente aporta es la explicación y la prioridad de
+ * cada violación. Los campos siguen `decision.json`, en camelCase.
+ */
+export const ResultadoCompuerta = z.enum(['conforme', 'bloqueado', 'error'])
+export const EstadoDecision = z.enum(['analizado', 'sin_violaciones', 'sin_analisis', 'error_agente'])
+export const AccionSugerida = z.enum(['proponer_pr', 'escalar_jira', 'ninguna'])
+
+export const ClasificacionAgente = z.object({
+  violacion: z.string().regex(/^V\d{2,}$/).describe('Id de la violación en el veredicto, por ejemplo V01'),
+  control: z.string().min(1),
+  recurso: z.string().nullable().describe('Dirección de Terraform; nula si el mensaje no la traía'),
+  mensaje: z.string().describe('El mensaje de la compuerta, sin cambios'),
+  prioridad: z.number().int().min(1).max(5).describe('1 = atender ya'),
+  explicacion: z.string(),
+  riesgo: z.string(),
+  remediacion: z.string(),
+  accionSugerida: AccionSugerida,
+  confianza: z.number().int().min(0).max(100),
+  citas: z.array(z.string()),
+})
+
+/** Lo que el agente envía al terminar una ejecución. */
+export const NuevaDecision = z.object({
+  ejecucionId: z.uuid().describe('Identifica la ejecución; reenviarla no duplica nada'),
+  fecha: z.string().describe('Fecha ISO 8601 de la ejecución'),
+  origen: Origen,
+  ambiente: Ambiente,
+  commit: z.string().min(1),
+  resultadoCompuerta: ResultadoCompuerta,
+  motivoCompuerta: z.string().default(''),
+  estado: EstadoDecision,
+  resumen: z.string(),
+  clasificaciones: z.array(ClasificacionAgente).max(500),
+  herramientasUsadas: z.array(z.string()).default([]),
+  ajustes: z.array(z.string()).default([]).describe('Correcciones del código a la opinión del modelo'),
+  intentosFallidos: z.array(z.string()).default([]),
+  modelo: z.string().nullable(),
+  versionPrompt: z.string(),
+  hashEntradas: z.string().regex(/^sha256:[0-9a-f]{64}$/).describe('Hash del veredicto y el plan analizados'),
+  error: z.string().nullable(),
+})
+
+export const DecisionAgente = NuevaDecision.extend({
+  clasificaciones: z.array(
+    ClasificacionAgente.extend({
+      hallazgoId: z.uuid().nullable().describe('El hallazgo que registró esta violación'),
+    }),
+  ),
+  registradaEn: z.string().describe('Fecha ISO 8601'),
+  evidencia: z.object({
+    secuencia: z.number().int().positive(),
+    hash: z.string(),
+  }).describe('El evento agente.decision que la respalda'),
+})
+
+export const FiltroDecisiones = z.object({
+  hallazgoId: z.uuid().optional(),
+  commit: z.string().optional(),
+  estado: EstadoDecision.optional(),
+})
+
+export type NuevaDecision = z.infer<typeof NuevaDecision>
+export type DecisionAgente = z.infer<typeof DecisionAgente>
+export type FiltroDecisiones = z.infer<typeof FiltroDecisiones>
