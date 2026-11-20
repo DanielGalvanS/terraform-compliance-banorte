@@ -1,4 +1,5 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
+import { requiere, respuestasAuth } from '../auth/autorizacion.ts'
 import type { CoberturaMarco, Hallazgo } from '../model/esquemas.ts'
 import { Resumen } from '../model/esquemas.ts'
 import type { Catalogo } from '../repositorios/catalogoRepositorio.ts'
@@ -48,13 +49,14 @@ export function rutasResumen(
     app.get(
       '/resumen',
       {
+        preHandler: requiere('leer'),
         schema: {
           summary: 'Postura de cumplimiento en cifras',
           description:
             'La cobertura por marco se calcula: un control es conforme cuando no ' +
             'tiene hallazgos abiertos ni en remediación.',
           tags: ['resumen'],
-          response: { 200: Resumen },
+          response: { ...respuestasAuth, 200: Resumen },
         },
       },
       async () => {

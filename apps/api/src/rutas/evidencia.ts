@@ -1,5 +1,6 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
+import { requiere, respuestasAuth } from '../auth/autorizacion.ts'
 import { EventoEvidencia, TipoEvento } from '../model/esquemas.ts'
 import type { EvidenciaRepositorio } from '../repositorios/evidenciaRepositorio.ts'
 
@@ -8,6 +9,7 @@ export function rutasEvidencia(evidencia: EvidenciaRepositorio): FastifyPluginAs
     app.get(
       '/evidencia',
       {
+        preHandler: requiere('leer'),
         schema: {
           summary: 'Registro de evidencia',
           description:
@@ -20,6 +22,7 @@ export function rutasEvidencia(evidencia: EvidenciaRepositorio): FastifyPluginAs
             objetoId: z.string().optional(),
           }),
           response: {
+            ...respuestasAuth,
             200: z.object({
               eventos: z.array(EventoEvidencia),
               integra: z.boolean().describe('Si ningún evento del registro fue alterado'),

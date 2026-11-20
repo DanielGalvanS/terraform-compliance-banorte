@@ -1,5 +1,6 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
+import { requiere, respuestasAuth } from '../auth/autorizacion.ts'
 import { Ambiente } from '../model/esquemas.ts'
 import {
   estadoDeRecurso,
@@ -20,6 +21,7 @@ export function rutasRecursos(
     app.get(
       '/recursos',
       {
+        preHandler: requiere('leer'),
         schema: {
           summary: 'Inventario de recursos gestionados',
           description:
@@ -33,6 +35,7 @@ export function rutasRecursos(
             buscar: z.string().optional(),
           }),
           response: {
+            ...respuestasAuth,
             200: z.object({
               recursos: z.array(Recurso),
               resumen: ResumenInventario,

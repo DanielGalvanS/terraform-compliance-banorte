@@ -1,5 +1,6 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
+import { requiere, respuestasAuth } from '../auth/autorizacion.ts'
 import {
   CambioEstadoHallazgo,
   Error as ErrorRespuesta,
@@ -28,11 +29,12 @@ export function rutasHallazgos(
     app.get(
       '/hallazgos',
       {
+        preHandler: requiere('leer'),
         schema: {
           summary: 'Hallazgos, con filtros opcionales',
           tags: ['hallazgos'],
           querystring: FiltroHallazgos,
-          response: { 200: z.object({ hallazgos: z.array(Hallazgo) }) },
+          response: { ...respuestasAuth, 200: z.object({ hallazgos: z.array(Hallazgo) }) },
         },
       },
       async (peticion) => ({ hallazgos: await repositorio.listar(peticion.query) }),
@@ -41,11 +43,12 @@ export function rutasHallazgos(
     app.get(
       '/hallazgos/:id',
       {
+        preHandler: requiere('leer'),
         schema: {
           summary: 'Un hallazgo por identificador',
           tags: ['hallazgos'],
           params: z.object({ id: z.uuid() }),
-          response: { 200: Hallazgo, 404: ErrorRespuesta },
+          response: { ...respuestasAuth, 200: Hallazgo, 404: ErrorRespuesta },
         },
       },
       async (peticion, respuesta) => {
@@ -60,6 +63,7 @@ export function rutasHallazgos(
     app.post(
       '/hallazgos',
       {
+        preHandler: requiere('registrarHallazgo'),
         schema: {
           summary: 'Registra un hallazgo detectado por el pipeline',
           description:
@@ -70,7 +74,7 @@ export function rutasHallazgos(
             'idempotency-key': z.string().min(8).optional(),
           }),
           body: NuevoHallazgo,
-          response: { 200: Hallazgo, 201: Hallazgo },
+          response: { ...respuestasAuth, 200: Hallazgo, 201: Hallazgo },
         },
       },
       async (peticion, respuesta) => {
@@ -86,6 +90,7 @@ export function rutasHallazgos(
     app.patch(
       '/hallazgos/:id/estado',
       {
+        preHandler: requiere('cambiarEstadoHallazgo'),
         schema: {
           summary: 'Cambia el estado de un hallazgo',
           description:
@@ -97,6 +102,7 @@ export function rutasHallazgos(
           params: z.object({ id: z.uuid() }),
           body: CambioEstadoHallazgo,
           response: {
+            ...respuestasAuth,
             200: Hallazgo,
             404: ErrorRespuesta,
             409: ErrorRespuesta,

@@ -1,5 +1,6 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
+import { requiere, respuestasAuth } from '../auth/autorizacion.ts'
 import {
   Error as ErrorRespuesta,
   Excepcion,
@@ -42,6 +43,7 @@ const CuerpoRechazar = z.object({
 })
 
 const respuestasDecision = {
+  ...respuestasAuth,
   200: Excepcion,
   404: ErrorRespuesta,
   409: ErrorRespuesta,
@@ -124,6 +126,7 @@ export function rutasExcepciones(
     app.get(
       '/excepciones',
       {
+        preHandler: requiere('leer'),
         schema: {
           summary: 'Excepciones registradas',
           description:
@@ -131,7 +134,7 @@ export function rutasExcepciones(
             'se devuelve como Vencida aunque nadie haya corrido un proceso que la marque.',
           tags: ['excepciones'],
           querystring: FiltroExcepciones,
-          response: { 200: z.object({ excepciones: z.array(Excepcion) }) },
+          response: { ...respuestasAuth, 200: z.object({ excepciones: z.array(Excepcion) }) },
         },
       },
       async (peticion) => ({
@@ -142,6 +145,7 @@ export function rutasExcepciones(
     app.post(
       '/excepciones',
       {
+        preHandler: requiere('solicitarExcepcion'),
         schema: {
           summary: 'Solicita una excepción',
           description:
@@ -149,7 +153,7 @@ export function rutasExcepciones(
             'severidad la decide el control, no quien la solicita.',
           tags: ['excepciones'],
           body: NuevaExcepcion,
-          response: { 201: Excepcion, 422: ErrorValidacion },
+          response: { ...respuestasAuth, 201: Excepcion, 422: ErrorValidacion },
         },
       },
       async (peticion, respuesta) => {
@@ -185,6 +189,7 @@ export function rutasExcepciones(
     app.get(
       '/excepciones/:id',
       {
+        preHandler: requiere('leer'),
         schema: {
           summary: 'Una excepción por identificador',
           description:
@@ -192,7 +197,7 @@ export function rutasExcepciones(
             'igual que en la lista.',
           tags: ['excepciones'],
           params: ParametrosId,
-          response: { 200: Excepcion, 404: ErrorRespuesta },
+          response: { ...respuestasAuth, 200: Excepcion, 404: ErrorRespuesta },
         },
       },
       async (peticion, respuesta) => {
@@ -210,6 +215,7 @@ export function rutasExcepciones(
     app.post(
       '/excepciones/:id/aprobar',
       {
+        preHandler: requiere('decidirExcepcion'),
         schema: {
           summary: 'Aprueba una excepción',
           description:
@@ -236,6 +242,7 @@ export function rutasExcepciones(
     app.post(
       '/excepciones/:id/rechazar',
       {
+        preHandler: requiere('decidirExcepcion'),
         schema: {
           summary: 'Rechaza una excepción',
           description:

@@ -27,6 +27,13 @@ export const Ambiente = z.enum(['Dev', 'QA', 'Prod'])
 export const EstadoHallazgo = z.enum(['Abierto', 'En remediación', 'Excepción', 'Cerrado'])
 export const Origen = z.enum(['Plan', 'Drift', 'Evento', 'Auditoría'])
 
+/** Quién hace la petición, según el token. Nunca según el cuerpo. */
+export const Identidad = z.object({
+  sujeto: z.string().min(1).describe('Identificador estable de la persona o el servicio'),
+  nombre: z.string().min(1).describe('Nombre que queda en la evidencia'),
+  rol: Rol,
+})
+
 export const Marco = z.object({
   clave: z.string().describe('Identificador interno, por ejemplo cis_gcp'),
   nombre: z.string(),
@@ -154,6 +161,7 @@ export const Error = z.object({
 })
 
 export type Rol = z.infer<typeof Rol>
+export type Identidad = z.infer<typeof Identidad>
 export type Marco = z.infer<typeof Marco>
 export type Control = z.infer<typeof Control>
 export type Hallazgo = z.infer<typeof Hallazgo>

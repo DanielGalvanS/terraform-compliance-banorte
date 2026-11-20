@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest'
+import { configDePrueba, conToken } from './auth.ts'
 import { construirApp, PREFIJO } from '../src/app.ts'
-import { cargarConfig } from '../src/config.ts'
 import { estadoDeRecurso, etiquetasFaltantes } from '../src/model/recursos.ts'
 
 const OBLIGATORIAS = ['duenio', 'ambiente', 'clasificacion_datos', 'centro_costos', 'marco_aplicable']
@@ -71,12 +71,12 @@ describe('ruta de recursos', () => {
   let app: Awaited<ReturnType<typeof construirApp>>
 
   beforeAll(async () => {
-    app = await construirApp({ config: cargarConfig({ NIVEL_LOG: 'fatal' }) })
+    app = await construirApp({ config: configDePrueba() })
     await app.ready()
   })
 
   const pedir = async (query = '') =>
-    (await app.inject({ method: 'GET', url: `${PREFIJO}/recursos${query}` })).json()
+    (await app.inject(conToken({ method: 'GET', url: `${PREFIJO}/recursos${query}` }))).json()
 
   it('a la VPC no se le exigen etiquetas', async () => {
     const { recursos } = await pedir()
