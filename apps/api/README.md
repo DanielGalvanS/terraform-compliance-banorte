@@ -45,15 +45,16 @@ de incumplimientos que luego se reporta al auditor.
 | GET | `/api/v1/resumen` | Cifras de portada |
 | GET | `/api/v1/marcos` | Marcos en alcance |
 | GET | `/api/v1/controles` | Controles y su mapeo; filtra por `?marco=` |
-| GET | `/api/v1/hallazgos` | Hallazgos, con filtros; `?recurso=` acepta la dirección con módulo |
+| GET | `/api/v1/hallazgos` | Hallazgos, con filtros; `?recurso=` acepta la dirección con módulo. El estado considera las excepciones vigentes |
 | GET | `/api/v1/hallazgos/:id` | Un hallazgo |
 | POST | `/api/v1/hallazgos` | Registra uno; acepta `Idempotency-Key` |
 | PATCH | `/api/v1/hallazgos/:id/estado` | Cambia su estado; ver «Estados de un hallazgo» |
-| GET | `/api/v1/excepciones` | Excepciones, con filtros (también `?recurso=`); el estado se deriva de la fecha |
+| GET | `/api/v1/excepciones` | Excepciones, con filtros (también `?recurso=` y `?porVencer=`); el estado y la vigencia se derivan de la fecha |
 | POST | `/api/v1/excepciones` | Solicita una; siempre nace `Pendiente` |
 | GET | `/api/v1/excepciones/:id` | Una excepción |
 | POST | `/api/v1/excepciones/:id/aprobar` | La aprueba: pasa a `Activa` |
 | POST | `/api/v1/excepciones/:id/rechazar` | La rechaza: pasa a `Rechazada` |
+| POST | `/api/v1/excepciones/:id/revocar` | La revoca: pasa a `Revocada`; solo Compliance Lead |
 | GET | `/api/v1/evidencia` | Registro de evidencia y si la cadena está íntegra; filtra por `?tipo=` y `?objetoId=` |
 | POST | `/api/v1/decisiones` | El agente registra la decisión de una ejecución; solo rol Agente |
 | GET | `/api/v1/decisiones` | Decisiones del agente; filtra por `?ejecucionId=` y `?estado=` |
@@ -128,6 +129,52 @@ tabla en `src/model/reglasHallazgos.ts`:
   aprobación humana.
 - El comentario es obligatorio, de al menos 10 caracteres (**422**).
 - Cada cambio queda en el registro de evidencia con `{ de, a, comentario }`.
+- Un hallazgo cubierto por una excepción vigente **no se cambia por aquí**
+  (409): hay que revocar la excepción o esperar a que venza.
+
+## Vigencia de las excepciones
+
+Una excepción aprobada **cubre** los hallazgos del mismo control, el mismo
+ambiente y el mismo recurso (la dirección con módulo cuenta como el mismo
+recurso). Las reglas están en `src/model/reglasVigencia.ts`.
+
+**El estado del hallazgo se deriva al leer, no se guarda.** Mientras una
+excepción activa y vigente lo cubre, un hallazgo `Abierto` o `En remediación`
+se muestra como `Excepción`, con la referencia a la excepción en el campo
+`excepcion`. El día que la excepción vence, o en cuanto se revoca, vuelve solo
+a su estado. Es la misma idea que `Vencida`: no depende de un proceso
+programado que alguien pueda olvidar, y un hallazgo nunca queda marcado como
+exceptuado con la excepción ya vencida.
+
+Todo lo que lee hallazgos usa ese estado: la lista y su filtro `?estado=`, el
+detalle, el resumen y el inventario. Un hallazgo cubierto no cuenta como
+abierto.
+
+Cada excepción trae además:
+
+| Campo | Qué es |
+| --- | --- |
+| `diasRestantes` | Días hasta `venceEl`, solo si está pendiente o activa |
+| `porVencer` | Activa y a 7 días o menos de vencer; se filtra con `?porVencer=true` |
+| `hallazgosAfectados` | Hallazgos abiertos que cubre si está activa, o cubriría si se aprueba |
+
+### Revocar
+
+`POST /excepciones/:id/revocar` retira una excepción antes de que venza, por
+ejemplo porque el incumplimiento ya se corrigió.
+
+| Regla | Respuesta |
+| --- | --- |
+| Solo Compliance Lead | 403 |
+| Solo una excepción activa y vigente; una pendiente se rechaza y una vencida ya no protege nada | 409 |
+| El motivo es obligatorio, de al menos 10 caracteres | 422 |
+
+Quién revoca y por qué se guardan en `revocadaPor`, `revocadaEn` y
+`motivoRevocacion`, sin tocar `aprobadaPor`: se conserva quién la había
+aprobado. Queda el evento `excepcion.revocada` en la evidencia.
+
+No hay regla de segregación de funciones: revocar reduce el riesgo en vez de
+aceptarlo, y quien solicitó la excepción debe poder pedir que se retire.
 
 ## Evidencia
 

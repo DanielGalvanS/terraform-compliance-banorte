@@ -9,14 +9,16 @@ export {
 } from './cliente'
 export type {
   CoberturaMarco,
-  SesionApi,
+  EventoEvidenciaApi,
   ExcepcionApi,
   HallazgoApi,
   MotivoRechazo,
   NuevaExcepcionApi,
   RecursoApi,
+  RespuestaEvidencia,
   RespuestaExcepciones,
   RespuestaHallazgos,
   RespuestaRecursos,
   RespuestaResumen,
+  SesionApi,
 } from './cliente'

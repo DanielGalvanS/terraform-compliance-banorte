@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import { configDePrueba, conToken } from './auth.ts'
 import { construirApp, PREFIJO } from '../src/app.ts'
 import { coincideRecurso, estadoDeRecurso, etiquetasFaltantes } from '../src/model/recursos.ts'
+import { excepcionesEnMemoria } from '../src/repositorios/excepcionesRepositorio.ts'
 
 const OBLIGATORIAS = ['duenio', 'ambiente', 'clasificacion_datos', 'centro_costos', 'marco_aplicable']
 const completas = Object.fromEntries(OBLIGATORIAS.map((c) => [c, 'x']))
@@ -121,9 +122,23 @@ describe('ruta de recursos', () => {
   })
 
   it('marca no conforme el recurso con hallazgo abierto', async () => {
-    const { recursos } = await pedir()
+    // Sin excepciones: en la semilla, EXC-1048 cubre este firewall.
+    const sinExcepciones = await construirApp({
+      config: configDePrueba(),
+      excepciones: excepcionesEnMemoria([]),
+    })
+    const { recursos } = (
+      await sinExcepciones.inject(conToken({ method: 'GET', url: `${PREFIJO}/recursos` }))
+    ).json()
     const firewall = recursos.find((r: { nombre: string }) => r.nombre === 'fw-allow-ssh')
     expect(firewall.estado).toBe('No conforme')
+    await sinExcepciones.close()
+  })
+
+  it('con una excepción vigente, el hallazgo deja de contar como incumplimiento', async () => {
+    const { recursos } = await pedir()
+    const firewall = recursos.find((r: { nombre: string }) => r.nombre === 'fw-allow-ssh')
+    expect(firewall.estado).not.toBe('No conforme')
   })
 
   it('marca sin etiqueta al que le falta una clave', async () => {

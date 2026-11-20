@@ -3,7 +3,9 @@ import { requiere, respuestasAuth } from '../auth/autorizacion.ts'
 import type { CoberturaMarco, Hallazgo } from '../model/esquemas.ts'
 import { Resumen } from '../model/esquemas.ts'
 import type { Catalogo } from '../repositorios/catalogoRepositorio.ts'
+import type { ExcepcionesRepositorio } from '../repositorios/excepcionesRepositorio.ts'
 import type { HallazgosRepositorio } from '../repositorios/hallazgosRepositorio.ts'
+import { listarHallazgos } from './hallazgosVigentes.ts'
 
 /**
  * Cobertura por marco, calculada a partir del catálogo y de los hallazgos.
@@ -17,7 +19,7 @@ import type { HallazgosRepositorio } from '../repositorios/hallazgosRepositorio.
  */
 export function calcularCobertura(
   catalogo: Catalogo,
-  hallazgos: Hallazgo[],
+  hallazgos: Pick<Hallazgo, 'control' | 'estado'>[],
 ): CoberturaMarco[] {
   const abiertos = hallazgos.filter((h) => h.estado === 'Abierto' || h.estado === 'En remediación')
   const controlesConHallazgo = new Set(
@@ -44,6 +46,7 @@ export function calcularCobertura(
 export function rutasResumen(
   catalogo: Catalogo,
   repositorio: HallazgosRepositorio,
+  excepciones: ExcepcionesRepositorio,
 ): FastifyPluginAsyncZod {
   return async (app) => {
     app.get(
@@ -60,7 +63,9 @@ export function rutasResumen(
         },
       },
       async () => {
-        const todos = await repositorio.listar({})
+        // Con el estado mostrado: uno cubierto por una excepción vigente no
+        // cuenta como abierto, igual que en la lista de hallazgos.
+        const todos = await listarHallazgos(repositorio, excepciones)
         const abiertos = todos.filter((h) => h.estado === 'Abierto')
 
         const porSeveridad = { Crítica: 0, Alta: 0, Media: 0, Baja: 0 }

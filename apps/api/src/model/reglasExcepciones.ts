@@ -156,3 +156,32 @@ export function validarDecision(
 
   return { conflicto, motivos }
 }
+
+/**
+ * Valida una revocación. Solo se revoca lo que está protegiendo algo: una
+ * excepción activa y vigente. Una pendiente se rechaza, y una vencida ya no
+ * protege nada. Como al decidir, el conflicto (409) va aparte de los datos
+ * (422).
+ *
+ * No hay regla de segregación: revocar reduce el riesgo en vez de aceptarlo,
+ * y quien la solicitó debe poder pedir que se retire en cuanto la corrige.
+ */
+export function validarRevocacion(
+  guardada: { estadoGuardado: EstadoExcepcion; venceEl: string },
+  comentario: string,
+  ahora: Date = new Date(),
+): ResultadoDecision {
+  const estado = estadoVigente(guardada.estadoGuardado, guardada.venceEl, ahora)
+  const conflicto =
+    estado === 'Activa' ? null : `Solo se revoca una excepción activa; esta está ${estado}.`
+  const motivos: MotivoRechazo[] =
+    comentario.trim().length < MINIMO_COMENTARIO_DECISION
+      ? [
+          {
+            campo: 'comentario',
+            mensaje: `El motivo debe tener al menos ${MINIMO_COMENTARIO_DECISION} caracteres.`,
+          },
+        ]
+      : []
+  return { conflicto, motivos }
+}

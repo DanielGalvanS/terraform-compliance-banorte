@@ -103,6 +103,13 @@ export const DetalleHallazgo = z.object({
   remediacion: Remediacion,
 })
 
+/** La excepción que cubre a un hallazgo, para enlazarla desde la pantalla. */
+export const ReferenciaExcepcion = z.object({
+  id: z.uuid(),
+  codigo: z.string(),
+  venceEl: z.string().describe('Fecha yyyy-mm-dd'),
+})
+
 export const Hallazgo = z.object({
   id: z.uuid(),
   control: z.string().nullable().describe('Código del control; nulo si ninguna política lo cubre'),
@@ -115,7 +122,16 @@ export const Hallazgo = z.object({
   mensaje: z.string(),
   detectadoEn: z.string().describe('Fecha ISO 8601'),
   detalle: DetalleHallazgo.optional(),
+  excepcion: ReferenciaExcepcion.nullable().describe(
+    'La excepción activa y vigente que lo cubre; con ella el estado se muestra como Excepción',
+  ),
 })
+
+/**
+ * Lo que se guarda de un hallazgo. La excepción que lo cubre no se guarda: se
+ * calcula al leer, para que vencer o revocar la excepción se refleje sola.
+ */
+export const HallazgoGuardado = Hallazgo.omit({ excepcion: true })
 
 /** Lo que el pipeline envía al detectar un incumplimiento. */
 export const NuevoHallazgo = z.object({
@@ -180,6 +196,7 @@ export type Accion = z.infer<typeof Accion>
 export type Marco = z.infer<typeof Marco>
 export type Control = z.infer<typeof Control>
 export type Hallazgo = z.infer<typeof Hallazgo>
+export type HallazgoGuardado = z.infer<typeof HallazgoGuardado>
 export type DetalleHallazgo = z.infer<typeof DetalleHallazgo>
 export type NuevoHallazgo = z.infer<typeof NuevoHallazgo>
 export type FiltroHallazgos = z.infer<typeof FiltroHallazgos>
@@ -218,10 +235,26 @@ export const Excepcion = z.object({
     .nullable()
     .describe('Fundamento de la decisión; nulo mientras está pendiente'),
   decididaEn: z.string().nullable().describe('Fecha ISO 8601; nula mientras está pendiente'),
+  revocadaPor: z.string().nullable().describe('Quién la revocó; nulo si no se ha revocado'),
+  revocadaEn: z.string().nullable().describe('Fecha ISO 8601 de la revocación'),
+  motivoRevocacion: z.string().nullable(),
   solicitadaEn: z.string().describe('Fecha ISO 8601'),
   venceEl: z.string().describe('Fecha yyyy-mm-dd'),
   estado: EstadoExcepcion,
   planRemediacion: z.string().nullable(),
+  diasRestantes: z
+    .number()
+    .int()
+    .nullable()
+    .describe('Días hasta el vencimiento; nulo si ya no está pendiente ni activa'),
+  porVencer: z.boolean().describe('Activa y a 7 días o menos de vencer'),
+  hallazgosAfectados: z
+    .number()
+    .int()
+    .describe(
+      'Hallazgos abiertos o en remediación del mismo control, recurso y ambiente: los que ' +
+        'cubre si está activa, o cubriría si se aprueba',
+    ),
 })
 
 /**
@@ -246,6 +279,8 @@ export const NuevaExcepcion = z.object({
 
 export const FiltroExcepciones = z.object({
   estado: EstadoExcepcion.optional(),
+  // Texto y no booleano: en una query string todo llega como texto.
+  porVencer: z.enum(['true', 'false']).optional(),
   ambiente: Ambiente.optional(),
   control: z.string().optional(),
   recurso: z
@@ -262,6 +297,7 @@ export type EstadoExcepcion = z.infer<typeof EstadoExcepcion>
 export const TipoEvento = z.enum([
   'excepcion.aprobada',
   'excepcion.rechazada',
+  'excepcion.revocada',
   'hallazgo.estado',
   'agente.decision',
 ])
