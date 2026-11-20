@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { configDePrueba, conToken } from './auth.ts'
+import { configDePrueba, conToken, tokenDe, USUARIOS } from './auth.ts'
 import { construirApp, PREFIJO } from '../src/app.ts'
 import type { EventoEvidencia } from '../src/model/esquemas.ts'
 import {
@@ -96,15 +96,14 @@ describe('ruta de evidencia', () => {
           justificacion: 'Ventana de migración coordinada con el equipo de seguridad.',
           venceEl: new Date(Date.now() + 20 * 86_400_000).toISOString().slice(0, 10),
           aprobador: 'Roberto Silva',
-          solicitante: 'Carlos Vega',
         },
-      }))
+      }, await tokenDe(USUARIOS.desarrollador)))
     ).json()
     await app.inject(conToken({
       method: 'POST',
       url: `${PREFIJO}/excepciones/${excepcion.id}/aprobar`,
-      payload: { aprobadaPor: 'Roberto Silva', comentario: 'Riesgo aceptado hasta la ventana' },
-    }))
+      payload: { comentario: 'Riesgo aceptado hasta la ventana' },
+    }, await tokenDe(USUARIOS.aprobador)))
 
     const hallazgo = (
       await app.inject(conToken({ method: 'GET', url: `${PREFIJO}/hallazgos?estado=Abierto` }))
@@ -112,7 +111,7 @@ describe('ruta de evidencia', () => {
     await app.inject(conToken({
       method: 'PATCH',
       url: `${PREFIJO}/hallazgos/${hallazgo.id}/estado`,
-      payload: { estado: 'En remediación', comentario: 'Asignado a red', cambiadoPor: 'Ana Martínez' },
+      payload: { estado: 'En remediación', comentario: 'Asignado a red' },
     }))
 
     const todo = (await app.inject(conToken({ method: 'GET', url: `${PREFIJO}/evidencia` }))).json()
@@ -121,11 +120,12 @@ describe('ruta de evidencia', () => {
       'hallazgo.estado',
       'excepcion.aprobada',
     ])
-    expect(todo.eventos[0].detalle).toEqual({
-      de: 'Abierto',
-      a: 'En remediación',
-      comentario: 'Asignado a red',
+    // Quién actuó sale del token: Ana cambió el estado y Roberto aprobó.
+    expect(todo.eventos[0]).toMatchObject({
+      actor: 'Ana Martínez',
+      detalle: { de: 'Abierto', a: 'En remediación', comentario: 'Asignado a red', sujeto: 'ana.martinez' },
     })
+    expect(todo.eventos[1].actor).toBe('Roberto Silva')
 
     const filtrado = (
       await app.inject(conToken({ method: 'GET', url: `${PREFIJO}/evidencia?objetoId=${excepcion.id}` }))

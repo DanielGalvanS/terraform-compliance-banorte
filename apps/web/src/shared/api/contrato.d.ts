@@ -598,8 +598,6 @@ export interface paths {
                         estado: "Abierto" | "En remediación" | "Excepción" | "Cerrado";
                         /** @description Por qué cambia; queda en la evidencia */
                         comentario: string;
-                        /** @description Quién lo cambia; saldrá del token con OIDC */
-                        cambiadoPor: string;
                     };
                 };
             };
@@ -912,8 +910,6 @@ export interface paths {
                         venceEl: string;
                         /** @description A quién se le pide la aprobación */
                         aprobador: string;
-                        /** @description Quién solicita la excepción */
-                        solicitante: string;
                         planRemediacion?: string;
                     };
                 };
@@ -1140,8 +1136,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        /** @description Quién aprueba; saldrá del token con OIDC */
-                        aprobadaPor: string;
                         /** @description Fundamento de la decisión */
                         comentario: string;
                     };
@@ -1285,8 +1279,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        /** @description Quién rechaza; saldrá del token con OIDC */
-                        rechazadaPor: string;
                         /** @description Fundamento de la decisión */
                         comentario: string;
                     };

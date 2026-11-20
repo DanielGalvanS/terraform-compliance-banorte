@@ -47,11 +47,10 @@ export function useExcepcionesApi(solicitante: string) {
   /**
    * Lanza ErrorValidacion con el detalle por campo si la API rechaza.
    *
-   * El solicitante no lo llena el formulario: es el usuario de la sesión. Cuando
-   * la API tenga OIDC lo tomará del token y este campo sobrará.
+   * Quién solicita no viaja en el cuerpo: la API lo toma del token de la sesión.
    */
   const crear = useCallback(
-    async (nueva: Omit<NuevaExcepcionApi, 'solicitante'>) => {
+    async (nueva: NuevaExcepcionApi) => {
       if (!hayApi) {
         // Sin API, el alta vive solo en la sesión, como el resto del prototipo.
         setEstado((actual) =>
@@ -79,7 +78,7 @@ export function useExcepcionesApi(solicitante: string) {
         )
         return
       }
-      await clienteApi.crearExcepcion({ ...nueva, solicitante })
+      await clienteApi.crearExcepcion(nueva)
       await cargar()
     },
     [cargar, solicitante],

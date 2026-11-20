@@ -118,14 +118,13 @@ export const NuevoHallazgo = z.object({
 })
 
 /**
- * Cambio de estado de un hallazgo. `cambiadoPor` viene en el cuerpo porque aún
- * no hay autenticación; cuando exista OIDC saldrá del token. El comentario no
- * lleva mínimo aquí para que la regla responda 422 con `motivos`.
+ * Cambio de estado de un hallazgo. Quién lo cambia sale del token, nunca del
+ * cuerpo. El comentario no lleva mínimo aquí para que la regla responda 422
+ * con `motivos`.
  */
 export const CambioEstadoHallazgo = z.object({
   estado: EstadoHallazgo,
   comentario: z.string().describe('Por qué cambia; queda en la evidencia'),
-  cambiadoPor: z.string().min(1).describe('Quién lo cambia; saldrá del token con OIDC'),
 })
 
 export const FiltroHallazgos = z.object({
@@ -212,7 +211,10 @@ export const Excepcion = z.object({
 /**
  * Solicitud de excepción.
  *
- * No incluye estado ni severidad: el estado siempre nace «Pendiente» —nada se
+ * No incluye quién la solicita: sale del token. Si el cliente pudiera
+ * declararlo, cualquiera solicitaría a nombre de otro.
+ *
+ * Tampoco incluye estado ni severidad: el estado siempre nace «Pendiente» —nada se
  * exceptúa sin que una persona lo apruebe— y la severidad la decide el
  * control, no quien la pide.
  */
@@ -223,10 +225,6 @@ export const NuevaExcepcion = z.object({
   justificacion: z.string(),
   venceEl: z.string(),
   aprobador: z.string().min(1).describe('A quién se le pide la aprobación'),
-  // Viene en el cuerpo porque aún no hay autenticación. Cuando exista OIDC
-  // (ver «Autenticación» en el README) saldrá del token: dejar que el cliente
-  // declare quién es permitiría solicitar a nombre de otro.
-  solicitante: z.string().min(1).describe('Quién solicita la excepción'),
   planRemediacion: z.string().optional(),
 })
 

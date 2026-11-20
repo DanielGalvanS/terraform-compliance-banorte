@@ -147,7 +147,7 @@ describe('rutas protegidas', () => {
         {
           method: 'POST',
           url: `${PREFIJO}/excepciones/${pendiente.id}/aprobar`,
-          payload: { aprobadaPor: 'Roberto Silva', comentario: 'Riesgo aceptado por la ventana' },
+          payload: { comentario: 'Riesgo aceptado por la ventana' },
         },
         await tokenDe(identidad),
       ),
@@ -164,7 +164,7 @@ describe('rutas protegidas', () => {
         {
           method: 'PATCH',
           url: `${PREFIJO}/hallazgos/${hallazgo.id}/estado`,
-          payload: { estado: 'Cerrado', comentario: 'Corregido en el PR', cambiadoPor: 'Lucía' },
+          payload: { estado: 'Cerrado', comentario: 'Corregido en el PR' },
         },
         await tokenDe(USUARIOS.auditor),
       ),

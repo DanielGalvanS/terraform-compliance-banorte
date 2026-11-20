@@ -1,11 +1,12 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
-import { requiere, respuestasAuth } from '../auth/autorizacion.ts'
+import { actor, requiere, respuestasAuth } from '../auth/autorizacion.ts'
 import {
   Error as ErrorRespuesta,
   Excepcion,
   FiltroExcepciones,
   NuevaExcepcion,
+  type Identidad,
 } from '../model/esquemas.ts'
 import {
   estadoVigente,
@@ -27,18 +28,11 @@ const ErrorValidacion = ErrorRespuesta.extend({
 
 const ParametrosId = z.object({ id: z.uuid() })
 
-// Quien decide viene en el cuerpo porque aún no hay autenticación. Cuando
-// exista OIDC (ver «Autenticación» en el README) saldrá del token: si el
-// cliente pudiera declararlo, cualquiera aprobaría a nombre del aprobador.
+// Quien decide sale del token, no del cuerpo: si el cliente pudiera
+// declararlo, cualquiera aprobaría a nombre del aprobador.
 // El comentario no lleva mínimo aquí para que la regla responda 422 con
 // `motivos`, igual que el resto de las reglas, y no un 400 genérico de Zod.
-const CuerpoAprobar = z.object({
-  aprobadaPor: z.string().min(1).describe('Quién aprueba; saldrá del token con OIDC'),
-  comentario: z.string().describe('Fundamento de la decisión'),
-})
-
-const CuerpoRechazar = z.object({
-  rechazadaPor: z.string().min(1).describe('Quién rechaza; saldrá del token con OIDC'),
+const CuerpoDecision = z.object({
   comentario: z.string().describe('Fundamento de la decisión'),
 })
 
@@ -62,7 +56,7 @@ export function rutasExcepciones(
    */
   const completar = (guardada: ExcepcionGuardada): z.infer<typeof Excepcion> => {
     const control = catalogo.controles.find((c) => c.codigo === guardada.control)
-    const { estadoGuardado, ...resto } = guardada
+    const { estadoGuardado, solicitanteSujeto: _, ...resto } = guardada
     return {
       ...resto,
       controlNombre: control?.titulo ?? 'Control desconocido',
@@ -79,7 +73,7 @@ export function rutasExcepciones(
   const decidir = async (
     id: string,
     estado: Decision['estado'],
-    decididaPor: string,
+    quien: Identidad,
     comentario: string,
   ) => {
     const guardada = await repositorio.obtener(id)
@@ -87,7 +81,11 @@ export function rutasExcepciones(
       return { codigo: 404 as const, cuerpo: { error: 'No existe esa excepción' } }
     }
 
-    const { conflicto, motivos } = validarDecision(guardada, { decididaPor, comentario })
+    const { conflicto, motivos } = validarDecision(guardada, {
+      decididaPor: quien.nombre,
+      sujeto: quien.sujeto,
+      comentario,
+    })
     // El conflicto va primero: si ya no se puede decidir, corregir los datos
     // no cambiaría la respuesta.
     if (conflicto !== null) {
@@ -102,7 +100,7 @@ export function rutasExcepciones(
 
     const decidida = await repositorio.decidir(id, {
       estado,
-      decididaPor: decididaPor.trim(),
+      decididaPor: quien.nombre,
       comentario: comentario.trim(),
       decididaEn: new Date().toISOString(),
     })
@@ -116,8 +114,12 @@ export function rutasExcepciones(
     await evidencia.registrar({
       tipo: estado === 'Activa' ? 'excepcion.aprobada' : 'excepcion.rechazada',
       objetoId: decidida.id,
-      actor: decidida.aprobadaPor ?? decididaPor.trim(),
-      detalle: { codigo: decidida.codigo, comentario: decidida.comentarioDecision ?? '' },
+      actor: quien.nombre,
+      detalle: {
+        codigo: decidida.codigo,
+        comentario: decidida.comentarioDecision ?? '',
+        sujeto: quien.sujeto,
+      },
     })
     return { codigo: 200 as const, cuerpo: completar(decidida) }
   }
@@ -168,13 +170,14 @@ export function rutasExcepciones(
           })
         }
 
+        const solicitante = actor(peticion)
         const guardada = await repositorio.crear({
           control: peticion.body.control,
           recurso: peticion.body.recurso,
           ambiente: peticion.body.ambiente,
           justificacion: peticion.body.justificacion.trim(),
-          // Del cuerpo mientras no haya OIDC; después, del token.
-          solicitadaPor: peticion.body.solicitante.trim(),
+          solicitadaPor: solicitante.nombre,
+          solicitanteSujeto: solicitante.sujeto,
           aprobadorSolicitado: peticion.body.aprobador.trim(),
           // A quién se le pide no es quién aprobó: aún nadie lo hizo.
           aprobadaPor: null,
@@ -224,7 +227,7 @@ export function rutasExcepciones(
             'obligatorio (422). Aprobar no cambia la vigencia: la acotó la solicitud.',
           tags: ['excepciones'],
           params: ParametrosId,
-          body: CuerpoAprobar,
+          body: CuerpoDecision,
           response: respuestasDecision,
         },
       },
@@ -232,7 +235,7 @@ export function rutasExcepciones(
         const { codigo, cuerpo } = await decidir(
           peticion.params.id,
           'Activa',
-          peticion.body.aprobadaPor,
+          actor(peticion),
           peticion.body.comentario,
         )
         return respuesta.code(codigo).send(cuerpo)
@@ -250,7 +253,7 @@ export function rutasExcepciones(
             'propia solicitud y el rechazo también exige fundamento (422).',
           tags: ['excepciones'],
           params: ParametrosId,
-          body: CuerpoRechazar,
+          body: CuerpoDecision,
           response: respuestasDecision,
         },
       },
@@ -258,7 +261,7 @@ export function rutasExcepciones(
         const { codigo, cuerpo } = await decidir(
           peticion.params.id,
           'Rechazada',
-          peticion.body.rechazadaPor,
+          actor(peticion),
           peticion.body.comentario,
         )
         return respuesta.code(codigo).send(cuerpo)

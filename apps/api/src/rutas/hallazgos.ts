@@ -1,6 +1,6 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
-import { requiere, respuestasAuth } from '../auth/autorizacion.ts'
+import { actor, requiere, respuestasAuth } from '../auth/autorizacion.ts'
 import {
   CambioEstadoHallazgo,
   Error as ErrorRespuesta,
@@ -111,7 +111,8 @@ export function rutasHallazgos(
         },
       },
       async (peticion, respuesta) => {
-        const { estado, comentario, cambiadoPor } = peticion.body
+        const { estado, comentario } = peticion.body
+        const quien = actor(peticion)
         const hallazgo = await repositorio.obtener(peticion.params.id)
         if (hallazgo === null) {
           return respuesta.code(404).send({ error: 'No existe ese hallazgo' })
@@ -138,8 +139,13 @@ export function rutasHallazgos(
         await evidencia.registrar({
           tipo: 'hallazgo.estado',
           objetoId: cambiado.id,
-          actor: cambiadoPor.trim(),
-          detalle: { de: hallazgo.estado, a: cambiado.estado, comentario: comentario.trim() },
+          actor: quien.nombre,
+          detalle: {
+            de: hallazgo.estado,
+            a: cambiado.estado,
+            comentario: comentario.trim(),
+            sujeto: quien.sujeto,
+          },
         })
         return cambiado
       },

@@ -5,6 +5,12 @@ import { estadoVigente } from '../model/reglasExcepciones.ts'
 /** Lo que el repositorio guarda; el estado mostrado se deriva al leer. */
 export type ExcepcionGuardada = Omit<Excepcion, 'estado' | 'controlNombre' | 'marco' | 'severidad'> & {
   estadoGuardado: EstadoExcepcion
+  /**
+   * El `sub` del token de quien solicitó. No se expone: sirve para que nadie
+   * apruebe lo suyo aunque cambie su nombre en el proveedor de identidad.
+   * Null en la semilla, que es anterior a la autenticación.
+   */
+  solicitanteSujeto: string | null
 }
 
 export type DatosDeControl = {

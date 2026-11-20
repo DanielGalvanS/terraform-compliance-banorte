@@ -137,7 +137,7 @@ describe('estado de un hallazgo', () => {
     app.inject(conToken({
       method: 'PATCH',
       url: `${PREFIJO}/hallazgos/${id}/estado`,
-      payload: { estado, comentario, cambiadoPor: 'Roberto Silva' },
+      payload: { estado, comentario },
     }))
 
   it('recorre Abierto → En remediación → Cerrado → Abierto', async () => {

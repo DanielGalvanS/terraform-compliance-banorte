@@ -1344,17 +1344,11 @@
                   "comentario": {
                     "type": "string",
                     "description": "Por qué cambia; queda en la evidencia"
-                  },
-                  "cambiadoPor": {
-                    "type": "string",
-                    "minLength": 1,
-                    "description": "Quién lo cambia; saldrá del token con OIDC"
                   }
                 },
                 "required": [
                   "estado",
-                  "comentario",
-                  "cambiadoPor"
+                  "comentario"
                 ]
               }
             }
@@ -2076,11 +2070,6 @@
                     "minLength": 1,
                     "description": "A quién se le pide la aprobación"
                   },
-                  "solicitante": {
-                    "type": "string",
-                    "minLength": 1,
-                    "description": "Quién solicita la excepción"
-                  },
                   "planRemediacion": {
                     "type": "string"
                   }
@@ -2091,8 +2080,7 @@
                   "ambiente",
                   "justificacion",
                   "venceEl",
-                  "aprobador",
-                  "solicitante"
+                  "aprobador"
                 ]
               }
             }
@@ -2529,18 +2517,12 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "aprobadaPor": {
-                    "type": "string",
-                    "minLength": 1,
-                    "description": "Quién aprueba; saldrá del token con OIDC"
-                  },
                   "comentario": {
                     "type": "string",
                     "description": "Fundamento de la decisión"
                   }
                 },
                 "required": [
-                  "aprobadaPor",
                   "comentario"
                 ]
               }
@@ -2826,18 +2808,12 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "rechazadaPor": {
-                    "type": "string",
-                    "minLength": 1,
-                    "description": "Quién rechaza; saldrá del token con OIDC"
-                  },
                   "comentario": {
                     "type": "string",
                     "description": "Fundamento de la decisión"
                   }
                 },
                 "required": [
-                  "rechazadaPor",
                   "comentario"
                 ]
               }
