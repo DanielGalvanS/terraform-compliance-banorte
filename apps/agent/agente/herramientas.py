@@ -107,6 +107,12 @@ async def consultar_api(base: str | None, ruta: str, parametros: dict[str, str])
         return None
 
 
+def filtro(control: str, recurso: str | None) -> dict[str, str]:
+    """Parámetros de búsqueda. La API filtra por recurso con la dirección
+    completa del plan; ``coincide`` se queda como segunda comprobación."""
+    return {"control": control, **({"recurso": recurso} if recurso else {})}
+
+
 def coincide(recurso_api: str, recurso: str | None) -> bool:
     if not recurso:
         return True
@@ -124,7 +130,7 @@ async def buscar_hallazgos(control: str, recurso: str, tool_context: ToolContext
         control: Código del control, por ejemplo "CO-DB-01".
         recurso: Dirección de Terraform del recurso.
     """
-    datos = await consultar_api(tool_context.state.get(CLAVE_API), "/hallazgos", {"control": control})
+    datos = await consultar_api(tool_context.state.get(CLAVE_API), "/hallazgos", filtro(control, recurso))
     if datos is None:
         return {"disponible": False, "motivo": "API de cumplimiento no disponible"}
     previos = [
@@ -145,7 +151,7 @@ async def buscar_excepciones(control: str, recurso: str, tool_context: ToolConte
         control: Código del control, por ejemplo "CO-NET-01".
         recurso: Dirección de Terraform del recurso.
     """
-    datos = await consultar_api(tool_context.state.get(CLAVE_API), "/excepciones", {"control": control})
+    datos = await consultar_api(tool_context.state.get(CLAVE_API), "/excepciones", filtro(control, recurso))
     if datos is None:
         return {"disponible": False, "motivo": "API de cumplimiento no disponible"}
     excepciones = [
@@ -158,7 +164,7 @@ async def buscar_excepciones(control: str, recurso: str, tool_context: ToolConte
 
 async def hay_excepcion_activa(api_url: str | None, control: str, recurso: str | None) -> bool:
     """Lo usa el código (no el modelo) para confirmar una acción 'ninguna'."""
-    datos = await consultar_api(api_url, "/excepciones", {"control": control, "estado": "Activa"})
+    datos = await consultar_api(api_url, "/excepciones", {**filtro(control, recurso), "estado": "Activa"})
     if datos is None:
         return False
     return any(

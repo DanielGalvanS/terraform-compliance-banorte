@@ -128,6 +128,28 @@ describe('hallazgos', () => {
   })
 })
 
+describe('filtro por recurso', () => {
+  const pedir = async (ruta: string) =>
+    (await app.inject(conToken({ method: 'GET', url: `${PREFIJO}${ruta}` }))).json()
+
+  it('los hallazgos se filtran con la dirección completa del plan', async () => {
+    const direccion = 'module.firewall.google_compute_firewall.allow_ssh'
+    const { hallazgos } = await pedir(`/hallazgos?recurso=${direccion}`)
+    expect(hallazgos.length).toBeGreaterThan(0)
+    for (const h of hallazgos) expect(h.recurso).toBe('google_compute_firewall.allow_ssh')
+  })
+
+  it('las excepciones también', async () => {
+    const { excepciones } = await pedir('/excepciones?recurso=google_sql_database_instance.main')
+    expect(excepciones.length).toBeGreaterThan(0)
+    for (const e of excepciones) expect(e.recurso).toBe('google_sql_database_instance.main')
+  })
+
+  it('un recurso desconocido no trae nada', async () => {
+    expect((await pedir('/hallazgos?recurso=google_compute_instance.nada')).hallazgos).toEqual([])
+  })
+})
+
 describe('estado de un hallazgo', () => {
   const crear = async () =>
     (await app.inject(conToken({ method: 'POST', url: `${PREFIJO}/hallazgos`, payload: cuerpoValido }))).json()
