@@ -28,12 +28,21 @@ CAMPOS_CLASIFICACION = {
 
 @pytest.fixture
 def api(monkeypatch):
-    """API simulada. ``estado`` decide qué responde el POST; ``recibidas`` guarda lo enviado."""
-    control = {"estado": 201, "recibidas": []}
+    """API simulada. ``estado`` decide qué responde el POST; ``recibidas`` guarda lo enviado.
+
+    Como la API real, con 200 o 201 devuelve la decisión que recibió. ``respuesta``
+    permite sustituir esa respuesta para simular un proxy o una API rota.
+    """
+    control = {"estado": 201, "recibidas": [], "respuesta": None}
 
     def manejar(peticion: httpx.Request) -> httpx.Response:
         if peticion.method == "POST":
             control["recibidas"].append(peticion)
+            if control["respuesta"] is not None:
+                return control["respuesta"]
+            if control["estado"] in (200, 201):
+                enviada = json.loads(peticion.content)
+                return httpx.Response(control["estado"], json={**enviada, "id": "d-1"})
             return httpx.Response(control["estado"], json={"error": "motivo de la API"})
         return httpx.Response(200, json={"hallazgos": [], "excepciones": []})
 
@@ -77,6 +86,42 @@ def test_un_rechazo_de_la_api_devuelve_el_motivo(api, decision_conforme, estado)
     api["estado"] = estado
     motivo = asyncio.run(acciones.registrar_en_api(decision_conforme, "http://api.prueba"))
     assert motivo == f"la API respondió {estado}: motivo de la API"
+
+
+def test_un_200_con_html_de_un_proxy_no_cuenta_como_registrado(api, decision_conforme):
+    api["respuesta"] = httpx.Response(200, text="<html>Bienvenido al balanceador</html>")
+    motivo = asyncio.run(acciones.registrar_en_api(decision_conforme, "http://api.prueba"))
+    assert motivo == "la API respondió 200, pero no con la decisión enviada"
+
+
+def test_un_200_con_otra_decision_no_cuenta_como_registrado(api, decision_conforme):
+    api["respuesta"] = httpx.Response(
+        200, json={"ejecucionId": "otra", "hashEntradas": decision_conforme.hash_entradas}
+    )
+    assert asyncio.run(acciones.registrar_en_api(decision_conforme, "http://api.prueba")) is not None
+
+
+def test_un_201_con_otras_entradas_no_cuenta_como_registrado(api, decision_conforme):
+    api["respuesta"] = httpx.Response(
+        201, json={"ejecucionId": decision_conforme.ejecucion_id, "hashEntradas": "sha256:" + "0" * 64}
+    )
+    assert asyncio.run(acciones.registrar_en_api(decision_conforme, "http://api.prueba")) is not None
+
+
+@pytest.mark.parametrize("respuesta", [
+    httpx.Response(502, text="<html>Bad gateway</html>"),
+    httpx.Response(500, json=["no", "es", "un", "objeto"]),
+    httpx.Response(503),
+])
+def test_un_error_sin_json_de_la_api_no_rompe_el_agente(api, decision_conforme, respuesta):
+    api["respuesta"] = respuesta
+    motivo = asyncio.run(acciones.registrar_en_api(decision_conforme, "http://api.prueba"))
+    assert motivo == f"la API respondió {respuesta.status_code}"
+
+
+def test_cli_bloquea_si_un_proxy_responde_200_con_html(api, tmp_path):
+    api["respuesta"] = httpx.Response(200, text="<html>Bienvenido al balanceador</html>")
+    assert _cli(tmp_path, "--api-url", "http://api.prueba") == 1
 
 
 def test_la_api_caida_devuelve_el_motivo(monkeypatch, decision_conforme):
