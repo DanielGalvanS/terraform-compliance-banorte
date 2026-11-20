@@ -78,6 +78,12 @@ def mensaje_para_modelo(violaciones: list[Violacion], ambiente: str, origen: str
     )
 
 
+SIN_CREDENCIALES = (
+    "no hay credenciales de Gemini: define GOOGLE_API_KEY (local) o "
+    "GOOGLE_GENAI_USE_VERTEXAI con la cuenta app-agente (GCP)"
+)
+
+
 def _describir(error: Exception) -> str:
     """Motivo legible de un fallo del modelo, para el registro y el comentario del PR."""
     if isinstance(error, genai_errors.APIError):
@@ -91,6 +97,8 @@ def _describir(error: Exception) -> str:
         if codigo in (400, 401, 403):
             return f"la llave o la cuenta no puede usar el modelo ({codigo})"
         return f"error de la API de Gemini ({codigo})"
+    if isinstance(error, ValueError) and "API key" in str(error):
+        return SIN_CREDENCIALES
     if isinstance(error, httpx.TimeoutException):
         return f"una llamada al modelo pasó de {TIEMPO_LLAMADA_MS // 1000} s"
     return f"{type(error).__name__}: {error}"[:300]
@@ -273,7 +281,11 @@ async def analizar_async(
         except FalloAgente as error:
             fallidos.append(f"{nombre}: {error}")
         except Exception as error:  # noqa: BLE001 — cualquier fallo del modelo bloquea
-            fallidos.append(f"{nombre}: {_describir(error)}")
+            motivo = _describir(error)
+            fallidos.append(f"{nombre}: {motivo}")
+            # Sin credenciales, el respaldo fallaría igual: no tiene caso esperarlo.
+            if motivo == SIN_CREDENCIALES:
+                break
 
     return Decision(
         **base,
