@@ -5,6 +5,7 @@ import type {
   Hallazgo,
   NuevoHallazgo,
 } from '../model/esquemas.ts'
+import { coincideRecurso } from '../model/recursos.ts'
 
 /**
  * Acceso a hallazgos.
@@ -42,7 +43,8 @@ export function repositorioEnMemoria(semilla: Hallazgo[] = []): HallazgosReposit
           (filtro.severidad === undefined || h.severidad === filtro.severidad) &&
           (filtro.ambiente === undefined || h.ambiente === filtro.ambiente) &&
           (filtro.estado === undefined || h.estado === filtro.estado) &&
-          (filtro.control === undefined || h.control === filtro.control),
+          (filtro.control === undefined || h.control === filtro.control) &&
+          (filtro.recurso === undefined || coincideRecurso(h.recurso, filtro.recurso)),
       )
     },
 

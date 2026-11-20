@@ -1,12 +1,17 @@
 """Efectos deterministas a partir de una decisión ya validada.
 
-Aquí vive todo lo que el agente NO puede hacer por sí mismo. En esta fase solo
-se presenta la decisión (comentario del PR); el registro en la API, Jira y los
-PR de remediación se agregan en las fases siguientes.
+Aquí vive todo lo que el agente NO puede hacer por sí mismo: presentar la
+decisión (comentario del PR) y registrarla en la API. Jira y los PR de
+remediación se agregan en las fases siguientes.
 """
 
 from __future__ import annotations
 
+from typing import Any
+
+import httpx
+
+from . import herramientas
 from .esquemas import Decision
 
 _ACCIONES = {"proponer_pr": "Proponer PR", "escalar_jira": "Escalar a Jira", "ninguna": "Ninguna"}
@@ -91,3 +96,67 @@ def comentario(decision: Decision) -> str:
         f"herramientas usadas: {len(decision.herramientas_usadas)} · ejecución {decision.ejecucion_id}</sub>",
     ]
     return "\n".join(lineas) + "\n"
+
+
+def para_api(decision: Decision) -> dict[str, Any]:
+    """La decisión en el formato de ``POST /api/v1/decisiones``.
+
+    Es un subconjunto: el ``decision.json`` completo queda como artefacto del
+    pipeline y ``hashEntradas`` liga los dos. Solo se manda lo que la API
+    guarda; lo demás no tiene por qué salir del pipeline.
+    """
+    return {
+        "ejecucionId": decision.ejecucion_id,
+        "fecha": decision.fecha,
+        "origen": decision.origen,
+        "ambiente": decision.ambiente,
+        "commit": decision.commit,
+        "resultadoCompuerta": decision.resultado_compuerta,
+        "estado": decision.estado,
+        "resumen": decision.resumen,
+        "clasificaciones": [
+            {
+                "violacion": c.violacion,
+                "control": c.control,
+                "recurso": c.recurso,
+                "severidad": c.severidad,
+                "prioridad": c.prioridad,
+                "accionSugerida": c.accion_sugerida,
+                "confianza": c.confianza,
+                "explicacion": c.explicacion,
+                "remediacion": c.remediacion,
+            }
+            for c in decision.clasificaciones
+        ],
+        "herramientasUsadas": decision.herramientas_usadas,
+        "ajustes": decision.ajustes,
+        "modelo": decision.modelo,
+        "versionPrompt": decision.version_prompt,
+        "hashEntradas": decision.hash_entradas,
+        "error": decision.error,
+    }
+
+
+async def registrar_en_api(decision: Decision, api_url: str) -> str | None:
+    """Registra la decisión en la API. Devuelve None si quedó registrada, o el motivo.
+
+    La API es idempotente por ``ejecucionId``: si un reintento llega después
+    de que el primero sí entró, responde 200 y no duplica nada.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=herramientas.TIEMPO_API, transport=herramientas._TRANSPORTE) as cliente:
+            respuesta = await cliente.post(
+                f"{api_url.rstrip('/')}/api/v1/decisiones",
+                json=para_api(decision),
+                headers=herramientas.cabeceras_api(),
+            )
+    except httpx.HTTPError as error:
+        return f"no se pudo contactar con la API ({type(error).__name__})"
+    if respuesta.status_code in (200, 201):
+        return None
+    detalle = ""
+    try:
+        detalle = str(respuesta.json().get("error", ""))
+    except ValueError:
+        pass
+    return f"la API respondió {respuesta.status_code}" + (f": {detalle}" if detalle else "")
