@@ -106,6 +106,21 @@ export GOOGLE_CLOUD_LOCATION=us-central1
 | `sin_analisis` | La compuerta dio error, o bloqueó sin violaciones legibles; ya bloquea ella | 0 |
 | `error_agente` | El modelo falló, se tardó o respondió incompleto | 1 (bloquea) |
 
+### Registro en la API
+
+Con `API_URL`, después de escribir `decision.json` la CLI la registra en
+`POST /api/v1/decisiones` con el token de `API_TOKEN`. Se manda un
+subconjunto (`acciones.para_api`); el archivo completo queda como artefacto
+del pipeline y `hashEntradas` liga los dos.
+
+- **Si el registro falla, sale con código 1** y el pipeline bloquea: una
+  decisión sin evidencia no debe dejar pasar un despliegue.
+- También se registra un `error_agente`: que el agente falló es evidencia.
+- Reenviar la misma ejecución no la duplica (la API es idempotente por
+  `ejecucionId`).
+
+Sin `API_URL` no se registra nada y el comportamiento es el de antes.
+
 ## Si Gemini falla
 
 Con la llave gratuita es común que un modelo esté saturado (503). Cada llamada
@@ -140,7 +155,6 @@ ruta relativa (`infra/policies/fixtures/plan_violaciones.json`).
 
 ## Siguiente
 
-- Registrar cada decisión en la API y en la cadena de evidencia.
 - Agregar el paso del agente en `plan.yml`.
 - Escalar a Jira (DEV-51).
 - Desplegar en Cloud Run para el drift.
