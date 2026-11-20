@@ -62,3 +62,36 @@ variable "etiquetas" {
     error_message = "Faltan etiquetas obligatorias: duenio, ambiente, clasificacion_datos, centro_costos, marco_aplicable."
   }
 }
+
+variable "escritores" {
+  description = <<-DESC
+    Identidades que escriben evidencia en el bucket, por nombre:
+    { app-api = "serviceAccount:…" }. Reciben roles/storage.objectCreator, que
+    crea objetos pero no los borra ni los sobrescribe.
+
+    Es un mapa y no una lista porque el correo de una cuenta recién creada no
+    se conoce hasta el apply, y for_each necesita claves conocidas en el plan.
+  DESC
+  type        = map(string)
+  default     = {}
+
+  validation {
+    condition     = alltrue([for m in values(var.escritores) : can(regex("^(serviceAccount|group|user):", m))])
+    error_message = "Cada escritor debe ser un miembro de IAM: serviceAccount:, group: o user:."
+  }
+}
+
+variable "lectores" {
+  description = <<-DESC
+    Identidades que leen la evidencia, por nombre. Reciben
+    roles/storage.objectViewer. La API lo necesita para reconstruir y
+    verificar la cadena de hashes al arrancar y en GET /evidencia.
+  DESC
+  type        = map(string)
+  default     = {}
+
+  validation {
+    condition     = alltrue([for m in values(var.lectores) : can(regex("^(serviceAccount|group|user):", m))])
+    error_message = "Cada lector debe ser un miembro de IAM: serviceAccount:, group: o user:."
+  }
+}
