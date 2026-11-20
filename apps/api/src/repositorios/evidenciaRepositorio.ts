@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
-import type { EventoEvidencia, TipoEvento } from '../model/esquemas.ts'
+import { EventoEvidencia, type TipoEvento } from '../model/esquemas.ts'
+import { EvidenciaNoDisponible, type AlmacenObjetos } from './almacenObjetos.ts'
 
 /** El `hashAnterior` del primer evento: no hay nada antes que encadenar. */
 export const HASH_INICIAL = `sha256:${'0'.repeat(64)}`
@@ -61,15 +62,7 @@ export function calcularHash(evento: Omit<EventoEvidencia, 'hash'>): string {
 export function evidenciaEnMemoria(eventos: EventoEvidencia[] = []): EvidenciaRepositorio {
   return {
     async registrar(nuevo) {
-      const anterior = eventos.at(-1)
-      const sinHash: Omit<EventoEvidencia, 'hash'> = {
-        ...nuevo,
-        id: randomUUID(),
-        secuencia: (anterior?.secuencia ?? 0) + 1,
-        registradoEn: new Date().toISOString(),
-        hashAnterior: anterior?.hash ?? HASH_INICIAL,
-      }
-      const evento: EventoEvidencia = { ...sinHash, hash: calcularHash(sinHash) }
+      const evento = encadenar(nuevo, eventos.at(-1))
       eventos.push(evento)
       return evento
     },
@@ -113,4 +106,121 @@ export function verificarCadena(eventos: readonly EventoEvidencia[]): ResultadoV
     hashEsperado = hash
   }
   return { integra: true, primerEventoAlterado: null }
+}
+
+const PREFIJO_EVIDENCIA = 'evidencia/'
+
+/**
+ * Nombre del objeto de un evento. Con la secuencia rellenada a 10 dígitos, el
+ * orden alfabético del bucket es el orden de la cadena.
+ */
+export function nombreDeEvento(secuencia: number): string {
+  return `${PREFIJO_EVIDENCIA}${String(secuencia).padStart(10, '0')}.json`
+}
+
+/** Arma el siguiente evento de la cadena, ya con su hash. */
+function encadenar(nuevo: NuevoEvento, anterior: EventoEvidencia | undefined): EventoEvidencia {
+  const sinHash: Omit<EventoEvidencia, 'hash'> = {
+    ...nuevo,
+    id: randomUUID(),
+    secuencia: (anterior?.secuencia ?? 0) + 1,
+    registradoEn: new Date().toISOString(),
+    hashAnterior: anterior?.hash ?? HASH_INICIAL,
+  }
+  return { ...sinHash, hash: calcularHash(sinHash) }
+}
+
+/**
+ * Lee la cadena completa del almacén. Un objeto que ya no es un evento válido
+ * (alguien lo reemplazó por otra cosa) no rompe la lectura: se reporta como el
+ * primer evento alterado, igual que un hash que no coincide.
+ */
+async function leerCadena(
+  almacen: AlmacenObjetos,
+): Promise<{ eventos: EventoEvidencia[]; ilegible: number | null }> {
+  const nombres = await almacen.listar(PREFIJO_EVIDENCIA)
+  const contenidos = await Promise.all(nombres.map((n) => almacen.leer(n)))
+  const eventos: EventoEvidencia[] = []
+  for (const contenido of contenidos) {
+    let evento: EventoEvidencia
+    try {
+      evento = EventoEvidencia.parse(JSON.parse(contenido))
+    } catch {
+      return { eventos, ilegible: eventos.length + 1 }
+    }
+    eventos.push(evento)
+  }
+  return { eventos, ilegible: null }
+}
+
+/**
+ * Registro de evidencia sobre un almacén de solo creación: el bucket con
+ * retención en GCP, o uno en memoria en las pruebas.
+ *
+ * - Cada evento es un objeto propio, escrito **antes** de darlo por
+ *   registrado. Si el almacén falla, lanza `EvidenciaNoDisponible` y el evento
+ *   no existe.
+ * - Dos instancias de la API pueden intentar la misma secuencia. El almacén
+ *   solo deja crear el nombre una vez; la que pierde recarga la cadena y
+ *   reintenta con la siguiente.
+ * - `listar` usa un índice en memoria, cargado al arrancar.
+ * - `verificar` vuelve a leer el almacén: detecta un objeto alterado aunque el
+ *   índice esté bien. Son tantas lecturas como eventos; a la escala de este
+ *   proyecto está bien, y con volumen real habría que verificar por tramos.
+ */
+export async function evidenciaEnBucket(almacen: AlmacenObjetos): Promise<EvidenciaRepositorio> {
+  const recargar = async () => {
+    try {
+      return (await leerCadena(almacen)).eventos
+    } catch (error) {
+      throw new EvidenciaNoDisponible(error)
+    }
+  }
+
+  let eventos = await recargar()
+
+  return {
+    async registrar(nuevo) {
+      // Dos intentos: el segundo, después de recargar, cubre que otra
+      // instancia haya escrito esa secuencia entre tanto.
+      for (let intento = 0; intento < 2; intento++) {
+        const evento = encadenar(nuevo, eventos.at(-1))
+        let resultado: 'creado' | 'existe'
+        try {
+          resultado = await almacen.crear(nombreDeEvento(evento.secuencia), jsonCanonico(evento))
+        } catch (error) {
+          throw new EvidenciaNoDisponible(error)
+        }
+        if (resultado === 'creado') {
+          eventos = [...eventos, evento]
+          return evento
+        }
+        eventos = await recargar()
+      }
+      throw new EvidenciaNoDisponible(new Error('La secuencia siguió ocupada después de recargar'))
+    },
+
+    async listar(filtro) {
+      return eventos
+        .filter(
+          (e) =>
+            (filtro.tipo === undefined || e.tipo === filtro.tipo) &&
+            (filtro.objetoId === undefined || e.objetoId === filtro.objetoId),
+        )
+        .reverse()
+    },
+
+    async verificar() {
+      let cadena: Awaited<ReturnType<typeof leerCadena>>
+      try {
+        cadena = await leerCadena(almacen)
+      } catch (error) {
+        throw new EvidenciaNoDisponible(error)
+      }
+      if (cadena.ilegible !== null) {
+        return { integra: false, primerEventoAlterado: cadena.ilegible }
+      }
+      return verificarCadena(cadena.eventos)
+    },
+  }
 }
