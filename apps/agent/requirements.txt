@@ -1,0 +1,5 @@
+# Versiones exactas: el agente debe comportarse igual en local, en CI y en Cloud Run.
+google-adk==2.15.0
+pydantic==2.14.4
+PyYAML==6.0.3
+httpx==0.28.1
