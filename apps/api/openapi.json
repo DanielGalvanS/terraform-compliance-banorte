@@ -3241,7 +3241,8 @@
               "enum": [
                 "excepcion.aprobada",
                 "excepcion.rechazada",
-                "hallazgo.estado"
+                "hallazgo.estado",
+                "agente.decision"
               ]
             },
             "in": "query",
@@ -3287,7 +3288,8 @@
                             "enum": [
                               "excepcion.aprobada",
                               "excepcion.rechazada",
-                              "hallazgo.estado"
+                              "hallazgo.estado",
+                              "agente.decision"
                             ]
                           },
                           "objetoId": {
@@ -3368,6 +3370,1347 @@
             }
           },
           "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "detalle": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/decisiones": {
+      "post": {
+        "summary": "Registra la decisión de una ejecución del agente",
+        "tags": [
+          "agente"
+        ],
+        "description": "Solo el rol Agente. Idempotente por ejecucionId: repetir el envío con el mismo contenido (mismo hashEntradas) responde 200 con lo ya registrado; con otro contenido, 409. La API vuelve a comprobar la coherencia de la decisión (422): el estado corresponde al veredicto, la severidad es la del catálogo y «ninguna» acción solo se acepta con una excepción activa. Queda en el registro de evidencia.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ejecucionId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100,
+                    "description": "Id de la ejecución; repetirlo no duplica"
+                  },
+                  "fecha": {
+                    "type": "string",
+                    "format": "date-time",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                  },
+                  "origen": {
+                    "type": "string",
+                    "enum": [
+                      "Plan",
+                      "Drift",
+                      "Evento",
+                      "Auditoría"
+                    ]
+                  },
+                  "ambiente": {
+                    "type": "string",
+                    "enum": [
+                      "Dev",
+                      "QA",
+                      "Prod"
+                    ]
+                  },
+                  "commit": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "resultadoCompuerta": {
+                    "type": "string",
+                    "enum": [
+                      "conforme",
+                      "bloqueado",
+                      "error"
+                    ],
+                    "description": "Copiado de la compuerta; el agente no lo decide"
+                  },
+                  "estado": {
+                    "type": "string",
+                    "enum": [
+                      "analizado",
+                      "sin_violaciones",
+                      "sin_analisis",
+                      "error_agente"
+                    ]
+                  },
+                  "resumen": {
+                    "type": "string",
+                    "maxLength": 4000
+                  },
+                  "clasificaciones": {
+                    "default": [],
+                    "maxItems": 200,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "violacion": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 20,
+                          "description": "Id de la violación en esa ejecución, por ejemplo V01"
+                        },
+                        "control": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "recurso": {
+                          "nullable": true,
+                          "type": "string"
+                        },
+                        "severidad": {
+                          "type": "string",
+                          "maxLength": 20,
+                          "description": "La del catálogo; la API comprueba que no se haya cambiado"
+                        },
+                        "prioridad": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 5,
+                          "description": "1 = atender ya"
+                        },
+                        "accionSugerida": {
+                          "type": "string",
+                          "enum": [
+                            "proponer_pr",
+                            "escalar_jira",
+                            "ninguna"
+                          ]
+                        },
+                        "confianza": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100
+                        },
+                        "explicacion": {
+                          "type": "string",
+                          "maxLength": 2000
+                        },
+                        "remediacion": {
+                          "type": "string",
+                          "maxLength": 2000
+                        }
+                      },
+                      "required": [
+                        "violacion",
+                        "control",
+                        "recurso",
+                        "severidad",
+                        "prioridad",
+                        "accionSugerida",
+                        "confianza",
+                        "explicacion",
+                        "remediacion"
+                      ]
+                    }
+                  },
+                  "herramientasUsadas": {
+                    "default": [],
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 100
+                    }
+                  },
+                  "ajustes": {
+                    "default": [],
+                    "description": "Correcciones que el código del agente hizo a la opinión del modelo",
+                    "maxItems": 500,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 1000
+                    }
+                  },
+                  "modelo": {
+                    "default": null,
+                    "nullable": true,
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "versionPrompt": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50
+                  },
+                  "hashEntradas": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                  },
+                  "error": {
+                    "default": null,
+                    "nullable": true,
+                    "type": "string",
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "ejecucionId",
+                  "fecha",
+                  "origen",
+                  "ambiente",
+                  "commit",
+                  "resultadoCompuerta",
+                  "estado",
+                  "resumen",
+                  "versionPrompt",
+                  "hashEntradas"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ejecucionId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100,
+                      "description": "Id de la ejecución; repetirlo no duplica"
+                    },
+                    "fecha": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                    },
+                    "origen": {
+                      "type": "string",
+                      "enum": [
+                        "Plan",
+                        "Drift",
+                        "Evento",
+                        "Auditoría"
+                      ]
+                    },
+                    "ambiente": {
+                      "type": "string",
+                      "enum": [
+                        "Dev",
+                        "QA",
+                        "Prod"
+                      ]
+                    },
+                    "commit": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "resultadoCompuerta": {
+                      "type": "string",
+                      "enum": [
+                        "conforme",
+                        "bloqueado",
+                        "error"
+                      ],
+                      "description": "Copiado de la compuerta; el agente no lo decide"
+                    },
+                    "estado": {
+                      "type": "string",
+                      "enum": [
+                        "analizado",
+                        "sin_violaciones",
+                        "sin_analisis",
+                        "error_agente"
+                      ]
+                    },
+                    "resumen": {
+                      "type": "string",
+                      "maxLength": 4000
+                    },
+                    "clasificaciones": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "violacion": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 20,
+                            "description": "Id de la violación en esa ejecución, por ejemplo V01"
+                          },
+                          "control": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "recurso": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "severidad": {
+                            "type": "string",
+                            "maxLength": 20,
+                            "description": "La del catálogo; la API comprueba que no se haya cambiado"
+                          },
+                          "prioridad": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 5,
+                            "description": "1 = atender ya"
+                          },
+                          "accionSugerida": {
+                            "type": "string",
+                            "enum": [
+                              "proponer_pr",
+                              "escalar_jira",
+                              "ninguna"
+                            ]
+                          },
+                          "confianza": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100
+                          },
+                          "explicacion": {
+                            "type": "string",
+                            "maxLength": 2000
+                          },
+                          "remediacion": {
+                            "type": "string",
+                            "maxLength": 2000
+                          },
+                          "hallazgoId": {
+                            "nullable": true,
+                            "description": "Hallazgo del mismo control y recurso, si existe",
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          }
+                        },
+                        "required": [
+                          "violacion",
+                          "control",
+                          "recurso",
+                          "severidad",
+                          "prioridad",
+                          "accionSugerida",
+                          "confianza",
+                          "explicacion",
+                          "remediacion",
+                          "hallazgoId"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "herramientasUsadas": {
+                      "default": [],
+                      "maxItems": 50,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 100
+                      }
+                    },
+                    "ajustes": {
+                      "default": [],
+                      "description": "Correcciones que el código del agente hizo a la opinión del modelo",
+                      "maxItems": 500,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 1000
+                      }
+                    },
+                    "modelo": {
+                      "default": null,
+                      "nullable": true,
+                      "type": "string",
+                      "maxLength": 100
+                    },
+                    "versionPrompt": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 50
+                    },
+                    "hashEntradas": {
+                      "type": "string",
+                      "pattern": "^sha256:[0-9a-f]{64}$"
+                    },
+                    "error": {
+                      "default": null,
+                      "nullable": true,
+                      "type": "string",
+                      "maxLength": 2000
+                    },
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "registradaEn": {
+                      "type": "string",
+                      "description": "Fecha ISO 8601 en que la API la recibió"
+                    },
+                    "registradaPor": {
+                      "type": "string",
+                      "description": "Identidad del token que la envió"
+                    }
+                  },
+                  "required": [
+                    "ejecucionId",
+                    "fecha",
+                    "origen",
+                    "ambiente",
+                    "commit",
+                    "resultadoCompuerta",
+                    "estado",
+                    "resumen",
+                    "clasificaciones",
+                    "herramientasUsadas",
+                    "ajustes",
+                    "modelo",
+                    "versionPrompt",
+                    "hashEntradas",
+                    "error",
+                    "id",
+                    "registradaEn",
+                    "registradaPor"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ejecucionId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100,
+                      "description": "Id de la ejecución; repetirlo no duplica"
+                    },
+                    "fecha": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                    },
+                    "origen": {
+                      "type": "string",
+                      "enum": [
+                        "Plan",
+                        "Drift",
+                        "Evento",
+                        "Auditoría"
+                      ]
+                    },
+                    "ambiente": {
+                      "type": "string",
+                      "enum": [
+                        "Dev",
+                        "QA",
+                        "Prod"
+                      ]
+                    },
+                    "commit": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "resultadoCompuerta": {
+                      "type": "string",
+                      "enum": [
+                        "conforme",
+                        "bloqueado",
+                        "error"
+                      ],
+                      "description": "Copiado de la compuerta; el agente no lo decide"
+                    },
+                    "estado": {
+                      "type": "string",
+                      "enum": [
+                        "analizado",
+                        "sin_violaciones",
+                        "sin_analisis",
+                        "error_agente"
+                      ]
+                    },
+                    "resumen": {
+                      "type": "string",
+                      "maxLength": 4000
+                    },
+                    "clasificaciones": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "violacion": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 20,
+                            "description": "Id de la violación en esa ejecución, por ejemplo V01"
+                          },
+                          "control": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "recurso": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "severidad": {
+                            "type": "string",
+                            "maxLength": 20,
+                            "description": "La del catálogo; la API comprueba que no se haya cambiado"
+                          },
+                          "prioridad": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 5,
+                            "description": "1 = atender ya"
+                          },
+                          "accionSugerida": {
+                            "type": "string",
+                            "enum": [
+                              "proponer_pr",
+                              "escalar_jira",
+                              "ninguna"
+                            ]
+                          },
+                          "confianza": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100
+                          },
+                          "explicacion": {
+                            "type": "string",
+                            "maxLength": 2000
+                          },
+                          "remediacion": {
+                            "type": "string",
+                            "maxLength": 2000
+                          },
+                          "hallazgoId": {
+                            "nullable": true,
+                            "description": "Hallazgo del mismo control y recurso, si existe",
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          }
+                        },
+                        "required": [
+                          "violacion",
+                          "control",
+                          "recurso",
+                          "severidad",
+                          "prioridad",
+                          "accionSugerida",
+                          "confianza",
+                          "explicacion",
+                          "remediacion",
+                          "hallazgoId"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "herramientasUsadas": {
+                      "default": [],
+                      "maxItems": 50,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 100
+                      }
+                    },
+                    "ajustes": {
+                      "default": [],
+                      "description": "Correcciones que el código del agente hizo a la opinión del modelo",
+                      "maxItems": 500,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 1000
+                      }
+                    },
+                    "modelo": {
+                      "default": null,
+                      "nullable": true,
+                      "type": "string",
+                      "maxLength": 100
+                    },
+                    "versionPrompt": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 50
+                    },
+                    "hashEntradas": {
+                      "type": "string",
+                      "pattern": "^sha256:[0-9a-f]{64}$"
+                    },
+                    "error": {
+                      "default": null,
+                      "nullable": true,
+                      "type": "string",
+                      "maxLength": 2000
+                    },
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "registradaEn": {
+                      "type": "string",
+                      "description": "Fecha ISO 8601 en que la API la recibió"
+                    },
+                    "registradaPor": {
+                      "type": "string",
+                      "description": "Identidad del token que la envió"
+                    }
+                  },
+                  "required": [
+                    "ejecucionId",
+                    "fecha",
+                    "origen",
+                    "ambiente",
+                    "commit",
+                    "resultadoCompuerta",
+                    "estado",
+                    "resumen",
+                    "clasificaciones",
+                    "herramientasUsadas",
+                    "ajustes",
+                    "modelo",
+                    "versionPrompt",
+                    "hashEntradas",
+                    "error",
+                    "id",
+                    "registradaEn",
+                    "registradaPor"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "detalle": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "detalle": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "detalle": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "detalle": {
+                      "type": "string"
+                    },
+                    "motivos": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "campo": {
+                            "type": "string"
+                          },
+                          "mensaje": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "campo",
+                          "mensaje"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "motivos"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "Decisiones del agente, de la más reciente a la más antigua",
+        "tags": [
+          "agente"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "ejecucionId",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "analizado",
+                "sin_violaciones",
+                "sin_analisis",
+                "error_agente"
+              ]
+            },
+            "in": "query",
+            "name": "estado",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "decisiones": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "ejecucionId": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 100,
+                            "description": "Id de la ejecución; repetirlo no duplica"
+                          },
+                          "fecha": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                          },
+                          "origen": {
+                            "type": "string",
+                            "enum": [
+                              "Plan",
+                              "Drift",
+                              "Evento",
+                              "Auditoría"
+                            ]
+                          },
+                          "ambiente": {
+                            "type": "string",
+                            "enum": [
+                              "Dev",
+                              "QA",
+                              "Prod"
+                            ]
+                          },
+                          "commit": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 100
+                          },
+                          "resultadoCompuerta": {
+                            "type": "string",
+                            "enum": [
+                              "conforme",
+                              "bloqueado",
+                              "error"
+                            ],
+                            "description": "Copiado de la compuerta; el agente no lo decide"
+                          },
+                          "estado": {
+                            "type": "string",
+                            "enum": [
+                              "analizado",
+                              "sin_violaciones",
+                              "sin_analisis",
+                              "error_agente"
+                            ]
+                          },
+                          "resumen": {
+                            "type": "string",
+                            "maxLength": 4000
+                          },
+                          "clasificaciones": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "violacion": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 20,
+                                  "description": "Id de la violación en esa ejecución, por ejemplo V01"
+                                },
+                                "control": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "recurso": {
+                                  "nullable": true,
+                                  "type": "string"
+                                },
+                                "severidad": {
+                                  "type": "string",
+                                  "maxLength": 20,
+                                  "description": "La del catálogo; la API comprueba que no se haya cambiado"
+                                },
+                                "prioridad": {
+                                  "type": "integer",
+                                  "minimum": 1,
+                                  "maximum": 5,
+                                  "description": "1 = atender ya"
+                                },
+                                "accionSugerida": {
+                                  "type": "string",
+                                  "enum": [
+                                    "proponer_pr",
+                                    "escalar_jira",
+                                    "ninguna"
+                                  ]
+                                },
+                                "confianza": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 100
+                                },
+                                "explicacion": {
+                                  "type": "string",
+                                  "maxLength": 2000
+                                },
+                                "remediacion": {
+                                  "type": "string",
+                                  "maxLength": 2000
+                                },
+                                "hallazgoId": {
+                                  "nullable": true,
+                                  "description": "Hallazgo del mismo control y recurso, si existe",
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                }
+                              },
+                              "required": [
+                                "violacion",
+                                "control",
+                                "recurso",
+                                "severidad",
+                                "prioridad",
+                                "accionSugerida",
+                                "confianza",
+                                "explicacion",
+                                "remediacion",
+                                "hallazgoId"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "herramientasUsadas": {
+                            "default": [],
+                            "maxItems": 50,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "maxLength": 100
+                            }
+                          },
+                          "ajustes": {
+                            "default": [],
+                            "description": "Correcciones que el código del agente hizo a la opinión del modelo",
+                            "maxItems": 500,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "maxLength": 1000
+                            }
+                          },
+                          "modelo": {
+                            "default": null,
+                            "nullable": true,
+                            "type": "string",
+                            "maxLength": 100
+                          },
+                          "versionPrompt": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 50
+                          },
+                          "hashEntradas": {
+                            "type": "string",
+                            "pattern": "^sha256:[0-9a-f]{64}$"
+                          },
+                          "error": {
+                            "default": null,
+                            "nullable": true,
+                            "type": "string",
+                            "maxLength": 2000
+                          },
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "registradaEn": {
+                            "type": "string",
+                            "description": "Fecha ISO 8601 en que la API la recibió"
+                          },
+                          "registradaPor": {
+                            "type": "string",
+                            "description": "Identidad del token que la envió"
+                          }
+                        },
+                        "required": [
+                          "ejecucionId",
+                          "fecha",
+                          "origen",
+                          "ambiente",
+                          "commit",
+                          "resultadoCompuerta",
+                          "estado",
+                          "resumen",
+                          "clasificaciones",
+                          "herramientasUsadas",
+                          "ajustes",
+                          "modelo",
+                          "versionPrompt",
+                          "hashEntradas",
+                          "error",
+                          "id",
+                          "registradaEn",
+                          "registradaPor"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "decisiones"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "detalle": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "detalle": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/decisiones/{id}": {
+      "get": {
+        "summary": "Una decisión del agente",
+        "tags": [
+          "agente"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ejecucionId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100,
+                      "description": "Id de la ejecución; repetirlo no duplica"
+                    },
+                    "fecha": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                    },
+                    "origen": {
+                      "type": "string",
+                      "enum": [
+                        "Plan",
+                        "Drift",
+                        "Evento",
+                        "Auditoría"
+                      ]
+                    },
+                    "ambiente": {
+                      "type": "string",
+                      "enum": [
+                        "Dev",
+                        "QA",
+                        "Prod"
+                      ]
+                    },
+                    "commit": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    },
+                    "resultadoCompuerta": {
+                      "type": "string",
+                      "enum": [
+                        "conforme",
+                        "bloqueado",
+                        "error"
+                      ],
+                      "description": "Copiado de la compuerta; el agente no lo decide"
+                    },
+                    "estado": {
+                      "type": "string",
+                      "enum": [
+                        "analizado",
+                        "sin_violaciones",
+                        "sin_analisis",
+                        "error_agente"
+                      ]
+                    },
+                    "resumen": {
+                      "type": "string",
+                      "maxLength": 4000
+                    },
+                    "clasificaciones": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "violacion": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 20,
+                            "description": "Id de la violación en esa ejecución, por ejemplo V01"
+                          },
+                          "control": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "recurso": {
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "severidad": {
+                            "type": "string",
+                            "maxLength": 20,
+                            "description": "La del catálogo; la API comprueba que no se haya cambiado"
+                          },
+                          "prioridad": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 5,
+                            "description": "1 = atender ya"
+                          },
+                          "accionSugerida": {
+                            "type": "string",
+                            "enum": [
+                              "proponer_pr",
+                              "escalar_jira",
+                              "ninguna"
+                            ]
+                          },
+                          "confianza": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100
+                          },
+                          "explicacion": {
+                            "type": "string",
+                            "maxLength": 2000
+                          },
+                          "remediacion": {
+                            "type": "string",
+                            "maxLength": 2000
+                          },
+                          "hallazgoId": {
+                            "nullable": true,
+                            "description": "Hallazgo del mismo control y recurso, si existe",
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          }
+                        },
+                        "required": [
+                          "violacion",
+                          "control",
+                          "recurso",
+                          "severidad",
+                          "prioridad",
+                          "accionSugerida",
+                          "confianza",
+                          "explicacion",
+                          "remediacion",
+                          "hallazgoId"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "herramientasUsadas": {
+                      "default": [],
+                      "maxItems": 50,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 100
+                      }
+                    },
+                    "ajustes": {
+                      "default": [],
+                      "description": "Correcciones que el código del agente hizo a la opinión del modelo",
+                      "maxItems": 500,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 1000
+                      }
+                    },
+                    "modelo": {
+                      "default": null,
+                      "nullable": true,
+                      "type": "string",
+                      "maxLength": 100
+                    },
+                    "versionPrompt": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 50
+                    },
+                    "hashEntradas": {
+                      "type": "string",
+                      "pattern": "^sha256:[0-9a-f]{64}$"
+                    },
+                    "error": {
+                      "default": null,
+                      "nullable": true,
+                      "type": "string",
+                      "maxLength": 2000
+                    },
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "registradaEn": {
+                      "type": "string",
+                      "description": "Fecha ISO 8601 en que la API la recibió"
+                    },
+                    "registradaPor": {
+                      "type": "string",
+                      "description": "Identidad del token que la envió"
+                    }
+                  },
+                  "required": [
+                    "ejecucionId",
+                    "fecha",
+                    "origen",
+                    "ambiente",
+                    "commit",
+                    "resultadoCompuerta",
+                    "estado",
+                    "resumen",
+                    "clasificaciones",
+                    "herramientasUsadas",
+                    "ajustes",
+                    "modelo",
+                    "versionPrompt",
+                    "hashEntradas",
+                    "error",
+                    "id",
+                    "registradaEn",
+                    "registradaPor"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "detalle": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "detalle": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
             "description": "Default Response",
             "content": {
               "application/json": {

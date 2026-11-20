@@ -1483,7 +1483,7 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
-                    tipo?: "excepcion.aprobada" | "excepcion.rechazada" | "hallazgo.estado";
+                    tipo?: "excepcion.aprobada" | "excepcion.rechazada" | "hallazgo.estado" | "agente.decision";
                     objetoId?: string;
                 };
                 header?: never;
@@ -1505,7 +1505,7 @@ export interface paths {
                                 /** @description 1, 2, 3… sin huecos */
                                 secuencia: number;
                                 /** @enum {string} */
-                                tipo: "excepcion.aprobada" | "excepcion.rechazada" | "hallazgo.estado";
+                                tipo: "excepcion.aprobada" | "excepcion.rechazada" | "hallazgo.estado" | "agente.decision";
                                 /** @description Id de la excepción o del hallazgo */
                                 objetoId: string;
                                 actor: string;
@@ -1539,6 +1539,508 @@ export interface paths {
                 };
                 /** @description Default Response */
                 403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/decisiones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Decisiones del agente, de la más reciente a la más antigua */
+        get: {
+            parameters: {
+                query?: {
+                    ejecucionId?: string;
+                    estado?: "analizado" | "sin_violaciones" | "sin_analisis" | "error_agente";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            decisiones: {
+                                /** @description Id de la ejecución; repetirlo no duplica */
+                                ejecucionId: string;
+                                /** Format: date-time */
+                                fecha: string;
+                                /** @enum {string} */
+                                origen: "Plan" | "Drift" | "Evento" | "Auditoría";
+                                /** @enum {string} */
+                                ambiente: "Dev" | "QA" | "Prod";
+                                commit: string;
+                                /**
+                                 * @description Copiado de la compuerta; el agente no lo decide
+                                 * @enum {string}
+                                 */
+                                resultadoCompuerta: "conforme" | "bloqueado" | "error";
+                                /** @enum {string} */
+                                estado: "analizado" | "sin_violaciones" | "sin_analisis" | "error_agente";
+                                resumen: string;
+                                clasificaciones: {
+                                    /** @description Id de la violación en esa ejecución, por ejemplo V01 */
+                                    violacion: string;
+                                    control: string;
+                                    recurso: string | null;
+                                    /** @description La del catálogo; la API comprueba que no se haya cambiado */
+                                    severidad: string;
+                                    /** @description 1 = atender ya */
+                                    prioridad: number;
+                                    /** @enum {string} */
+                                    accionSugerida: "proponer_pr" | "escalar_jira" | "ninguna";
+                                    confianza: number;
+                                    explicacion: string;
+                                    remediacion: string;
+                                    /**
+                                     * Format: uuid
+                                     * @description Hallazgo del mismo control y recurso, si existe
+                                     */
+                                    hallazgoId: string | null;
+                                }[];
+                                /** @default [] */
+                                herramientasUsadas: string[];
+                                /**
+                                 * @description Correcciones que el código del agente hizo a la opinión del modelo
+                                 * @default []
+                                 */
+                                ajustes: string[];
+                                /** @default null */
+                                modelo: string | null;
+                                versionPrompt: string;
+                                hashEntradas: string;
+                                /** @default null */
+                                error: string | null;
+                                /** Format: uuid */
+                                id: string;
+                                /** @description Fecha ISO 8601 en que la API la recibió */
+                                registradaEn: string;
+                                /** @description Identidad del token que la envió */
+                                registradaPor: string;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Registra la decisión de una ejecución del agente
+         * @description Solo el rol Agente. Idempotente por ejecucionId: repetir el envío con el mismo contenido (mismo hashEntradas) responde 200 con lo ya registrado; con otro contenido, 409. La API vuelve a comprobar la coherencia de la decisión (422): el estado corresponde al veredicto, la severidad es la del catálogo y «ninguna» acción solo se acepta con una excepción activa. Queda en el registro de evidencia.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description Id de la ejecución; repetirlo no duplica */
+                        ejecucionId: string;
+                        /** Format: date-time */
+                        fecha: string;
+                        /** @enum {string} */
+                        origen: "Plan" | "Drift" | "Evento" | "Auditoría";
+                        /** @enum {string} */
+                        ambiente: "Dev" | "QA" | "Prod";
+                        commit: string;
+                        /**
+                         * @description Copiado de la compuerta; el agente no lo decide
+                         * @enum {string}
+                         */
+                        resultadoCompuerta: "conforme" | "bloqueado" | "error";
+                        /** @enum {string} */
+                        estado: "analizado" | "sin_violaciones" | "sin_analisis" | "error_agente";
+                        resumen: string;
+                        /** @default [] */
+                        clasificaciones?: {
+                            /** @description Id de la violación en esa ejecución, por ejemplo V01 */
+                            violacion: string;
+                            control: string;
+                            recurso: string | null;
+                            /** @description La del catálogo; la API comprueba que no se haya cambiado */
+                            severidad: string;
+                            /** @description 1 = atender ya */
+                            prioridad: number;
+                            /** @enum {string} */
+                            accionSugerida: "proponer_pr" | "escalar_jira" | "ninguna";
+                            confianza: number;
+                            explicacion: string;
+                            remediacion: string;
+                        }[];
+                        /** @default [] */
+                        herramientasUsadas?: string[];
+                        /**
+                         * @description Correcciones que el código del agente hizo a la opinión del modelo
+                         * @default []
+                         */
+                        ajustes?: string[];
+                        /** @default null */
+                        modelo?: string | null;
+                        versionPrompt: string;
+                        hashEntradas: string;
+                        /** @default null */
+                        error?: string | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Id de la ejecución; repetirlo no duplica */
+                            ejecucionId: string;
+                            /** Format: date-time */
+                            fecha: string;
+                            /** @enum {string} */
+                            origen: "Plan" | "Drift" | "Evento" | "Auditoría";
+                            /** @enum {string} */
+                            ambiente: "Dev" | "QA" | "Prod";
+                            commit: string;
+                            /**
+                             * @description Copiado de la compuerta; el agente no lo decide
+                             * @enum {string}
+                             */
+                            resultadoCompuerta: "conforme" | "bloqueado" | "error";
+                            /** @enum {string} */
+                            estado: "analizado" | "sin_violaciones" | "sin_analisis" | "error_agente";
+                            resumen: string;
+                            clasificaciones: {
+                                /** @description Id de la violación en esa ejecución, por ejemplo V01 */
+                                violacion: string;
+                                control: string;
+                                recurso: string | null;
+                                /** @description La del catálogo; la API comprueba que no se haya cambiado */
+                                severidad: string;
+                                /** @description 1 = atender ya */
+                                prioridad: number;
+                                /** @enum {string} */
+                                accionSugerida: "proponer_pr" | "escalar_jira" | "ninguna";
+                                confianza: number;
+                                explicacion: string;
+                                remediacion: string;
+                                /**
+                                 * Format: uuid
+                                 * @description Hallazgo del mismo control y recurso, si existe
+                                 */
+                                hallazgoId: string | null;
+                            }[];
+                            /** @default [] */
+                            herramientasUsadas: string[];
+                            /**
+                             * @description Correcciones que el código del agente hizo a la opinión del modelo
+                             * @default []
+                             */
+                            ajustes: string[];
+                            /** @default null */
+                            modelo: string | null;
+                            versionPrompt: string;
+                            hashEntradas: string;
+                            /** @default null */
+                            error: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @description Fecha ISO 8601 en que la API la recibió */
+                            registradaEn: string;
+                            /** @description Identidad del token que la envió */
+                            registradaPor: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Id de la ejecución; repetirlo no duplica */
+                            ejecucionId: string;
+                            /** Format: date-time */
+                            fecha: string;
+                            /** @enum {string} */
+                            origen: "Plan" | "Drift" | "Evento" | "Auditoría";
+                            /** @enum {string} */
+                            ambiente: "Dev" | "QA" | "Prod";
+                            commit: string;
+                            /**
+                             * @description Copiado de la compuerta; el agente no lo decide
+                             * @enum {string}
+                             */
+                            resultadoCompuerta: "conforme" | "bloqueado" | "error";
+                            /** @enum {string} */
+                            estado: "analizado" | "sin_violaciones" | "sin_analisis" | "error_agente";
+                            resumen: string;
+                            clasificaciones: {
+                                /** @description Id de la violación en esa ejecución, por ejemplo V01 */
+                                violacion: string;
+                                control: string;
+                                recurso: string | null;
+                                /** @description La del catálogo; la API comprueba que no se haya cambiado */
+                                severidad: string;
+                                /** @description 1 = atender ya */
+                                prioridad: number;
+                                /** @enum {string} */
+                                accionSugerida: "proponer_pr" | "escalar_jira" | "ninguna";
+                                confianza: number;
+                                explicacion: string;
+                                remediacion: string;
+                                /**
+                                 * Format: uuid
+                                 * @description Hallazgo del mismo control y recurso, si existe
+                                 */
+                                hallazgoId: string | null;
+                            }[];
+                            /** @default [] */
+                            herramientasUsadas: string[];
+                            /**
+                             * @description Correcciones que el código del agente hizo a la opinión del modelo
+                             * @default []
+                             */
+                            ajustes: string[];
+                            /** @default null */
+                            modelo: string | null;
+                            versionPrompt: string;
+                            hashEntradas: string;
+                            /** @default null */
+                            error: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @description Fecha ISO 8601 en que la API la recibió */
+                            registradaEn: string;
+                            /** @description Identidad del token que la envió */
+                            registradaPor: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                            motivos: {
+                                campo: string;
+                                mensaje: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/decisiones/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Una decisión del agente */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Id de la ejecución; repetirlo no duplica */
+                            ejecucionId: string;
+                            /** Format: date-time */
+                            fecha: string;
+                            /** @enum {string} */
+                            origen: "Plan" | "Drift" | "Evento" | "Auditoría";
+                            /** @enum {string} */
+                            ambiente: "Dev" | "QA" | "Prod";
+                            commit: string;
+                            /**
+                             * @description Copiado de la compuerta; el agente no lo decide
+                             * @enum {string}
+                             */
+                            resultadoCompuerta: "conforme" | "bloqueado" | "error";
+                            /** @enum {string} */
+                            estado: "analizado" | "sin_violaciones" | "sin_analisis" | "error_agente";
+                            resumen: string;
+                            clasificaciones: {
+                                /** @description Id de la violación en esa ejecución, por ejemplo V01 */
+                                violacion: string;
+                                control: string;
+                                recurso: string | null;
+                                /** @description La del catálogo; la API comprueba que no se haya cambiado */
+                                severidad: string;
+                                /** @description 1 = atender ya */
+                                prioridad: number;
+                                /** @enum {string} */
+                                accionSugerida: "proponer_pr" | "escalar_jira" | "ninguna";
+                                confianza: number;
+                                explicacion: string;
+                                remediacion: string;
+                                /**
+                                 * Format: uuid
+                                 * @description Hallazgo del mismo control y recurso, si existe
+                                 */
+                                hallazgoId: string | null;
+                            }[];
+                            /** @default [] */
+                            herramientasUsadas: string[];
+                            /**
+                             * @description Correcciones que el código del agente hizo a la opinión del modelo
+                             * @default []
+                             */
+                            ajustes: string[];
+                            /** @default null */
+                            modelo: string | null;
+                            versionPrompt: string;
+                            hashEntradas: string;
+                            /** @default null */
+                            error: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @description Fecha ISO 8601 en que la API la recibió */
+                            registradaEn: string;
+                            /** @description Identidad del token que la envió */
+                            registradaPor: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
                     headers: {
                         [name: string]: unknown;
                     };

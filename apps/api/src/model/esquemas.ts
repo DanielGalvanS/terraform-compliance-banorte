@@ -259,7 +259,12 @@ export type NuevaExcepcion = z.infer<typeof NuevaExcepcion>
 export type FiltroExcepciones = z.infer<typeof FiltroExcepciones>
 export type EstadoExcepcion = z.infer<typeof EstadoExcepcion>
 
-export const TipoEvento = z.enum(['excepcion.aprobada', 'excepcion.rechazada', 'hallazgo.estado'])
+export const TipoEvento = z.enum([
+  'excepcion.aprobada',
+  'excepcion.rechazada',
+  'hallazgo.estado',
+  'agente.decision',
+])
 
 /**
  * Un evento del registro de evidencia.
@@ -284,3 +289,78 @@ export const EventoEvidencia = z.object({
 
 export type TipoEvento = z.infer<typeof TipoEvento>
 export type EventoEvidencia = z.infer<typeof EventoEvidencia>
+
+export const ResultadoCompuerta = z.enum(['conforme', 'bloqueado', 'error'])
+export const EstadoDecisionAgente = z.enum([
+  'analizado',
+  'sin_violaciones',
+  'sin_analisis',
+  'error_agente',
+])
+export const AccionSugerida = z.enum(['proponer_pr', 'escalar_jira', 'ninguna'])
+
+/** Una violación tal como la clasificó el agente. */
+export const ClasificacionAgente = z.object({
+  violacion: z.string().min(1).max(20).describe('Id de la violación en esa ejecución, por ejemplo V01'),
+  control: z.string().min(1),
+  recurso: z.string().nullable(),
+  // Texto y no Severidad: si el control no está en el catálogo, el agente
+  // manda «Desconocida», y eso merece un 422 con su motivo, no un 400 genérico.
+  severidad: z.string().max(20).describe('La del catálogo; la API comprueba que no se haya cambiado'),
+  prioridad: z.number().int().min(1).max(5).describe('1 = atender ya'),
+  accionSugerida: AccionSugerida,
+  confianza: z.number().int().min(0).max(100),
+  explicacion: z.string().max(2000),
+  remediacion: z.string().max(2000),
+})
+
+/**
+ * Lo que el agente envía al terminar una ejecución. Es un subconjunto de su
+ * `decision.json`: el artefacto completo queda en el pipeline, y
+ * `hashEntradas` liga las dos cosas.
+ *
+ * Los límites de tamaño son defensivos: parte del texto lo escribe un modelo
+ * que lee planes que cualquiera puede editar en su PR.
+ */
+export const NuevaDecisionAgente = z.object({
+  ejecucionId: z.string().min(1).max(100).describe('Id de la ejecución; repetirlo no duplica'),
+  fecha: z.iso.datetime({ offset: true }),
+  origen: Origen,
+  ambiente: Ambiente,
+  commit: z.string().min(1).max(100),
+  resultadoCompuerta: ResultadoCompuerta.describe('Copiado de la compuerta; el agente no lo decide'),
+  estado: EstadoDecisionAgente,
+  resumen: z.string().max(4000),
+  clasificaciones: z.array(ClasificacionAgente).max(200).default([]),
+  herramientasUsadas: z.array(z.string().max(100)).max(50).default([]),
+  ajustes: z
+    .array(z.string().max(1000))
+    .max(500)
+    .default([])
+    .describe('Correcciones que el código del agente hizo a la opinión del modelo'),
+  modelo: z.string().max(100).nullable().default(null),
+  versionPrompt: z.string().min(1).max(50),
+  hashEntradas: z.string().regex(/^sha256:[0-9a-f]{64}$/),
+  error: z.string().max(2000).nullable().default(null),
+})
+
+export const DecisionAgente = NuevaDecisionAgente.extend({
+  id: z.uuid(),
+  registradaEn: z.string().describe('Fecha ISO 8601 en que la API la recibió'),
+  registradaPor: z.string().describe('Identidad del token que la envió'),
+  clasificaciones: z.array(
+    ClasificacionAgente.extend({
+      hallazgoId: z.uuid().nullable().describe('Hallazgo del mismo control y recurso, si existe'),
+    }),
+  ),
+})
+
+export const FiltroDecisiones = z.object({
+  ejecucionId: z.string().optional(),
+  estado: EstadoDecisionAgente.optional(),
+})
+
+export type ClasificacionAgente = z.infer<typeof ClasificacionAgente>
+export type NuevaDecisionAgente = z.infer<typeof NuevaDecisionAgente>
+export type DecisionAgente = z.infer<typeof DecisionAgente>
+export type FiltroDecisiones = z.infer<typeof FiltroDecisiones>
