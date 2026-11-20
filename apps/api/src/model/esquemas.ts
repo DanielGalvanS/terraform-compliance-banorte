@@ -235,6 +235,9 @@ export const Excepcion = z.object({
     .nullable()
     .describe('Fundamento de la decisión; nulo mientras está pendiente'),
   decididaEn: z.string().nullable().describe('Fecha ISO 8601; nula mientras está pendiente'),
+  revocadaPor: z.string().nullable().describe('Quién la revocó; nulo si no se ha revocado'),
+  revocadaEn: z.string().nullable().describe('Fecha ISO 8601 de la revocación'),
+  motivoRevocacion: z.string().nullable(),
   solicitadaEn: z.string().describe('Fecha ISO 8601'),
   venceEl: z.string().describe('Fecha yyyy-mm-dd'),
   estado: EstadoExcepcion,
@@ -294,6 +297,7 @@ export type EstadoExcepcion = z.infer<typeof EstadoExcepcion>
 export const TipoEvento = z.enum([
   'excepcion.aprobada',
   'excepcion.rechazada',
+  'excepcion.revocada',
   'hallazgo.estado',
   'agente.decision',
 ])

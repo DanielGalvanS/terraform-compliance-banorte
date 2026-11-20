@@ -14,6 +14,7 @@ import type { HallazgosRepositorio } from '../repositorios/hallazgosRepositorio.
 import {
   estadoVigente,
   validarDecision,
+  validarRevocacion,
   validarSolicitud,
 } from '../model/reglasExcepciones.ts'
 import type { Catalogo } from '../repositorios/catalogoRepositorio.ts'
@@ -291,6 +292,57 @@ export function rutasExcepciones(
           peticion.body.comentario,
         )
         return respuesta.code(codigo).send(cuerpo)
+      },
+    )
+
+    app.post(
+      '/excepciones/:id/revocar',
+      {
+        onRequest: requiere('revocarExcepcion'),
+        schema: {
+          summary: 'Revoca una excepción activa',
+          description:
+            'Solo Compliance Lead. Solo una excepción activa y vigente (409): una pendiente ' +
+            'se rechaza y una vencida ya no protege nada. El motivo es obligatorio (422). ' +
+            'Al revocarla, los hallazgos que cubría vuelven a su estado sin que nadie los ' +
+            'toque, y quien la aprobó se conserva.',
+          tags: ['excepciones'],
+          params: ParametrosId,
+          body: CuerpoDecision,
+          response: respuestasDecision,
+        },
+      },
+      async (peticion, respuesta) => {
+        const guardada = await repositorio.obtener(peticion.params.id)
+        if (guardada === null) {
+          return respuesta.code(404).send({ error: 'No existe esa excepción' })
+        }
+        const { conflicto, motivos } = validarRevocacion(guardada, peticion.body.comentario)
+        if (conflicto !== null) return respuesta.code(409).send({ error: conflicto })
+        if (motivos.length > 0) {
+          return respuesta.code(422).send({ error: 'La revocación no cumple las reglas', motivos })
+        }
+
+        const quien = actor(peticion)
+        const revocada = await repositorio.revocar(guardada.id, {
+          revocadaPor: quien.nombre,
+          motivo: peticion.body.comentario.trim(),
+          revocadaEn: new Date().toISOString(),
+        })
+        if (revocada === null) {
+          return respuesta.code(404).send({ error: 'No existe esa excepción' })
+        }
+        await evidencia.registrar({
+          tipo: 'excepcion.revocada',
+          objetoId: revocada.id,
+          actor: quien.nombre,
+          detalle: {
+            codigo: revocada.codigo,
+            comentario: revocada.motivoRevocacion ?? '',
+            sujeto: quien.sujeto,
+          },
+        })
+        return completar(revocada, await hallazgosAbiertos())
       },
     )
   }

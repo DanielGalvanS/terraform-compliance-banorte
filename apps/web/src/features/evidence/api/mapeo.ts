@@ -12,6 +12,7 @@ import type { EvidenceEntry } from '../model'
 const DESCRIPCIONES: Record<EventoEvidenciaApi['tipo'], string> = {
   'excepcion.aprobada': 'Excepción aprobada',
   'excepcion.rechazada': 'Excepción rechazada',
+  'excepcion.revocada': 'Excepción revocada',
   'hallazgo.estado': 'Cambio de estado de hallazgo',
   'agente.decision': 'Decisión del agente',
 }

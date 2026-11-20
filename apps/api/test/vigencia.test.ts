@@ -10,6 +10,8 @@ import {
   type ExcepcionVigencia,
   type HallazgoVigencia,
 } from '../src/model/reglasVigencia.ts'
+import { validarRevocacion } from '../src/model/reglasExcepciones.ts'
+import { evidenciaEnMemoria } from '../src/repositorios/evidenciaRepositorio.ts'
 import { configDePrueba, conToken, tokenDe, USUARIOS } from './auth.ts'
 
 const AHORA = new Date('2026-11-14T12:00:00Z')
@@ -326,5 +328,113 @@ describe('rutas: vigencia de cada excepción', () => {
       await app.inject(conToken({ method: 'GET', url: `${PREFIJO}/excepciones?porVencer=false` }))
     ).json()
     expect(excepciones.map((e: { codigo: string }) => e.codigo)).not.toContain('EXC-1048')
+  })
+})
+
+describe('reglas de la revocación', () => {
+  const MOTIVO = 'Se corrigió el firewall en el PR 57'
+
+  it('se revoca una activa vigente', () => {
+    expect(validarRevocacion({ estadoGuardado: 'Activa', venceEl: enDias(5) }, MOTIVO, AHORA)).toEqual({
+      conflicto: null,
+      motivos: [],
+    })
+  })
+
+  it.each(['Pendiente', 'Rechazada', 'Revocada'] as const)('una %s no se revoca (409)', (estadoGuardado) => {
+    const r = validarRevocacion({ estadoGuardado, venceEl: enDias(5) }, MOTIVO, AHORA)
+    expect(r.conflicto).toContain(estadoGuardado)
+  })
+
+  it('una vencida ya no protege nada: no se revoca', () => {
+    const r = validarRevocacion({ estadoGuardado: 'Activa', venceEl: enDias(-1) }, MOTIVO, AHORA)
+    expect(r.conflicto).toContain('Vencida')
+  })
+
+  it('el motivo es obligatorio y no basta con espacios', () => {
+    for (const motivo of ['', '   ', 'corto']) {
+      const r = validarRevocacion({ estadoGuardado: 'Activa', venceEl: enDias(5) }, motivo, AHORA)
+      expect(r.motivos.map((m) => m.campo)).toEqual(['comentario'])
+    }
+  })
+})
+
+describe('rutas: revocar una excepción', () => {
+  let app: Awaited<ReturnType<typeof construirApp>>
+  const evidencia = evidenciaEnMemoria()
+  let ana: string
+
+  beforeAll(async () => {
+    app = await construirApp({ config: configDePrueba(), evidencia })
+    await app.ready()
+    ana = await tokenDe(USUARIOS.lead)
+  })
+
+  const MOTIVO = 'Se corrigió el firewall en el PR 57'
+
+  const revocar = async (id: string, token: string, comentario = MOTIVO) =>
+    app.inject(
+      conToken(
+        { method: 'POST', url: `${PREFIJO}/excepciones/${id}/revocar`, payload: { comentario } },
+        token,
+      ),
+    )
+
+  const leer = async (ruta: string) =>
+    (await app.inject(conToken({ method: 'GET', url: `${PREFIJO}${ruta}` }))).json()
+
+  const exc1048 = async () =>
+    (await leer('/excepciones')).excepciones.find((e: { codigo: string }) => e.codigo === 'EXC-1048')
+
+  it('el Aprobador no puede revocar (403)', async () => {
+    const r = await revocar((await exc1048()).id, await tokenDe(USUARIOS.aprobador))
+    expect(r.statusCode).toBe(403)
+  })
+
+  it('sin motivo responde 422', async () => {
+    expect((await revocar((await exc1048()).id, ana, 'corto')).statusCode).toBe(422)
+  })
+
+  it('una pendiente no se revoca: se rechaza (409)', async () => {
+    const pendiente = (await leer('/excepciones?estado=Pendiente')).excepciones[0]
+    expect((await revocar(pendiente.id, ana)).statusCode).toBe(409)
+  })
+
+  it('un id inexistente responde 404', async () => {
+    expect((await revocar('00000000-0000-4000-8000-000000000000', ana)).statusCode).toBe(404)
+  })
+
+  it('revocar la deja Revocada, conserva quién la aprobó y devuelve el hallazgo a Abierto', async () => {
+    const antes = await exc1048()
+    const hallazgo = (await leer('/hallazgos?recurso=google_compute_firewall.allow_ssh')).hallazgos.find(
+      (h: { ambiente: string }) => h.ambiente === 'Prod',
+    )
+    expect(hallazgo.estado).toBe('Excepción')
+
+    const r = await revocar(antes.id, ana)
+    expect(r.statusCode).toBe(200)
+    expect(r.json()).toMatchObject({
+      estado: 'Revocada',
+      revocadaPor: 'Ana Martínez',
+      motivoRevocacion: MOTIVO,
+      aprobadaPor: antes.aprobadaPor,
+      diasRestantes: null,
+      porVencer: false,
+    })
+
+    const despues = await leer(`/hallazgos/${hallazgo.id}`)
+    expect(despues.estado).toBe('Abierto')
+    expect(despues.excepcion).toBeNull()
+
+    const eventos = await evidencia.listar({ objetoId: antes.id })
+    expect(eventos[0]).toMatchObject({
+      tipo: 'excepcion.revocada',
+      actor: 'Ana Martínez',
+      detalle: { codigo: 'EXC-1048', comentario: MOTIVO, sujeto: 'ana.martinez' },
+    })
+  })
+
+  it('revocarla otra vez responde 409', async () => {
+    expect((await revocar((await exc1048()).id, ana)).statusCode).toBe(409)
   })
 })
