@@ -70,6 +70,16 @@ def test_un_rechazo_de_la_api_es_un_fallo_de_registro(decision, monkeypatch):
         registro.registrar("http://api.local", decision)
 
 
+@pytest.mark.parametrize("respuesta", [
+    httpx.Response(200, text="<html>proxy</html>"),
+    httpx.Response(201, json={"otra": "cosa"}),
+])
+def test_una_respuesta_rara_es_un_fallo_de_registro(decision, monkeypatch, respuesta):
+    monkeypatch.setattr(registro, "_TRANSPORTE", httpx.MockTransport(lambda p: respuesta))
+    with pytest.raises(registro.FalloRegistro, match="no es una decisión registrada"):
+        registro.registrar("http://api.local", decision)
+
+
 def test_api_caida_es_un_fallo_de_registro(decision, monkeypatch):
     def caida(peticion):
         raise httpx.ConnectError("sin conexión")

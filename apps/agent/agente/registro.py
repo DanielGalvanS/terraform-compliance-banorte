@@ -54,4 +54,11 @@ def registrar(api_url: str, decision: Decision) -> dict[str, Any]:
         raise FalloRegistro(f"la API no respondió ({type(error).__name__})") from error
     if respuesta.status_code not in (200, 201):
         raise FalloRegistro(f"la API respondió {respuesta.status_code}: {respuesta.text[:200]}")
-    return respuesta.json()
+    # Un proxy o un balanceador pueden responder 200 con HTML. Si eso tronara
+    # aquí, la CLI saldría con error y bloquearía aunque el agente sí analizó.
+    try:
+        registrada = respuesta.json()
+        secuencia = int(registrada["evidencia"]["secuencia"])
+    except (ValueError, KeyError, TypeError) as error:
+        raise FalloRegistro("la API respondió algo que no es una decisión registrada") from error
+    return {**registrada, "evidencia": {**registrada["evidencia"], "secuencia": secuencia}}
