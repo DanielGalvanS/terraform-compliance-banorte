@@ -128,7 +128,7 @@ export function rutasExcepciones(
     app.get(
       '/excepciones',
       {
-        preHandler: requiere('leer'),
+        onRequest: requiere('leer'),
         schema: {
           summary: 'Excepciones registradas',
           description:
@@ -147,7 +147,7 @@ export function rutasExcepciones(
     app.post(
       '/excepciones',
       {
-        preHandler: requiere('solicitarExcepcion'),
+        onRequest: requiere('solicitarExcepcion'),
         schema: {
           summary: 'Solicita una excepción',
           description:
@@ -192,7 +192,7 @@ export function rutasExcepciones(
     app.get(
       '/excepciones/:id',
       {
-        preHandler: requiere('leer'),
+        onRequest: requiere('leer'),
         schema: {
           summary: 'Una excepción por identificador',
           description:
@@ -218,7 +218,7 @@ export function rutasExcepciones(
     app.post(
       '/excepciones/:id/aprobar',
       {
-        preHandler: requiere('decidirExcepcion'),
+        onRequest: requiere('decidirExcepcion'),
         schema: {
           summary: 'Aprueba una excepción',
           description:
@@ -245,7 +245,7 @@ export function rutasExcepciones(
     app.post(
       '/excepciones/:id/rechazar',
       {
-        preHandler: requiere('decidirExcepcion'),
+        onRequest: requiere('decidirExcepcion'),
         schema: {
           summary: 'Rechaza una excepción',
           description:

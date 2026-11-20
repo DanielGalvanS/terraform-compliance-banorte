@@ -29,7 +29,7 @@ export function rutasHallazgos(
     app.get(
       '/hallazgos',
       {
-        preHandler: requiere('leer'),
+        onRequest: requiere('leer'),
         schema: {
           summary: 'Hallazgos, con filtros opcionales',
           tags: ['hallazgos'],
@@ -43,7 +43,7 @@ export function rutasHallazgos(
     app.get(
       '/hallazgos/:id',
       {
-        preHandler: requiere('leer'),
+        onRequest: requiere('leer'),
         schema: {
           summary: 'Un hallazgo por identificador',
           tags: ['hallazgos'],
@@ -63,7 +63,7 @@ export function rutasHallazgos(
     app.post(
       '/hallazgos',
       {
-        preHandler: requiere('registrarHallazgo'),
+        onRequest: requiere('registrarHallazgo'),
         schema: {
           summary: 'Registra un hallazgo detectado por el pipeline',
           description:
@@ -90,7 +90,7 @@ export function rutasHallazgos(
     app.patch(
       '/hallazgos/:id/estado',
       {
-        preHandler: requiere('cambiarEstadoHallazgo'),
+        onRequest: requiere('cambiarEstadoHallazgo'),
         schema: {
           summary: 'Cambia el estado de un hallazgo',
           description:

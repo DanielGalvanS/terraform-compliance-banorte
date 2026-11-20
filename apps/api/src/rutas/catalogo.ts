@@ -10,7 +10,7 @@ export function rutasCatalogo(catalogo: Catalogo): FastifyPluginAsyncZod {
     app.get(
       '/marcos',
       {
-        preHandler: requiere('leer'),
+        onRequest: requiere('leer'),
         schema: {
           summary: 'Marcos regulatorios en alcance',
           tags: ['catálogo'],
@@ -26,7 +26,7 @@ export function rutasCatalogo(catalogo: Catalogo): FastifyPluginAsyncZod {
     app.get(
       '/controles',
       {
-        preHandler: requiere('leer'),
+        onRequest: requiere('leer'),
         schema: {
           summary: 'Controles codificados y su mapeo a marcos',
           tags: ['catálogo'],

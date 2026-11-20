@@ -49,7 +49,7 @@ export function rutasResumen(
     app.get(
       '/resumen',
       {
-        preHandler: requiere('leer'),
+        onRequest: requiere('leer'),
         schema: {
           summary: 'Postura de cumplimiento en cifras',
           description:

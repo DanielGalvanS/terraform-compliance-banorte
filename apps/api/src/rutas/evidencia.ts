@@ -9,7 +9,7 @@ export function rutasEvidencia(evidencia: EvidenciaRepositorio): FastifyPluginAs
     app.get(
       '/evidencia',
       {
-        preHandler: requiere('leer'),
+        onRequest: requiere('leer'),
         schema: {
           summary: 'Registro de evidencia',
           description:

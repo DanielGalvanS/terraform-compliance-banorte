@@ -33,6 +33,10 @@ export function registrarAutenticacion(app: FastifyInstance, verificador: Verifi
  * Exige que quien llama tenga permiso para la acción: 401 si no se sabe quién
  * es, 403 si se sabe y su rol no alcanza. La diferencia importa al cliente:
  * con 401 hay que volver a iniciar sesión; con 403, no serviría de nada.
+ *
+ * Se usa como `onRequest` de la ruta, no como `preHandler`: así corre antes
+ * de leer y validar el cuerpo. Quien no tiene permiso recibe 403 y no un 400
+ * con el detalle de qué campos espera la API.
  */
 export function requiere(accion: Accion) {
   return async (peticion: FastifyRequest, respuesta: FastifyReply) => {

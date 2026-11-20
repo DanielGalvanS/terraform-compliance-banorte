@@ -21,7 +21,7 @@ export function rutasRecursos(
     app.get(
       '/recursos',
       {
-        preHandler: requiere('leer'),
+        onRequest: requiere('leer'),
         schema: {
           summary: 'Inventario de recursos gestionados',
           description:
