@@ -273,7 +273,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Hallazgos, con filtros opcionales */
+        /**
+         * Hallazgos, con filtros opcionales
+         * @description El estado se deriva: un hallazgo abierto o en remediación que cubre una excepción activa y vigente se muestra como Excepción, y vuelve solo a su estado cuando la excepción vence o se revoca. El filtro ?estado= usa ese estado mostrado.
+         */
         get: {
             parameters: {
                 query?: {
@@ -335,6 +338,14 @@ export interface paths {
                                         anadidas: string[];
                                     };
                                 };
+                                /** @description La excepción activa y vigente que lo cubre; con ella el estado se muestra como Excepción */
+                                excepcion: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    codigo: string;
+                                    /** @description Fecha yyyy-mm-dd */
+                                    venceEl: string;
+                                } | null;
                             }[];
                         };
                     };
@@ -441,6 +452,14 @@ export interface paths {
                                     anadidas: string[];
                                 };
                             };
+                            /** @description La excepción activa y vigente que lo cubre; con ella el estado se muestra como Excepción */
+                            excepcion: {
+                                /** Format: uuid */
+                                id: string;
+                                codigo: string;
+                                /** @description Fecha yyyy-mm-dd */
+                                venceEl: string;
+                            } | null;
                         };
                     };
                 };
@@ -488,6 +507,14 @@ export interface paths {
                                     anadidas: string[];
                                 };
                             };
+                            /** @description La excepción activa y vigente que lo cubre; con ella el estado se muestra como Excepción */
+                            excepcion: {
+                                /** Format: uuid */
+                                id: string;
+                                codigo: string;
+                                /** @description Fecha yyyy-mm-dd */
+                                venceEl: string;
+                            } | null;
                         };
                     };
                 };
@@ -586,6 +613,14 @@ export interface paths {
                                     anadidas: string[];
                                 };
                             };
+                            /** @description La excepción activa y vigente que lo cubre; con ella el estado se muestra como Excepción */
+                            excepcion: {
+                                /** Format: uuid */
+                                id: string;
+                                codigo: string;
+                                /** @description Fecha yyyy-mm-dd */
+                                venceEl: string;
+                            } | null;
                         };
                     };
                 };
@@ -650,7 +685,7 @@ export interface paths {
         head?: never;
         /**
          * Cambia el estado de un hallazgo
-         * @description Solo se permiten estas transiciones: Abierto → En remediación, Cerrado; En remediación → Abierto, Cerrado; Cerrado → Abierto; Excepción → ninguno. Otra responde 409. A Excepción no se llega por aquí sino aprobando una excepción (422), para no saltarse la aprobación humana. El comentario es obligatorio (422) y el cambio queda en el registro de evidencia.
+         * @description Solo se permiten estas transiciones: Abierto → En remediación, Cerrado; En remediación → Abierto, Cerrado; Cerrado → Abierto; Excepción → ninguno. Otra responde 409. A Excepción no se llega por aquí sino aprobando una excepción (422), para no saltarse la aprobación humana. Uno cubierto por una excepción vigente tampoco cambia por aquí (409): hay que revocarla o esperar a que venza. El comentario es obligatorio (422) y el cambio queda en el registro de evidencia.
          */
         patch: {
             parameters: {
@@ -716,6 +751,14 @@ export interface paths {
                                     anadidas: string[];
                                 };
                             };
+                            /** @description La excepción activa y vigente que lo cubre; con ella el estado se muestra como Excepción */
+                            excepcion: {
+                                /** Format: uuid */
+                                id: string;
+                                codigo: string;
+                                /** @description Fecha yyyy-mm-dd */
+                                venceEl: string;
+                            } | null;
                         };
                     };
                 };
@@ -880,6 +923,7 @@ export interface paths {
             parameters: {
                 query?: {
                     estado?: "Pendiente" | "Activa" | "Vencida" | "Rechazada" | "Revocada";
+                    porVencer?: "true" | "false";
                     ambiente?: "Dev" | "QA" | "Prod";
                     control?: string;
                     /** @description Dirección de Terraform, corta o con módulo; ver coincideRecurso */
@@ -922,6 +966,11 @@ export interface paths {
                                 comentarioDecision: string | null;
                                 /** @description Fecha ISO 8601; nula mientras está pendiente */
                                 decididaEn: string | null;
+                                /** @description Quién la revocó; nulo si no se ha revocado */
+                                revocadaPor: string | null;
+                                /** @description Fecha ISO 8601 de la revocación */
+                                revocadaEn: string | null;
+                                motivoRevocacion: string | null;
                                 /** @description Fecha ISO 8601 */
                                 solicitadaEn: string;
                                 /** @description Fecha yyyy-mm-dd */
@@ -929,6 +978,12 @@ export interface paths {
                                 /** @enum {string} */
                                 estado: "Pendiente" | "Activa" | "Vencida" | "Rechazada" | "Revocada";
                                 planRemediacion: string | null;
+                                /** @description Días hasta el vencimiento; nulo si ya no está pendiente ni activa */
+                                diasRestantes: number | null;
+                                /** @description Activa y a 7 días o menos de vencer */
+                                porVencer: boolean;
+                                /** @description Hallazgos abiertos o en remediación del mismo control, recurso y ambiente: los que cubre si está activa, o cubriría si se aprueba */
+                                hallazgosAfectados: number;
                             }[];
                         };
                     };
@@ -1017,6 +1072,11 @@ export interface paths {
                             comentarioDecision: string | null;
                             /** @description Fecha ISO 8601; nula mientras está pendiente */
                             decididaEn: string | null;
+                            /** @description Quién la revocó; nulo si no se ha revocado */
+                            revocadaPor: string | null;
+                            /** @description Fecha ISO 8601 de la revocación */
+                            revocadaEn: string | null;
+                            motivoRevocacion: string | null;
                             /** @description Fecha ISO 8601 */
                             solicitadaEn: string;
                             /** @description Fecha yyyy-mm-dd */
@@ -1024,6 +1084,12 @@ export interface paths {
                             /** @enum {string} */
                             estado: "Pendiente" | "Activa" | "Vencida" | "Rechazada" | "Revocada";
                             planRemediacion: string | null;
+                            /** @description Días hasta el vencimiento; nulo si ya no está pendiente ni activa */
+                            diasRestantes: number | null;
+                            /** @description Activa y a 7 días o menos de vencer */
+                            porVencer: boolean;
+                            /** @description Hallazgos abiertos o en remediación del mismo control, recurso y ambiente: los que cubre si está activa, o cubriría si se aprueba */
+                            hallazgosAfectados: number;
                         };
                     };
                 };
@@ -1127,6 +1193,11 @@ export interface paths {
                             comentarioDecision: string | null;
                             /** @description Fecha ISO 8601; nula mientras está pendiente */
                             decididaEn: string | null;
+                            /** @description Quién la revocó; nulo si no se ha revocado */
+                            revocadaPor: string | null;
+                            /** @description Fecha ISO 8601 de la revocación */
+                            revocadaEn: string | null;
+                            motivoRevocacion: string | null;
                             /** @description Fecha ISO 8601 */
                             solicitadaEn: string;
                             /** @description Fecha yyyy-mm-dd */
@@ -1134,6 +1205,12 @@ export interface paths {
                             /** @enum {string} */
                             estado: "Pendiente" | "Activa" | "Vencida" | "Rechazada" | "Revocada";
                             planRemediacion: string | null;
+                            /** @description Días hasta el vencimiento; nulo si ya no está pendiente ni activa */
+                            diasRestantes: number | null;
+                            /** @description Activa y a 7 días o menos de vencer */
+                            porVencer: boolean;
+                            /** @description Hallazgos abiertos o en remediación del mismo control, recurso y ambiente: los que cubre si está activa, o cubriría si se aprueba */
+                            hallazgosAfectados: number;
                         };
                     };
                 };
@@ -1244,6 +1321,11 @@ export interface paths {
                             comentarioDecision: string | null;
                             /** @description Fecha ISO 8601; nula mientras está pendiente */
                             decididaEn: string | null;
+                            /** @description Quién la revocó; nulo si no se ha revocado */
+                            revocadaPor: string | null;
+                            /** @description Fecha ISO 8601 de la revocación */
+                            revocadaEn: string | null;
+                            motivoRevocacion: string | null;
                             /** @description Fecha ISO 8601 */
                             solicitadaEn: string;
                             /** @description Fecha yyyy-mm-dd */
@@ -1251,6 +1333,12 @@ export interface paths {
                             /** @enum {string} */
                             estado: "Pendiente" | "Activa" | "Vencida" | "Rechazada" | "Revocada";
                             planRemediacion: string | null;
+                            /** @description Días hasta el vencimiento; nulo si ya no está pendiente ni activa */
+                            diasRestantes: number | null;
+                            /** @description Activa y a 7 días o menos de vencer */
+                            porVencer: boolean;
+                            /** @description Hallazgos abiertos o en remediación del mismo control, recurso y ambiente: los que cubre si está activa, o cubriría si se aprueba */
+                            hallazgosAfectados: number;
                         };
                     };
                 };
@@ -1387,6 +1475,11 @@ export interface paths {
                             comentarioDecision: string | null;
                             /** @description Fecha ISO 8601; nula mientras está pendiente */
                             decididaEn: string | null;
+                            /** @description Quién la revocó; nulo si no se ha revocado */
+                            revocadaPor: string | null;
+                            /** @description Fecha ISO 8601 de la revocación */
+                            revocadaEn: string | null;
+                            motivoRevocacion: string | null;
                             /** @description Fecha ISO 8601 */
                             solicitadaEn: string;
                             /** @description Fecha yyyy-mm-dd */
@@ -1394,6 +1487,166 @@ export interface paths {
                             /** @enum {string} */
                             estado: "Pendiente" | "Activa" | "Vencida" | "Rechazada" | "Revocada";
                             planRemediacion: string | null;
+                            /** @description Días hasta el vencimiento; nulo si ya no está pendiente ni activa */
+                            diasRestantes: number | null;
+                            /** @description Activa y a 7 días o menos de vencer */
+                            porVencer: boolean;
+                            /** @description Hallazgos abiertos o en remediación del mismo control, recurso y ambiente: los que cubre si está activa, o cubriría si se aprueba */
+                            hallazgosAfectados: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                            motivos: {
+                                campo: string;
+                                mensaje: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/excepciones/{id}/revocar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoca una excepción activa
+         * @description Solo Compliance Lead. Solo una excepción activa y vigente (409): una pendiente se rechaza y una vencida ya no protege nada. El motivo es obligatorio (422). Al revocarla, los hallazgos que cubría vuelven a su estado sin que nadie los toque, y quien la aprobó se conserva.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description Fundamento de la decisión */
+                        comentario: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            id: string;
+                            /** @description Identificador legible, por ejemplo EXC-1048 */
+                            codigo: string;
+                            /** @description Código del catálogo, por ejemplo CO-NET-01 */
+                            control: string;
+                            controlNombre: string;
+                            marco: string;
+                            /** @enum {string} */
+                            severidad: "Crítica" | "Alta" | "Media" | "Baja";
+                            recurso: string;
+                            /** @enum {string} */
+                            ambiente: "Dev" | "QA" | "Prod";
+                            justificacion: string;
+                            solicitadaPor: string;
+                            /** @description A quién se le pidió la aprobación; puede no ser quien termine decidiendo */
+                            aprobadorSolicitado: string;
+                            /** @description Quién decidió, aprobando o rechazando; nulo mientras está pendiente */
+                            aprobadaPor: string | null;
+                            /** @description Fundamento de la decisión; nulo mientras está pendiente */
+                            comentarioDecision: string | null;
+                            /** @description Fecha ISO 8601; nula mientras está pendiente */
+                            decididaEn: string | null;
+                            /** @description Quién la revocó; nulo si no se ha revocado */
+                            revocadaPor: string | null;
+                            /** @description Fecha ISO 8601 de la revocación */
+                            revocadaEn: string | null;
+                            motivoRevocacion: string | null;
+                            /** @description Fecha ISO 8601 */
+                            solicitadaEn: string;
+                            /** @description Fecha yyyy-mm-dd */
+                            venceEl: string;
+                            /** @enum {string} */
+                            estado: "Pendiente" | "Activa" | "Vencida" | "Rechazada" | "Revocada";
+                            planRemediacion: string | null;
+                            /** @description Días hasta el vencimiento; nulo si ya no está pendiente ni activa */
+                            diasRestantes: number | null;
+                            /** @description Activa y a 7 días o menos de vencer */
+                            porVencer: boolean;
+                            /** @description Hallazgos abiertos o en remediación del mismo control, recurso y ambiente: los que cubre si está activa, o cubriría si se aprueba */
+                            hallazgosAfectados: number;
                         };
                     };
                 };
@@ -1483,7 +1736,7 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
-                    tipo?: "excepcion.aprobada" | "excepcion.rechazada" | "hallazgo.estado" | "agente.decision";
+                    tipo?: "excepcion.aprobada" | "excepcion.rechazada" | "excepcion.revocada" | "hallazgo.estado" | "agente.decision";
                     objetoId?: string;
                 };
                 header?: never;
@@ -1505,7 +1758,7 @@ export interface paths {
                                 /** @description 1, 2, 3… sin huecos */
                                 secuencia: number;
                                 /** @enum {string} */
-                                tipo: "excepcion.aprobada" | "excepcion.rechazada" | "hallazgo.estado" | "agente.decision";
+                                tipo: "excepcion.aprobada" | "excepcion.rechazada" | "excepcion.revocada" | "hallazgo.estado" | "agente.decision";
                                 /** @description Id de la excepción o del hallazgo */
                                 objetoId: string;
                                 actor: string;

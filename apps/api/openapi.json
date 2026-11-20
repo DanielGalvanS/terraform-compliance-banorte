@@ -444,6 +444,7 @@
         "tags": [
           "hallazgos"
         ],
+        "description": "El estado se deriva: un hallazgo abierto o en remediación que cubre una excepción activa y vigente se muestra como Excepción, y vuelve solo a su estado cuando la excepción vence o se revoca. El filtro ?estado= usa ese estado mostrado.",
         "parameters": [
           {
             "schema": {
@@ -659,6 +660,31 @@
                               "remediacion"
                             ],
                             "additionalProperties": false
+                          },
+                          "excepcion": {
+                            "nullable": true,
+                            "description": "La excepción activa y vigente que lo cubre; con ella el estado se muestra como Excepción",
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "codigo": {
+                                "type": "string"
+                              },
+                              "venceEl": {
+                                "type": "string",
+                                "description": "Fecha yyyy-mm-dd"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "codigo",
+                              "venceEl"
+                            ],
+                            "additionalProperties": false
                           }
                         },
                         "required": [
@@ -671,7 +697,8 @@
                           "origen",
                           "estado",
                           "mensaje",
-                          "detectadoEn"
+                          "detectadoEn",
+                          "excepcion"
                         ],
                         "additionalProperties": false
                       }
@@ -961,6 +988,31 @@
                         "remediacion"
                       ],
                       "additionalProperties": false
+                    },
+                    "excepcion": {
+                      "nullable": true,
+                      "description": "La excepción activa y vigente que lo cubre; con ella el estado se muestra como Excepción",
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "codigo": {
+                          "type": "string"
+                        },
+                        "venceEl": {
+                          "type": "string",
+                          "description": "Fecha yyyy-mm-dd"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "codigo",
+                        "venceEl"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
@@ -973,7 +1025,8 @@
                     "origen",
                     "estado",
                     "mensaje",
-                    "detectadoEn"
+                    "detectadoEn",
+                    "excepcion"
                   ],
                   "additionalProperties": false
                 }
@@ -1129,6 +1182,31 @@
                         "remediacion"
                       ],
                       "additionalProperties": false
+                    },
+                    "excepcion": {
+                      "nullable": true,
+                      "description": "La excepción activa y vigente que lo cubre; con ella el estado se muestra como Excepción",
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "codigo": {
+                          "type": "string"
+                        },
+                        "venceEl": {
+                          "type": "string",
+                          "description": "Fecha yyyy-mm-dd"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "codigo",
+                        "venceEl"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
@@ -1141,7 +1219,8 @@
                     "origen",
                     "estado",
                     "mensaje",
-                    "detectadoEn"
+                    "detectadoEn",
+                    "excepcion"
                   ],
                   "additionalProperties": false
                 }
@@ -1363,6 +1442,31 @@
                         "remediacion"
                       ],
                       "additionalProperties": false
+                    },
+                    "excepcion": {
+                      "nullable": true,
+                      "description": "La excepción activa y vigente que lo cubre; con ella el estado se muestra como Excepción",
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "codigo": {
+                          "type": "string"
+                        },
+                        "venceEl": {
+                          "type": "string",
+                          "description": "Fecha yyyy-mm-dd"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "codigo",
+                        "venceEl"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
@@ -1375,7 +1479,8 @@
                     "origen",
                     "estado",
                     "mensaje",
-                    "detectadoEn"
+                    "detectadoEn",
+                    "excepcion"
                   ],
                   "additionalProperties": false
                 }
@@ -1457,7 +1562,7 @@
         "tags": [
           "hallazgos"
         ],
-        "description": "Solo se permiten estas transiciones: Abierto → En remediación, Cerrado; En remediación → Abierto, Cerrado; Cerrado → Abierto; Excepción → ninguno. Otra responde 409. A Excepción no se llega por aquí sino aprobando una excepción (422), para no saltarse la aprobación humana. El comentario es obligatorio (422) y el cambio queda en el registro de evidencia.",
+        "description": "Solo se permiten estas transiciones: Abierto → En remediación, Cerrado; En remediación → Abierto, Cerrado; Cerrado → Abierto; Excepción → ninguno. Otra responde 409. A Excepción no se llega por aquí sino aprobando una excepción (422), para no saltarse la aprobación humana. Uno cubierto por una excepción vigente tampoco cambia por aquí (409): hay que revocarla o esperar a que venza. El comentario es obligatorio (422) y el cambio queda en el registro de evidencia.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1649,6 +1754,31 @@
                         "remediacion"
                       ],
                       "additionalProperties": false
+                    },
+                    "excepcion": {
+                      "nullable": true,
+                      "description": "La excepción activa y vigente que lo cubre; con ella el estado se muestra como Excepción",
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "codigo": {
+                          "type": "string"
+                        },
+                        "venceEl": {
+                          "type": "string",
+                          "description": "Fecha yyyy-mm-dd"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "codigo",
+                        "venceEl"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
@@ -1661,7 +1791,8 @@
                     "origen",
                     "estado",
                     "mensaje",
-                    "detectadoEn"
+                    "detectadoEn",
+                    "excepcion"
                   ],
                   "additionalProperties": false
                 }
@@ -1967,6 +2098,18 @@
             "schema": {
               "type": "string",
               "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "in": "query",
+            "name": "porVencer",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
                 "Dev",
                 "QA",
                 "Prod"
@@ -2071,6 +2214,20 @@
                             "description": "Fecha ISO 8601; nula mientras está pendiente",
                             "type": "string"
                           },
+                          "revocadaPor": {
+                            "nullable": true,
+                            "description": "Quién la revocó; nulo si no se ha revocado",
+                            "type": "string"
+                          },
+                          "revocadaEn": {
+                            "nullable": true,
+                            "description": "Fecha ISO 8601 de la revocación",
+                            "type": "string"
+                          },
+                          "motivoRevocacion": {
+                            "nullable": true,
+                            "type": "string"
+                          },
                           "solicitadaEn": {
                             "type": "string",
                             "description": "Fecha ISO 8601"
@@ -2092,6 +2249,23 @@
                           "planRemediacion": {
                             "nullable": true,
                             "type": "string"
+                          },
+                          "diasRestantes": {
+                            "nullable": true,
+                            "description": "Días hasta el vencimiento; nulo si ya no está pendiente ni activa",
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          "porVencer": {
+                            "type": "boolean",
+                            "description": "Activa y a 7 días o menos de vencer"
+                          },
+                          "hallazgosAfectados": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991,
+                            "description": "Hallazgos abiertos o en remediación del mismo control, recurso y ambiente: los que cubre si está activa, o cubriría si se aprueba"
                           }
                         },
                         "required": [
@@ -2109,10 +2283,16 @@
                           "aprobadaPor",
                           "comentarioDecision",
                           "decididaEn",
+                          "revocadaPor",
+                          "revocadaEn",
+                          "motivoRevocacion",
                           "solicitadaEn",
                           "venceEl",
                           "estado",
-                          "planRemediacion"
+                          "planRemediacion",
+                          "diasRestantes",
+                          "porVencer",
+                          "hallazgosAfectados"
                         ],
                         "additionalProperties": false
                       }
@@ -2300,6 +2480,20 @@
                       "description": "Fecha ISO 8601; nula mientras está pendiente",
                       "type": "string"
                     },
+                    "revocadaPor": {
+                      "nullable": true,
+                      "description": "Quién la revocó; nulo si no se ha revocado",
+                      "type": "string"
+                    },
+                    "revocadaEn": {
+                      "nullable": true,
+                      "description": "Fecha ISO 8601 de la revocación",
+                      "type": "string"
+                    },
+                    "motivoRevocacion": {
+                      "nullable": true,
+                      "type": "string"
+                    },
                     "solicitadaEn": {
                       "type": "string",
                       "description": "Fecha ISO 8601"
@@ -2321,6 +2515,23 @@
                     "planRemediacion": {
                       "nullable": true,
                       "type": "string"
+                    },
+                    "diasRestantes": {
+                      "nullable": true,
+                      "description": "Días hasta el vencimiento; nulo si ya no está pendiente ni activa",
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "porVencer": {
+                      "type": "boolean",
+                      "description": "Activa y a 7 días o menos de vencer"
+                    },
+                    "hallazgosAfectados": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "description": "Hallazgos abiertos o en remediación del mismo control, recurso y ambiente: los que cubre si está activa, o cubriría si se aprueba"
                     }
                   },
                   "required": [
@@ -2338,10 +2549,16 @@
                     "aprobadaPor",
                     "comentarioDecision",
                     "decididaEn",
+                    "revocadaPor",
+                    "revocadaEn",
+                    "motivoRevocacion",
                     "solicitadaEn",
                     "venceEl",
                     "estado",
-                    "planRemediacion"
+                    "planRemediacion",
+                    "diasRestantes",
+                    "porVencer",
+                    "hallazgosAfectados"
                   ],
                   "additionalProperties": false
                 }
@@ -2528,6 +2745,20 @@
                       "description": "Fecha ISO 8601; nula mientras está pendiente",
                       "type": "string"
                     },
+                    "revocadaPor": {
+                      "nullable": true,
+                      "description": "Quién la revocó; nulo si no se ha revocado",
+                      "type": "string"
+                    },
+                    "revocadaEn": {
+                      "nullable": true,
+                      "description": "Fecha ISO 8601 de la revocación",
+                      "type": "string"
+                    },
+                    "motivoRevocacion": {
+                      "nullable": true,
+                      "type": "string"
+                    },
                     "solicitadaEn": {
                       "type": "string",
                       "description": "Fecha ISO 8601"
@@ -2549,6 +2780,23 @@
                     "planRemediacion": {
                       "nullable": true,
                       "type": "string"
+                    },
+                    "diasRestantes": {
+                      "nullable": true,
+                      "description": "Días hasta el vencimiento; nulo si ya no está pendiente ni activa",
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "porVencer": {
+                      "type": "boolean",
+                      "description": "Activa y a 7 días o menos de vencer"
+                    },
+                    "hallazgosAfectados": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "description": "Hallazgos abiertos o en remediación del mismo control, recurso y ambiente: los que cubre si está activa, o cubriría si se aprueba"
                     }
                   },
                   "required": [
@@ -2566,10 +2814,16 @@
                     "aprobadaPor",
                     "comentarioDecision",
                     "decididaEn",
+                    "revocadaPor",
+                    "revocadaEn",
+                    "motivoRevocacion",
                     "solicitadaEn",
                     "venceEl",
                     "estado",
-                    "planRemediacion"
+                    "planRemediacion",
+                    "diasRestantes",
+                    "porVencer",
+                    "hallazgosAfectados"
                   ],
                   "additionalProperties": false
                 }
@@ -2755,6 +3009,20 @@
                       "description": "Fecha ISO 8601; nula mientras está pendiente",
                       "type": "string"
                     },
+                    "revocadaPor": {
+                      "nullable": true,
+                      "description": "Quién la revocó; nulo si no se ha revocado",
+                      "type": "string"
+                    },
+                    "revocadaEn": {
+                      "nullable": true,
+                      "description": "Fecha ISO 8601 de la revocación",
+                      "type": "string"
+                    },
+                    "motivoRevocacion": {
+                      "nullable": true,
+                      "type": "string"
+                    },
                     "solicitadaEn": {
                       "type": "string",
                       "description": "Fecha ISO 8601"
@@ -2776,6 +3044,23 @@
                     "planRemediacion": {
                       "nullable": true,
                       "type": "string"
+                    },
+                    "diasRestantes": {
+                      "nullable": true,
+                      "description": "Días hasta el vencimiento; nulo si ya no está pendiente ni activa",
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "porVencer": {
+                      "type": "boolean",
+                      "description": "Activa y a 7 días o menos de vencer"
+                    },
+                    "hallazgosAfectados": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "description": "Hallazgos abiertos o en remediación del mismo control, recurso y ambiente: los que cubre si está activa, o cubriría si se aprueba"
                     }
                   },
                   "required": [
@@ -2793,10 +3078,16 @@
                     "aprobadaPor",
                     "comentarioDecision",
                     "decididaEn",
+                    "revocadaPor",
+                    "revocadaEn",
+                    "motivoRevocacion",
                     "solicitadaEn",
                     "venceEl",
                     "estado",
-                    "planRemediacion"
+                    "planRemediacion",
+                    "diasRestantes",
+                    "porVencer",
+                    "hallazgosAfectados"
                   ],
                   "additionalProperties": false
                 }
@@ -3046,6 +3337,20 @@
                       "description": "Fecha ISO 8601; nula mientras está pendiente",
                       "type": "string"
                     },
+                    "revocadaPor": {
+                      "nullable": true,
+                      "description": "Quién la revocó; nulo si no se ha revocado",
+                      "type": "string"
+                    },
+                    "revocadaEn": {
+                      "nullable": true,
+                      "description": "Fecha ISO 8601 de la revocación",
+                      "type": "string"
+                    },
+                    "motivoRevocacion": {
+                      "nullable": true,
+                      "type": "string"
+                    },
                     "solicitadaEn": {
                       "type": "string",
                       "description": "Fecha ISO 8601"
@@ -3067,6 +3372,23 @@
                     "planRemediacion": {
                       "nullable": true,
                       "type": "string"
+                    },
+                    "diasRestantes": {
+                      "nullable": true,
+                      "description": "Días hasta el vencimiento; nulo si ya no está pendiente ni activa",
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "porVencer": {
+                      "type": "boolean",
+                      "description": "Activa y a 7 días o menos de vencer"
+                    },
+                    "hallazgosAfectados": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "description": "Hallazgos abiertos o en remediación del mismo control, recurso y ambiente: los que cubre si está activa, o cubriría si se aprueba"
                     }
                   },
                   "required": [
@@ -3084,10 +3406,344 @@
                     "aprobadaPor",
                     "comentarioDecision",
                     "decididaEn",
+                    "revocadaPor",
+                    "revocadaEn",
+                    "motivoRevocacion",
                     "solicitadaEn",
                     "venceEl",
                     "estado",
-                    "planRemediacion"
+                    "planRemediacion",
+                    "diasRestantes",
+                    "porVencer",
+                    "hallazgosAfectados"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "detalle": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "detalle": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "detalle": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "detalle": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "detalle": {
+                      "type": "string"
+                    },
+                    "motivos": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "campo": {
+                            "type": "string"
+                          },
+                          "mensaje": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "campo",
+                          "mensaje"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "motivos"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/excepciones/{id}/revocar": {
+      "post": {
+        "summary": "Revoca una excepción activa",
+        "tags": [
+          "excepciones"
+        ],
+        "description": "Solo Compliance Lead. Solo una excepción activa y vigente (409): una pendiente se rechaza y una vencida ya no protege nada. El motivo es obligatorio (422). Al revocarla, los hallazgos que cubría vuelven a su estado sin que nadie los toque, y quien la aprobó se conserva.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "comentario": {
+                    "type": "string",
+                    "description": "Fundamento de la decisión"
+                  }
+                },
+                "required": [
+                  "comentario"
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "codigo": {
+                      "type": "string",
+                      "description": "Identificador legible, por ejemplo EXC-1048"
+                    },
+                    "control": {
+                      "type": "string",
+                      "description": "Código del catálogo, por ejemplo CO-NET-01"
+                    },
+                    "controlNombre": {
+                      "type": "string"
+                    },
+                    "marco": {
+                      "type": "string"
+                    },
+                    "severidad": {
+                      "type": "string",
+                      "enum": [
+                        "Crítica",
+                        "Alta",
+                        "Media",
+                        "Baja"
+                      ]
+                    },
+                    "recurso": {
+                      "type": "string"
+                    },
+                    "ambiente": {
+                      "type": "string",
+                      "enum": [
+                        "Dev",
+                        "QA",
+                        "Prod"
+                      ]
+                    },
+                    "justificacion": {
+                      "type": "string"
+                    },
+                    "solicitadaPor": {
+                      "type": "string"
+                    },
+                    "aprobadorSolicitado": {
+                      "type": "string",
+                      "description": "A quién se le pidió la aprobación; puede no ser quien termine decidiendo"
+                    },
+                    "aprobadaPor": {
+                      "nullable": true,
+                      "description": "Quién decidió, aprobando o rechazando; nulo mientras está pendiente",
+                      "type": "string"
+                    },
+                    "comentarioDecision": {
+                      "nullable": true,
+                      "description": "Fundamento de la decisión; nulo mientras está pendiente",
+                      "type": "string"
+                    },
+                    "decididaEn": {
+                      "nullable": true,
+                      "description": "Fecha ISO 8601; nula mientras está pendiente",
+                      "type": "string"
+                    },
+                    "revocadaPor": {
+                      "nullable": true,
+                      "description": "Quién la revocó; nulo si no se ha revocado",
+                      "type": "string"
+                    },
+                    "revocadaEn": {
+                      "nullable": true,
+                      "description": "Fecha ISO 8601 de la revocación",
+                      "type": "string"
+                    },
+                    "motivoRevocacion": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "solicitadaEn": {
+                      "type": "string",
+                      "description": "Fecha ISO 8601"
+                    },
+                    "venceEl": {
+                      "type": "string",
+                      "description": "Fecha yyyy-mm-dd"
+                    },
+                    "estado": {
+                      "type": "string",
+                      "enum": [
+                        "Pendiente",
+                        "Activa",
+                        "Vencida",
+                        "Rechazada",
+                        "Revocada"
+                      ]
+                    },
+                    "planRemediacion": {
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "diasRestantes": {
+                      "nullable": true,
+                      "description": "Días hasta el vencimiento; nulo si ya no está pendiente ni activa",
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "porVencer": {
+                      "type": "boolean",
+                      "description": "Activa y a 7 días o menos de vencer"
+                    },
+                    "hallazgosAfectados": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991,
+                      "description": "Hallazgos abiertos o en remediación del mismo control, recurso y ambiente: los que cubre si está activa, o cubriría si se aprueba"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "codigo",
+                    "control",
+                    "controlNombre",
+                    "marco",
+                    "severidad",
+                    "recurso",
+                    "ambiente",
+                    "justificacion",
+                    "solicitadaPor",
+                    "aprobadorSolicitado",
+                    "aprobadaPor",
+                    "comentarioDecision",
+                    "decididaEn",
+                    "revocadaPor",
+                    "revocadaEn",
+                    "motivoRevocacion",
+                    "solicitadaEn",
+                    "venceEl",
+                    "estado",
+                    "planRemediacion",
+                    "diasRestantes",
+                    "porVencer",
+                    "hallazgosAfectados"
                   ],
                   "additionalProperties": false
                 }
@@ -3241,6 +3897,7 @@
               "enum": [
                 "excepcion.aprobada",
                 "excepcion.rechazada",
+                "excepcion.revocada",
                 "hallazgo.estado",
                 "agente.decision"
               ]
@@ -3288,6 +3945,7 @@
                             "enum": [
                               "excepcion.aprobada",
                               "excepcion.rechazada",
+                              "excepcion.revocada",
                               "hallazgo.estado",
                               "agente.decision"
                             ]
