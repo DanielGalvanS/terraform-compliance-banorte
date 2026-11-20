@@ -31,12 +31,22 @@ def desde_veredicto(veredicto: dict[str, Any]) -> list[Violacion]:
     ejemplo, el puerto 22 y el 3389 de una regla), así que el id es la
     posición y no la pareja control-recurso.
     """
-    return [
-        Violacion(
-            id=f"V{i:02d}",
-            control=str(v.get("control", "desconocido")),
-            recurso=extraer_recurso(str(v.get("mensaje", ""))),
-            mensaje=str(v.get("mensaje", "")),
+    crudas = veredicto.get("violaciones")
+    if not isinstance(crudas, list):
+        return []
+
+    violaciones = []
+    for i, v in enumerate(crudas, start=1):
+        # Una entrada malformada no se descarta: se analiza como «desconocido»
+        # para que nadie pierda de vista que la compuerta reportó algo.
+        v = v if isinstance(v, dict) else {"mensaje": str(v)}
+        mensaje = str(v.get("mensaje", ""))
+        violaciones.append(
+            Violacion(
+                id=f"V{i:02d}",
+                control=str(v.get("control") or "desconocido"),
+                recurso=extraer_recurso(mensaje),
+                mensaje=mensaje,
+            )
         )
-        for i, v in enumerate(veredicto.get("violaciones") or [], start=1)
-    ]
+    return violaciones

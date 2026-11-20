@@ -50,14 +50,18 @@ def main(argv: list[str] | None = None) -> int:
         print(f"agente: no se pudo leer la entrada ({error}); se bloquea por regla segura", file=sys.stderr)
         return 2
 
-    decision = analizar(
-        veredicto,
-        plan,
-        ambiente=args.ambiente,
-        origen=args.origen,
-        api_url=args.api_url,
-        tiempo_limite=args.tiempo_limite,
-    )
+    try:
+        decision = analizar(
+            veredicto,
+            plan,
+            ambiente=args.ambiente,
+            origen=args.origen,
+            api_url=args.api_url,
+            tiempo_limite=args.tiempo_limite,
+        )
+    except Exception as error:  # noqa: BLE001 — red de seguridad: un error inesperado también bloquea
+        print(f"agente no disponible: se bloquea por regla segura ({type(error).__name__}: {error})", file=sys.stderr)
+        return 1
 
     Path(args.salida).write_text(decision.model_dump_json(indent=2), encoding="utf-8")
     if args.comentario:

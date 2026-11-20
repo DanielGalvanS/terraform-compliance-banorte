@@ -13,7 +13,26 @@ _ACCIONES = {"proponer_pr": "Proponer PR", "escalar_jira": "Escalar a Jira", "ni
 
 
 def _celda(texto: str) -> str:
-    return " ".join(str(texto).split()).replace("|", "\\|")
+    """Texto del modelo, seguro para un comentario de GitHub.
+
+    El modelo escribe parte de este texto, y lo que lee viene de un plan que
+    cualquiera puede editar en su PR. Por eso se neutraliza lo que GitHub
+    interpretaría: menciones (@persona notifica a gente real), HTML, imágenes y
+    enlaces, y las barras que romperían la tabla.
+    """
+    texto = " ".join(str(texto).split())
+    for original, seguro in (
+        ("\\", "\\\\"),
+        ("|", "\\|"),
+        ("<", "&lt;"),
+        (">", "&gt;"),
+        ("[", "\\["),
+        ("]", "\\]"),
+        ("`", "\\`"),
+        ("@", "@​"),  # espacio de ancho cero: se lee igual, pero no menciona
+    ):
+        texto = texto.replace(original, seguro)
+    return texto
 
 
 def comentario(decision: Decision) -> str:
@@ -33,7 +52,7 @@ def comentario(decision: Decision) -> str:
         ]
         return "\n".join(lineas) + "\n"
 
-    lineas += [decision.resumen, ""]
+    lineas += [_celda(decision.resumen), ""]
     if not decision.clasificaciones:
         return "\n".join(lineas) + "\n"
 
@@ -43,7 +62,7 @@ def comentario(decision: Decision) -> str:
     ]
     for c in sorted(decision.clasificaciones, key=lambda c: (c.prioridad, c.violacion)):
         lineas.append(
-            f"| {c.prioridad} | {c.control} | {c.severidad} | `{c.recurso or '—'}` | {_ACCIONES[c.accion_sugerida]} |"
+            f"| {c.prioridad} | {c.control} | {c.severidad} | `{(c.recurso or '—').replace('`', '')}` | {_ACCIONES[c.accion_sugerida]} |"
         )
 
     lineas += ["", "<details><summary>Explicación por violación</summary>", ""]
@@ -57,9 +76,12 @@ def comentario(decision: Decision) -> str:
             f"- Marcos: {', '.join(c.marcos) or '—'} · confianza {c.confianza}/100",
             "",
         ]
+    lineas += ["</details>", ""]
+    if decision.ajustes:
+        lineas += ["**Ajustes que hizo el código a la opinión del modelo:**", ""]
+        lineas += [f"- {_celda(a)}" for a in decision.ajustes]
+        lineas += [""]
     lineas += [
-        "</details>",
-        "",
         f"<sub>Modelo {decision.modelo} · prompt {decision.version_prompt} · "
         f"herramientas usadas: {len(decision.herramientas_usadas)} · ejecución {decision.ejecucion_id}</sub>",
     ]
