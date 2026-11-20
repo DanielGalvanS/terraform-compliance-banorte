@@ -87,6 +87,10 @@ class Decision(BaseModel):
     resumen: str
     clasificaciones: list[Clasificacion] = []
     herramientas_usadas: list[str] = []
+    ajustes: list[str] = Field(
+        default=[],
+        description="Correcciones que el código hizo a la opinión del modelo, con su motivo.",
+    )
     modelo: str | None = None
     version_prompt: str
     hash_entradas: str

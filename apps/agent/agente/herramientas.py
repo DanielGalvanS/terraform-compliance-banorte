@@ -70,26 +70,36 @@ def consultar_recurso(direccion: str, tool_context: ToolContext) -> dict[str, An
     return {"encontrado": True, **vista}
 
 
-def _consultar_api(tool_context: ToolContext, ruta: str, parametros: dict[str, str]) -> dict[str, Any] | None:
-    base = tool_context.state.get(CLAVE_API)
+# Las pruebas lo sustituyen por un httpx.MockTransport para no depender de la red.
+_TRANSPORTE: httpx.AsyncBaseTransport | None = None
+
+
+async def consultar_api(base: str | None, ruta: str, parametros: dict[str, str]) -> dict[str, Any] | None:
+    """GET a la API de cumplimiento. None si no hay API o no responde.
+
+    Es asíncrona a propósito: ADK corre las herramientas síncronas en el mismo
+    hilo que el agente, y una API lenta lo congelaría sin que el límite de
+    tiempo de ``ejecutar`` pudiera cortarlo.
+    """
     if not base:
         return None
     try:
-        respuesta = httpx.get(f"{base.rstrip('/')}/api/v1{ruta}", params=parametros, timeout=TIEMPO_API)
-        respuesta.raise_for_status()
-        return respuesta.json()
+        async with httpx.AsyncClient(timeout=TIEMPO_API, transport=_TRANSPORTE) as cliente:
+            respuesta = await cliente.get(f"{base.rstrip('/')}/api/v1{ruta}", params=parametros)
+            respuesta.raise_for_status()
+            return respuesta.json()
     except (httpx.HTTPError, ValueError):
         return None
 
 
-def _coincide(recurso_api: str, recurso: str) -> bool:
+def coincide(recurso_api: str, recurso: str | None) -> bool:
     if not recurso:
         return True
     nombre = recurso.rsplit(".", 1)[-1]
     return recurso in recurso_api or nombre in recurso_api
 
 
-def buscar_hallazgos(control: str, recurso: str, tool_context: ToolContext) -> dict[str, Any]:
+async def buscar_hallazgos(control: str, recurso: str, tool_context: ToolContext) -> dict[str, Any]:
     """Busca hallazgos previos del mismo control sobre el mismo recurso.
 
     Sirve para saber si el problema es nuevo o recurrente, y si alguien ya lo
@@ -99,18 +109,18 @@ def buscar_hallazgos(control: str, recurso: str, tool_context: ToolContext) -> d
         control: Código del control, por ejemplo "CO-DB-01".
         recurso: Dirección de Terraform del recurso.
     """
-    datos = _consultar_api(tool_context, "/hallazgos", {"control": control})
+    datos = await consultar_api(tool_context.state.get(CLAVE_API), "/hallazgos", {"control": control})
     if datos is None:
         return {"disponible": False, "motivo": "API de cumplimiento no disponible"}
     previos = [
         {"estado": h.get("estado"), "ambiente": h.get("ambiente"), "detectadoEn": h.get("detectadoEn")}
         for h in datos.get("hallazgos", [])
-        if _coincide(str(h.get("recurso", "")), recurso)
+        if coincide(str(h.get("recurso", "")), recurso)
     ]
     return {"disponible": True, "previos": previos}
 
 
-def buscar_excepciones(control: str, recurso: str, tool_context: ToolContext) -> dict[str, Any]:
+async def buscar_excepciones(control: str, recurso: str, tool_context: ToolContext) -> dict[str, Any]:
     """Busca excepciones registradas para el control y el recurso.
 
     Una excepción activa no cambia el veredicto de la compuerta; solo da
@@ -120,15 +130,26 @@ def buscar_excepciones(control: str, recurso: str, tool_context: ToolContext) ->
         control: Código del control, por ejemplo "CO-NET-01".
         recurso: Dirección de Terraform del recurso.
     """
-    datos = _consultar_api(tool_context, "/excepciones", {"control": control})
+    datos = await consultar_api(tool_context.state.get(CLAVE_API), "/excepciones", {"control": control})
     if datos is None:
         return {"disponible": False, "motivo": "API de cumplimiento no disponible"}
     excepciones = [
         {"id": e.get("id"), "estado": e.get("estado"), "venceEl": e.get("venceEl")}
         for e in datos.get("excepciones", [])
-        if _coincide(str(e.get("recurso", "")), recurso)
+        if coincide(str(e.get("recurso", "")), recurso)
     ]
     return {"disponible": True, "excepciones": excepciones}
+
+
+async def hay_excepcion_activa(api_url: str | None, control: str, recurso: str | None) -> bool:
+    """Lo usa el código (no el modelo) para confirmar una acción 'ninguna'."""
+    datos = await consultar_api(api_url, "/excepciones", {"control": control, "estado": "Activa"})
+    if datos is None:
+        return False
+    return any(
+        e.get("estado") == "Activa" and coincide(str(e.get("recurso", "")), recurso)
+        for e in datos.get("excepciones", [])
+    )
 
 
 HERRAMIENTAS = [consultar_control, consultar_recurso, buscar_hallazgos, buscar_excepciones]

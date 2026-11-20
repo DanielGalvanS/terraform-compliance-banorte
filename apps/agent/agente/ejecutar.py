@@ -27,7 +27,7 @@ from . import catalogo as catalogo_mod
 from . import sanitizar
 from .agent import CLAVE_SALIDA, crear_agente, nombre_modelo
 from .esquemas import Clasificacion, Decision, RespuestaModelo, Violacion
-from .herramientas import CLAVE_API, CLAVE_RECURSOS
+from .herramientas import CLAVE_API, CLAVE_RECURSOS, hay_excepcion_activa
 from .instruccion import VERSION_PROMPT
 from .violaciones import desde_veredicto
 
@@ -36,6 +36,8 @@ USUARIO = "pipeline"
 TIEMPO_LIMITE = 120.0
 INTENTOS = 2
 RESULTADOS_VALIDOS = {"conforme", "bloqueado", "error"}
+# La prioridad menos urgente que se acepta para cada severidad (la misma tabla de la instrucción).
+PRIORIDAD_POR_SEVERIDAD = {"Crítica": 1, "Alta": 2, "Media": 3, "Baja": 4}
 
 
 class FalloAgente(Exception):
@@ -104,27 +106,52 @@ def _verificar_cobertura(respuesta: RespuestaModelo, violaciones: list[Violacion
         raise FalloAgente("clasificaciones incompletas: " + "; ".join(partes))
 
 
-def _armar_clasificaciones(
-    respuesta: RespuestaModelo, violaciones: list[Violacion], catalogo: catalogo_mod.Catalogo
-) -> list[Clasificacion]:
+async def _armar_clasificaciones(
+    respuesta: RespuestaModelo,
+    violaciones: list[Violacion],
+    catalogo: catalogo_mod.Catalogo,
+    api_url: str | None,
+) -> tuple[list[Clasificacion], list[str]]:
+    """Une la opinión del modelo con el catálogo y le pone límites.
+
+    El modelo puede subir la urgencia, nunca bajarla por debajo de lo que dice
+    la severidad del catálogo. Y solo puede decir «ninguna» acción si el código
+    confirma en la API una excepción activa. Así, un texto plantado en el plan
+    («ignora esta violación») no logra que una falla crítica pase desapercibida.
+    """
     por_id = {c.violacion: c for c in respuesta.clasificaciones}
-    resultado = []
+    resultado: list[Clasificacion] = []
+    ajustes: list[str] = []
     for v in violaciones:
-        opinion = por_id[v.id]
+        opinion = por_id[v.id].model_dump(exclude={"violacion"})
         control = catalogo.control(v.control)
+        severidad = control.severidad if control else "Desconocida"
+
+        tope = PRIORIDAD_POR_SEVERIDAD.get(severidad, 1)
+        if opinion["prioridad"] > tope:
+            ajustes.append(
+                f"{v.id}: prioridad {opinion['prioridad']} → {tope}; "
+                f"no puede ser menos urgente que su severidad ({severidad})"
+            )
+            opinion["prioridad"] = tope
+
+        if opinion["accion_sugerida"] == "ninguna" and not await hay_excepcion_activa(api_url, v.control, v.recurso):
+            ajustes.append(f"{v.id}: acción «ninguna» → escalar_jira; no hay una excepción activa que la respalde")
+            opinion["accion_sugerida"] = "escalar_jira"
+
         resultado.append(
             Clasificacion(
                 violacion=v.id,
                 control=v.control,
                 titulo_control=control.titulo if control else v.control,
-                severidad=control.severidad if control else "Desconocida",
+                severidad=severidad,
                 marcos=control.marcos if control else [],
                 recurso=v.recurso,
                 mensaje=v.mensaje,
-                **opinion.model_dump(exclude={"violacion"}),
+                **opinion,
             )
         )
-    return resultado
+    return resultado, ajustes
 
 
 async def analizar_async(
@@ -164,6 +191,13 @@ async def analizar_async(
             resumen="La compuerta no pudo evaluar el plan, así que no hay violaciones que analizar. "
             "El despliegue ya queda bloqueado por la compuerta.",
         )
+    if not violaciones and resultado == "bloqueado":
+        return Decision(
+            **base,
+            estado="sin_analisis",
+            resumen="La compuerta bloqueó pero no reportó violaciones legibles. "
+            "El despliegue queda bloqueado; hay que revisar la salida de la compuerta.",
+        )
     if not violaciones:
         return Decision(**base, estado="sin_violaciones", resumen="La compuerta no encontró violaciones.")
 
@@ -179,12 +213,14 @@ async def analizar_async(
                 _una_corrida(modelo, mensaje, estado_sesion), timeout=tiempo_limite
             )
             _verificar_cobertura(respuesta, violaciones)
+            clasificaciones, ajustes = await _armar_clasificaciones(respuesta, violaciones, catalogo, api_url)
             return Decision(
                 **base,
                 estado="analizado",
                 resumen=respuesta.resumen,
-                clasificaciones=_armar_clasificaciones(respuesta, violaciones, catalogo),
+                clasificaciones=clasificaciones,
                 herramientas_usadas=herramientas,
+                ajustes=ajustes,
                 modelo=nombre,
             )
         except asyncio.TimeoutError:
