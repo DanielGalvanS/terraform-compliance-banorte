@@ -25,5 +25,11 @@ export function desdeApi(excepcion: ExcepcionApi): ComplianceException {
     ...(excepcion.planRemediacion === null
       ? {}
       : { remediationPlan: excepcion.planRemediacion }),
+    expiringSoon: excepcion.porVencer,
+    affectedFindings: excepcion.hallazgosAfectados,
+    ...(excepcion.revocadaPor === null ? {} : { revokedBy: excepcion.revocadaPor }),
+    ...(excepcion.motivoRevocacion === null
+      ? {}
+      : { revocationReason: excepcion.motivoRevocacion }),
   }
 }

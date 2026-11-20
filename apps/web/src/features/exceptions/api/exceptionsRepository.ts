@@ -73,6 +73,8 @@ export const exceptionsRepository = {
       {
         label: `Por vencer · ${EXPIRING_SOON_DAYS} días`,
         value: active.filter((row) => {
+          // Con API, el dato de la API; sin ella, el cálculo local de siempre.
+          if (row.expiringSoon !== undefined) return row.expiringSoon
           const days = daysUntil(row.expiresOn)
           return days >= 0 && days <= EXPIRING_SOON_DAYS
         }).length,
