@@ -1,0 +1,74 @@
+{
+  "resultado": "bloqueado",
+  "motivo": "13 violación(es) de política",
+  "fecha": "2026-11-23T00:00:00+00:00",
+  "commit": "0000000000000000000000000000000000000000",
+  "actor": "fixture",
+  "violaciones": [
+    {
+      "control": "CO-DB-01",
+      "mensaje": "CO-DB-01: la instancia 'google_sql_database_instance.publica' tiene IP pública habilitada. Usa ipv4_enabled = false con private_network.",
+      "archivo": "infra/policies/fixtures/plan_violaciones.json"
+    },
+    {
+      "control": "CO-DB-02",
+      "mensaje": "CO-DB-02: la instancia 'google_sql_database_instance.publica' no declara una llave CMEK. Asigna encryption_key_name con una llave de KMS.",
+      "archivo": "infra/policies/fixtures/plan_violaciones.json"
+    },
+    {
+      "control": "CO-IAM-01",
+      "mensaje": "CO-IAM-01: 'google_project_iam_member.deployer_editor' concede el rol roles/editor a nivel de proyecto. Usa un rol acotado al recurso que la cuenta necesita.",
+      "archivo": "infra/policies/fixtures/plan_violaciones.json"
+    },
+    {
+      "control": "CO-NET-01",
+      "mensaje": "CO-NET-01: la regla 'google_compute_firewall.allow_all' expone el puerto 22 a 0.0.0.0/0. Usa el rango de IAP (35.235.240.0/20) o un rango corporativo.",
+      "archivo": "infra/policies/fixtures/plan_violaciones.json"
+    },
+    {
+      "control": "CO-NET-01",
+      "mensaje": "CO-NET-01: la regla 'google_compute_firewall.allow_all' expone el puerto 3389 a 0.0.0.0/0. Usa el rango de IAP (35.235.240.0/20) o un rango corporativo.",
+      "archivo": "infra/policies/fixtures/plan_violaciones.json"
+    },
+    {
+      "control": "CO-NET-01",
+      "mensaje": "CO-NET-01: la regla 'google_compute_firewall.allow_ssh' expone el puerto 22 a 0.0.0.0/0. Usa el rango de IAP (35.235.240.0/20) o un rango corporativo.",
+      "archivo": "infra/policies/fixtures/plan_violaciones.json"
+    },
+    {
+      "control": "CO-NET-02",
+      "mensaje": "CO-NET-02: la regla 'google_compute_firewall.allow_all' permite todo el tráfico desde 0.0.0.0/0. Acota protocolo, puertos y origen.",
+      "archivo": "infra/policies/fixtures/plan_violaciones.json"
+    },
+    {
+      "control": "CO-SEC-01",
+      "mensaje": "CO-SEC-01: 'google_sql_user.app' declara password como valor sensible. Terraform lo oculta en la salida, pero lo guarda en el estado.",
+      "archivo": "infra/policies/fixtures/plan_violaciones.json"
+    },
+    {
+      "control": "CO-TAG-01",
+      "mensaje": "CO-TAG-01: a 'google_compute_instance.sin_etiquetas' le faltan las etiquetas obligatorias: centro_costos, clasificacion_datos, marco_aplicable.",
+      "archivo": "infra/policies/fixtures/plan_violaciones.json"
+    },
+    {
+      "control": "CO-TAG-01",
+      "mensaje": "CO-TAG-01: a 'google_secret_manager_secret.sin_etiquetas' le faltan las etiquetas obligatorias: ambiente, centro_costos, clasificacion_datos, duenio, marco_aplicable.",
+      "archivo": "infra/policies/fixtures/plan_violaciones.json"
+    },
+    {
+      "control": "CO-TAG-01",
+      "mensaje": "CO-TAG-01: a 'google_sql_database_instance.publica' le faltan las etiquetas obligatorias: ambiente, centro_costos, clasificacion_datos, duenio, marco_aplicable.",
+      "archivo": "infra/policies/fixtures/plan_violaciones.json"
+    },
+    {
+      "control": "CO-VM-01",
+      "mensaje": "CO-VM-01: la instancia 'google_compute_instance.expuesta' tiene IP pública. Quita el bloque access_config y usa IAP para el acceso.",
+      "archivo": "infra/policies/fixtures/plan_violaciones.json"
+    },
+    {
+      "control": "CO-VM-01",
+      "mensaje": "CO-VM-01: la instancia 'google_compute_instance.expuesta' usa la cuenta de servicio por defecto de Compute, que tiene rol de editor. Asigna una cuenta con permisos acotados.",
+      "archivo": "infra/policies/fixtures/plan_violaciones.json"
+    }
+  ]
+}

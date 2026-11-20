@@ -1,0 +1,51 @@
+name: Agente
+
+# Pruebas del agente de cumplimiento (apps/agent). No llaman a Gemini: usan un
+# modelo falso con guion, así que no necesitan llaves ni red hacia Google y
+# siempre dan el mismo resultado. Lo que comprueban son las reglas que no
+# dependen del prompt: el agente no cambia el veredicto, no ve secretos y, si
+# falla, bloquea.
+on:
+  # Sin filtro de rutas en los PR, como los demás checks: si se vuelve
+  # obligatorio en main, uno que no corre deja el PR esperando para siempre.
+  pull_request:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/agent/**'
+      - 'infra/policies/**'
+
+permissions:
+  contents: read
+
+env:
+  CONFTEST_VERSION: '0.71.1'
+
+jobs:
+  pruebas:
+    name: Pruebas del agente
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: apps/agent
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: apps/agent/requirements*.txt
+
+      # Con conftest, la prueba que compara los veredictos guardados contra la
+      # compuerta real deja de saltarse: si alguien cambia una política, se
+      # entera aquí.
+      - uses: ./.github/actions/instalar-conftest
+        with:
+          version: ${{ env.CONFTEST_VERSION }}
+
+      - name: Instalar dependencias
+        run: pip install -r requirements-dev.txt
+
+      - name: pytest
+        run: python -m pytest -v

@@ -20,7 +20,7 @@ Si el agente o el evaluador fallan, el pipeline bloquea y notifica.
 ```
 apps/web/      Frontend (React + TypeScript + Vite)
 apps/api/      API REST (Fastify + Zod + Drizzle)
-apps/agent/    Agente de IA sobre Vertex AI    — pendiente
+apps/agent/    Agente de IA (Google ADK + Gemini)
 infra/         Terraform, políticas y evidencia
 docs/          Arquitectura, decisiones y resultados
 ```
@@ -36,7 +36,7 @@ docs/          Arquitectura, decisiones y resultados
 | Ambiente `dev` | Integrado |
 | Frontend | Listo, con datos de ejemplo |
 | API REST | Esqueleto, sin base de datos |
-| Agente de IA | Pendiente |
+| Agente de IA | Núcleo listo: explica y prioriza; falta integrarlo al pipeline |
 
 Nada se ha ejecutado todavía contra GCP: no hay proyecto. Los módulos están
 validados sintácticamente, pero su compatibilidad real con la API de Google
