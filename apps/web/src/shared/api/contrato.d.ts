@@ -46,6 +46,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/sesion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Inicia sesión con un usuario de demostración
+         * @description Solo en modo local (AUTH_MODO=local). Los usuarios de demostración tienen una contraseña pública: sirven para elegir con qué rol probar, no para proteger nada. Devuelve los permisos del rol para que la pantalla oculte lo que no se puede hacer, sin copiar la tabla de la API.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        email: string;
+                        password: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            token: string;
+                            usuario: {
+                                nombre: string;
+                                email: string;
+                                /** @enum {string} */
+                                rol: "Compliance Lead" | "Aprobador" | "Desarrollador" | "Auditor" | "Agente" | "Pipeline";
+                                iniciales: string;
+                            };
+                            permisos: ("leer" | "solicitarExcepcion" | "decidirExcepcion" | "revocarExcepcion" | "cambiarEstadoHallazgo" | "registrarHallazgo" | "registrarDecision")[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/marcos": {
         parameters: {
             query?: never;

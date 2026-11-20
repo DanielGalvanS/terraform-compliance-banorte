@@ -1,13 +1,6 @@
-import type { Rol } from './esquemas.ts'
+import type { Accion, Rol } from './esquemas.ts'
 
-export type Accion =
-  | 'leer'
-  | 'solicitarExcepcion'
-  | 'decidirExcepcion'
-  | 'revocarExcepcion'
-  | 'cambiarEstadoHallazgo'
-  | 'registrarHallazgo'
-  | 'registrarDecision'
+export type { Accion }
 
 /**
  * Qué puede hacer cada rol.

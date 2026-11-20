@@ -189,3 +189,66 @@ describe('rutas protegidas', () => {
     expect(r.headers['access-control-allow-headers']).toContain('authorization')
   })
 })
+
+describe('sesión de demostración', () => {
+  let app: Awaited<ReturnType<typeof construirApp>>
+
+  beforeAll(async () => {
+    app = await construirApp({ config: configDePrueba() })
+    await app.ready()
+  })
+
+  const entrar = (email: string, password = 'demo') =>
+    app.inject({ method: 'POST', url: `${PREFIJO}/sesion`, payload: { email, password } })
+
+  it('entrega un token con el rol del usuario y sus permisos', async () => {
+    const r = await entrar('roberto.silva@banco.mx')
+    expect(r.statusCode).toBe(200)
+    expect(r.json().usuario).toMatchObject({ nombre: 'Roberto Silva', rol: 'Aprobador' })
+    expect(r.json().permisos).toContain('decidirExcepcion')
+    expect(r.json().permisos).not.toContain('solicitarExcepcion')
+  })
+
+  it('el token sirve contra la API con los permisos de su rol', async () => {
+    const auditora = (await entrar('lucia.ramos@banco.mx')).json().token
+    const leer = await app.inject(conToken({ method: 'GET', url: `${PREFIJO}/hallazgos` }, auditora))
+    expect(leer.statusCode).toBe(200)
+    const solicitar = await app.inject(
+      conToken({ method: 'POST', url: `${PREFIJO}/excepciones`, payload: {} }, auditora),
+    )
+    expect(solicitar.statusCode).toBe(403)
+  })
+
+  it('ignora mayúsculas y espacios en el correo', async () => {
+    expect((await entrar('  Ana.Martinez@Banco.MX ')).statusCode).toBe(200)
+  })
+
+  it('una contraseña incorrecta responde 401', async () => {
+    expect((await entrar('ana.martinez@banco.mx', 'otra')).statusCode).toBe(401)
+  })
+
+  it('un correo desconocido responde 401 con el mismo mensaje', async () => {
+    const desconocido = await entrar('nadie@banco.mx')
+    const malaContrasena = await entrar('ana.martinez@banco.mx', 'otra')
+    expect(desconocido.statusCode).toBe(401)
+    expect(desconocido.json().error).toBe(malaContrasena.json().error)
+  })
+
+  it('con un proveedor de identidad la ruta no existe', async () => {
+    const jwks = await construirApp({
+      config: configDePrueba({
+        AUTH_MODO: 'jwks',
+        AUTH_JWKS_URL: 'https://idp.ejemplo/jwks',
+        AUTH_EMISOR: 'https://idp.ejemplo',
+        AUTH_AUDIENCIA: 'compliance-ops-api',
+      }),
+    })
+    const r = await jwks.inject({
+      method: 'POST',
+      url: `${PREFIJO}/sesion`,
+      payload: { email: 'ana.martinez@banco.mx', password: 'demo' },
+    })
+    expect(r.statusCode).toBe(404)
+    await jwks.close()
+  })
+})

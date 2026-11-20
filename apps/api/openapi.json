@@ -58,6 +58,130 @@
         }
       }
     },
+    "/sesion": {
+      "post": {
+        "summary": "Inicia sesión con un usuario de demostración",
+        "tags": [
+          "sesión"
+        ],
+        "description": "Solo en modo local (AUTH_MODO=local). Los usuarios de demostración tienen una contraseña pública: sirven para elegir con qué rol probar, no para proteger nada. Devuelve los permisos del rol para que la pantalla oculte lo que no se puede hacer, sin copiar la tabla de la API.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "email",
+                  "password"
+                ]
+              }
+            }
+          }
+        },
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": {
+                      "type": "string"
+                    },
+                    "usuario": {
+                      "type": "object",
+                      "properties": {
+                        "nombre": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "type": "string"
+                        },
+                        "rol": {
+                          "type": "string",
+                          "enum": [
+                            "Compliance Lead",
+                            "Aprobador",
+                            "Desarrollador",
+                            "Auditor",
+                            "Agente",
+                            "Pipeline"
+                          ]
+                        },
+                        "iniciales": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "nombre",
+                        "email",
+                        "rol",
+                        "iniciales"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "permisos": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "leer",
+                          "solicitarExcepcion",
+                          "decidirExcepcion",
+                          "revocarExcepcion",
+                          "cambiarEstadoHallazgo",
+                          "registrarHallazgo",
+                          "registrarDecision"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "token",
+                    "usuario",
+                    "permisos"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "detalle": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/marcos": {
       "get": {
         "summary": "Marcos regulatorios en alcance",

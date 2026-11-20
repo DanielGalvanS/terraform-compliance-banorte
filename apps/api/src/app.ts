@@ -37,6 +37,7 @@ import { rutasExcepciones } from './rutas/excepciones.ts'
 import { rutasRecursos } from './rutas/recursos.ts'
 import { rutasHallazgos } from './rutas/hallazgos.ts'
 import { rutasResumen } from './rutas/resumen.ts'
+import { rutasSesion } from './rutas/sesion.ts'
 
 export const PREFIJO = '/api/v1'
 
@@ -154,6 +155,10 @@ export async function construirApp({
     }),
   )
 
+  // Solo en modo local: con un proveedor de identidad, el login es suyo.
+  if (config.AUTH_MODO === 'local') {
+    await app.register(rutasSesion(secreto), { prefix: PREFIJO })
+  }
   await app.register(rutasCatalogo(catalogo), { prefix: PREFIJO })
   await app.register(rutasHallazgos(repositorio, repositorioEvidencia), { prefix: PREFIJO })
   await app.register(rutasResumen(catalogo, repositorio), { prefix: PREFIJO })

@@ -27,6 +27,17 @@ export const Ambiente = z.enum(['Dev', 'QA', 'Prod'])
 export const EstadoHallazgo = z.enum(['Abierto', 'En remediación', 'Excepción', 'Cerrado'])
 export const Origen = z.enum(['Plan', 'Drift', 'Evento', 'Auditoría'])
 
+/** Lo que se puede hacer en la API; `model/permisos.ts` dice qué rol puede qué. */
+export const Accion = z.enum([
+  'leer',
+  'solicitarExcepcion',
+  'decidirExcepcion',
+  'revocarExcepcion',
+  'cambiarEstadoHallazgo',
+  'registrarHallazgo',
+  'registrarDecision',
+])
+
 /** Quién hace la petición, según el token. Nunca según el cuerpo. */
 export const Identidad = z.object({
   sujeto: z.string().min(1).describe('Identificador estable de la persona o el servicio'),
@@ -161,6 +172,7 @@ export const Error = z.object({
 
 export type Rol = z.infer<typeof Rol>
 export type Identidad = z.infer<typeof Identidad>
+export type Accion = z.infer<typeof Accion>
 export type Marco = z.infer<typeof Marco>
 export type Control = z.infer<typeof Control>
 export type Hallazgo = z.infer<typeof Hallazgo>
