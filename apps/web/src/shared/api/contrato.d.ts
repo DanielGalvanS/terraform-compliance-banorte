@@ -923,6 +923,7 @@ export interface paths {
             parameters: {
                 query?: {
                     estado?: "Pendiente" | "Activa" | "Vencida" | "Rechazada" | "Revocada";
+                    porVencer?: "true" | "false";
                     ambiente?: "Dev" | "QA" | "Prod";
                     control?: string;
                     /** @description Dirección de Terraform, corta o con módulo; ver coincideRecurso */
@@ -972,6 +973,12 @@ export interface paths {
                                 /** @enum {string} */
                                 estado: "Pendiente" | "Activa" | "Vencida" | "Rechazada" | "Revocada";
                                 planRemediacion: string | null;
+                                /** @description Días hasta el vencimiento; nulo si ya no está pendiente ni activa */
+                                diasRestantes: number | null;
+                                /** @description Activa y a 7 días o menos de vencer */
+                                porVencer: boolean;
+                                /** @description Hallazgos abiertos o en remediación del mismo control, recurso y ambiente: los que cubre si está activa, o cubriría si se aprueba */
+                                hallazgosAfectados: number;
                             }[];
                         };
                     };
@@ -1067,6 +1074,12 @@ export interface paths {
                             /** @enum {string} */
                             estado: "Pendiente" | "Activa" | "Vencida" | "Rechazada" | "Revocada";
                             planRemediacion: string | null;
+                            /** @description Días hasta el vencimiento; nulo si ya no está pendiente ni activa */
+                            diasRestantes: number | null;
+                            /** @description Activa y a 7 días o menos de vencer */
+                            porVencer: boolean;
+                            /** @description Hallazgos abiertos o en remediación del mismo control, recurso y ambiente: los que cubre si está activa, o cubriría si se aprueba */
+                            hallazgosAfectados: number;
                         };
                     };
                 };
@@ -1177,6 +1190,12 @@ export interface paths {
                             /** @enum {string} */
                             estado: "Pendiente" | "Activa" | "Vencida" | "Rechazada" | "Revocada";
                             planRemediacion: string | null;
+                            /** @description Días hasta el vencimiento; nulo si ya no está pendiente ni activa */
+                            diasRestantes: number | null;
+                            /** @description Activa y a 7 días o menos de vencer */
+                            porVencer: boolean;
+                            /** @description Hallazgos abiertos o en remediación del mismo control, recurso y ambiente: los que cubre si está activa, o cubriría si se aprueba */
+                            hallazgosAfectados: number;
                         };
                     };
                 };
@@ -1294,6 +1313,12 @@ export interface paths {
                             /** @enum {string} */
                             estado: "Pendiente" | "Activa" | "Vencida" | "Rechazada" | "Revocada";
                             planRemediacion: string | null;
+                            /** @description Días hasta el vencimiento; nulo si ya no está pendiente ni activa */
+                            diasRestantes: number | null;
+                            /** @description Activa y a 7 días o menos de vencer */
+                            porVencer: boolean;
+                            /** @description Hallazgos abiertos o en remediación del mismo control, recurso y ambiente: los que cubre si está activa, o cubriría si se aprueba */
+                            hallazgosAfectados: number;
                         };
                     };
                 };
@@ -1437,6 +1462,12 @@ export interface paths {
                             /** @enum {string} */
                             estado: "Pendiente" | "Activa" | "Vencida" | "Rechazada" | "Revocada";
                             planRemediacion: string | null;
+                            /** @description Días hasta el vencimiento; nulo si ya no está pendiente ni activa */
+                            diasRestantes: number | null;
+                            /** @description Activa y a 7 días o menos de vencer */
+                            porVencer: boolean;
+                            /** @description Hallazgos abiertos o en remediación del mismo control, recurso y ambiente: los que cubre si está activa, o cubriría si se aprueba */
+                            hallazgosAfectados: number;
                         };
                     };
                 };

@@ -6,8 +6,11 @@ import {
   Excepcion,
   FiltroExcepciones,
   NuevaExcepcion,
+  type HallazgoGuardado,
   type Identidad,
 } from '../model/esquemas.ts'
+import { cubre, diasRestantes, porVencer } from '../model/reglasVigencia.ts'
+import type { HallazgosRepositorio } from '../repositorios/hallazgosRepositorio.ts'
 import {
   estadoVigente,
   validarDecision,
@@ -47,14 +50,25 @@ const respuestasDecision = {
 export function rutasExcepciones(
   catalogo: Catalogo,
   repositorio: ExcepcionesRepositorio,
+  hallazgos: HallazgosRepositorio,
   evidencia: EvidenciaRepositorio,
 ): FastifyPluginAsyncZod {
+  /** Los hallazgos que una excepción puede cubrir: los que siguen sin resolver. */
+  const hallazgosAbiertos = async () =>
+    (await hallazgos.listar({})).filter(
+      (h) => h.estado === 'Abierto' || h.estado === 'En remediación',
+    )
+
   /**
-   * Completa la excepción con los datos del control y su estado vigente.
-   * El nombre, el marco y la severidad no se guardan: se toman del catálogo
-   * al leer, para que una excepción no congele una descripción obsoleta.
+   * Completa la excepción con los datos del control, su estado vigente y su
+   * vigencia. Nada de esto se guarda: el nombre, el marco y la severidad se
+   * toman del catálogo al leer, para que una excepción no congele una
+   * descripción obsoleta, y los días restantes cambian solos cada día.
    */
-  const completar = (guardada: ExcepcionGuardada): z.infer<typeof Excepcion> => {
+  const completar = (
+    guardada: ExcepcionGuardada,
+    abiertos: readonly HallazgoGuardado[],
+  ): z.infer<typeof Excepcion> => {
     const control = catalogo.controles.find((c) => c.codigo === guardada.control)
     const { estadoGuardado, solicitanteSujeto: _, ...resto } = guardada
     return {
@@ -63,7 +77,19 @@ export function rutasExcepciones(
       marco: control?.mapeo[0]?.marco ?? '—',
       severidad: control?.severidad ?? 'Media',
       estado: estadoVigente(estadoGuardado, guardada.venceEl),
+      diasRestantes: diasRestantes(guardada),
+      porVencer: porVencer(guardada),
+      hallazgosAfectados: abiertos.filter((h) => cubre(guardada, h)).length,
     }
+  }
+
+  const listar = async (filtro: z.infer<typeof FiltroExcepciones>) => {
+    const { porVencer: soloPorVencer, ...resto } = filtro
+    const [guardadas, abiertos] = await Promise.all([repositorio.listar(resto), hallazgosAbiertos()])
+    const completas = guardadas.map((e) => completar(e, abiertos))
+    return soloPorVencer === undefined
+      ? completas
+      : completas.filter((e) => e.porVencer === (soloPorVencer === 'true'))
   }
 
   /**
@@ -121,7 +147,7 @@ export function rutasExcepciones(
         sujeto: quien.sujeto,
       },
     })
-    return { codigo: 200 as const, cuerpo: completar(decidida) }
+    return { codigo: 200 as const, cuerpo: completar(decidida, await hallazgosAbiertos()) }
   }
 
   return async (app) => {
@@ -140,7 +166,7 @@ export function rutasExcepciones(
         },
       },
       async (peticion) => ({
-        excepciones: (await repositorio.listar(peticion.query)).map(completar),
+        excepciones: await listar(peticion.query),
       }),
     )
 
@@ -185,7 +211,7 @@ export function rutasExcepciones(
           venceEl: peticion.body.venceEl,
           planRemediacion: peticion.body.planRemediacion?.trim() || null,
         })
-        return respuesta.code(201).send(completar(guardada))
+        return respuesta.code(201).send(completar(guardada, await hallazgosAbiertos()))
       },
     )
 
@@ -208,7 +234,7 @@ export function rutasExcepciones(
         if (guardada === null) {
           return respuesta.code(404).send({ error: 'No existe esa excepción' })
         }
-        return completar(guardada)
+        return completar(guardada, await hallazgosAbiertos())
       },
     )
 

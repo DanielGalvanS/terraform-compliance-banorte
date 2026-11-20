@@ -239,6 +239,19 @@ export const Excepcion = z.object({
   venceEl: z.string().describe('Fecha yyyy-mm-dd'),
   estado: EstadoExcepcion,
   planRemediacion: z.string().nullable(),
+  diasRestantes: z
+    .number()
+    .int()
+    .nullable()
+    .describe('Días hasta el vencimiento; nulo si ya no está pendiente ni activa'),
+  porVencer: z.boolean().describe('Activa y a 7 días o menos de vencer'),
+  hallazgosAfectados: z
+    .number()
+    .int()
+    .describe(
+      'Hallazgos abiertos o en remediación del mismo control, recurso y ambiente: los que ' +
+        'cubre si está activa, o cubriría si se aprueba',
+    ),
 })
 
 /**
@@ -263,6 +276,8 @@ export const NuevaExcepcion = z.object({
 
 export const FiltroExcepciones = z.object({
   estado: EstadoExcepcion.optional(),
+  // Texto y no booleano: en una query string todo llega como texto.
+  porVencer: z.enum(['true', 'false']).optional(),
   ambiente: Ambiente.optional(),
   control: z.string().optional(),
   recurso: z

@@ -4,7 +4,16 @@ import { coincideRecurso } from '../model/recursos.ts'
 import { estadoVigente } from '../model/reglasExcepciones.ts'
 
 /** Lo que el repositorio guarda; el estado mostrado se deriva al leer. */
-export type ExcepcionGuardada = Omit<Excepcion, 'estado' | 'controlNombre' | 'marco' | 'severidad'> & {
+export type ExcepcionGuardada = Omit<
+  Excepcion,
+  | 'estado'
+  | 'controlNombre'
+  | 'marco'
+  | 'severidad'
+  | 'diasRestantes'
+  | 'porVencer'
+  | 'hallazgosAfectados'
+> & {
   estadoGuardado: EstadoExcepcion
   /**
    * El `sub` del token de quien solicitó. No se expone: sirve para que nadie

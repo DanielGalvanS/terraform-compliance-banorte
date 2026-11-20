@@ -274,3 +274,57 @@ describe('rutas: hallazgos cubiertos por una excepción', () => {
     expect(h.estado).toBe('Abierto')
   })
 })
+
+describe('rutas: vigencia de cada excepción', () => {
+  let app: Awaited<ReturnType<typeof construirApp>>
+
+  beforeAll(async () => {
+    app = await construirApp({ config: configDePrueba() })
+    await app.ready()
+  })
+
+  const porCodigo = async (codigo: string) =>
+    (await app.inject(conToken({ method: 'GET', url: `${PREFIJO}/excepciones` })))
+      .json()
+      .excepciones.find((e: { codigo: string }) => e.codigo === codigo)
+
+  it('una activa que vence en 4 días está por vencer y cubre su hallazgo', async () => {
+    expect(await porCodigo('EXC-1048')).toMatchObject({
+      estado: 'Activa',
+      diasRestantes: 4,
+      porVencer: true,
+      hallazgosAfectados: 1,
+    })
+  })
+
+  it('una pendiente cuenta sus días y los hallazgos que cubriría, pero no está por vencer', async () => {
+    expect(await porCodigo('EXC-1044')).toMatchObject({
+      estado: 'Pendiente',
+      diasRestantes: 42,
+      porVencer: false,
+      hallazgosAfectados: 1,
+    })
+  })
+
+  it('una vencida no tiene cuenta regresiva', async () => {
+    expect(await porCodigo('EXC-1031')).toMatchObject({
+      estado: 'Vencida',
+      diasRestantes: null,
+      porVencer: false,
+    })
+  })
+
+  it('?porVencer=true trae solo las que están por vencer', async () => {
+    const { excepciones } = (
+      await app.inject(conToken({ method: 'GET', url: `${PREFIJO}/excepciones?porVencer=true` }))
+    ).json()
+    expect(excepciones.map((e: { codigo: string }) => e.codigo)).toEqual(['EXC-1048'])
+  })
+
+  it('?porVencer=false excluye las que están por vencer', async () => {
+    const { excepciones } = (
+      await app.inject(conToken({ method: 'GET', url: `${PREFIJO}/excepciones?porVencer=false` }))
+    ).json()
+    expect(excepciones.map((e: { codigo: string }) => e.codigo)).not.toContain('EXC-1048')
+  })
+})

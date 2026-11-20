@@ -172,7 +172,10 @@ export async function construirApp({
     prefix: PREFIJO,
   })
   await app.register(rutasResumen(catalogo, repositorio, repositorioExcepciones), { prefix: PREFIJO })
-  await app.register(rutasExcepciones(catalogo, repositorioExcepciones, repositorioEvidencia), { prefix: PREFIJO })
+  await app.register(
+    rutasExcepciones(catalogo, repositorioExcepciones, repositorio, repositorioEvidencia),
+    { prefix: PREFIJO },
+  )
   await app.register(rutasEvidencia(repositorioEvidencia), { prefix: PREFIJO })
   await app.register(
     rutasDecisiones(
