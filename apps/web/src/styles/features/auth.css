@@ -53,4 +53,7 @@
 .demo-access strong, .demo-access small { display: block; }
 .demo-access strong { color: var(--slate-700); font-size: 9px; }
 .demo-access small { color: var(--slate-500); font-size: 8px; margin-top: 3px; }
+.demo-roles { margin-top: 10px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.demo-roles .sso-button { height: 34px; }
+.demo-roles .sso-button[aria-pressed="true"] { border-color: var(--navy-800); background: var(--slate-50); }
 .login-footer { display: flex; justify-content: space-between; color: var(--slate-400); font-size: 8px; padding-top: 28px; }

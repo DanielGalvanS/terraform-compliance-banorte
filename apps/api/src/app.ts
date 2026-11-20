@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto'
 import fastifyCors from '@fastify/cors'
 import fastifySwagger from '@fastify/swagger'
 import fastifySwaggerUi from '@fastify/swagger-ui'
@@ -9,6 +10,8 @@ import {
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod'
 import { z } from 'zod'
+import { registrarAutenticacion } from './auth/autorizacion.ts'
+import { verificadorJwks, verificadorLocal, type Verificador } from './auth/verificador.ts'
 import type { Config } from './config.ts'
 import { cargarCatalogo } from './repositorios/catalogoRepositorio.ts'
 import {
@@ -34,6 +37,7 @@ import { rutasExcepciones } from './rutas/excepciones.ts'
 import { rutasRecursos } from './rutas/recursos.ts'
 import { rutasHallazgos } from './rutas/hallazgos.ts'
 import { rutasResumen } from './rutas/resumen.ts'
+import { rutasSesion } from './rutas/sesion.ts'
 
 export const PREFIJO = '/api/v1'
 
@@ -43,6 +47,7 @@ type Opciones = {
   hallazgos?: HallazgosRepositorio
   excepciones?: ExcepcionesRepositorio
   evidencia?: EvidenciaRepositorio
+  verificador?: Verificador
 }
 
 /**
@@ -51,7 +56,34 @@ type Opciones = {
  * Separarlo de `main.ts` permite que las pruebas lo levanten en memoria con
  * `app.inject()`, sin abrir un puerto ni depender del entorno.
  */
-export async function construirApp({ config, hallazgos, excepciones, evidencia }: Opciones) {
+/**
+ * El secreto de los tokens locales. Si no se fijó, uno al azar por proceso:
+ * un secreto escrito en el código sería el mismo en todas las copias del
+ * repositorio, y cualquiera podría firmar tokens válidos.
+ */
+export function secretoLocal(config: Config): string {
+  return config.AUTH_SECRETO ?? randomBytes(32).toString('hex')
+}
+
+function construirVerificador(config: Config, secreto: string): Verificador {
+  if (config.AUTH_MODO === 'jwks') {
+    return verificadorJwks({
+      // cargarConfig ya exige los tres en modo jwks.
+      url: config.AUTH_JWKS_URL!,
+      emisor: config.AUTH_EMISOR!,
+      audiencia: config.AUTH_AUDIENCIA!,
+    })
+  }
+  return verificadorLocal(secreto)
+}
+
+export async function construirApp({
+  config,
+  hallazgos,
+  excepciones,
+  evidencia,
+  verificador,
+}: Opciones) {
   const app = Fastify({ logger: { level: config.NIVEL_LOG } }).withTypeProvider<ZodTypeProvider>()
 
   // El frontend se sirve desde otro origen en desarrollo. La lista es
@@ -61,8 +93,11 @@ export async function construirApp({ config, hallazgos, excepciones, evidencia }
     // PATCH para cambiar el estado de un hallazgo. Si falta aquí, las pruebas
     // pasan (inject no aplica CORS) pero el navegador bloquea la petición.
     methods: ['GET', 'POST', 'PATCH'],
-    allowedHeaders: ['content-type', 'idempotency-key'],
+    allowedHeaders: ['content-type', 'idempotency-key', 'authorization'],
   })
+
+  const secreto = secretoLocal(config)
+  registrarAutenticacion(app, verificador ?? construirVerificador(config, secreto))
 
   app.setValidatorCompiler(validatorCompiler)
   app.setSerializerCompiler(serializerCompiler)
@@ -78,6 +113,11 @@ export async function construirApp({ config, hallazgos, excepciones, evidencia }
         version: '0.1.0',
       },
       servers: [{ url: PREFIJO }],
+      components: {
+        securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' } },
+      },
+      // Todo exige token salvo lo que se marca con `security: []`.
+      security: [{ bearerAuth: [] }],
     },
     transform: jsonSchemaTransform,
   })
@@ -96,6 +136,7 @@ export async function construirApp({ config, hallazgos, excepciones, evidencia }
       schema: {
         summary: 'Comprobación de vida',
         tags: ['operación'],
+        security: [],
         response: {
           200: z.object({
             estado: z.literal('ok'),
@@ -114,6 +155,10 @@ export async function construirApp({ config, hallazgos, excepciones, evidencia }
     }),
   )
 
+  // Solo en modo local: con un proveedor de identidad, el login es suyo.
+  if (config.AUTH_MODO === 'local') {
+    await app.register(rutasSesion(secreto), { prefix: PREFIJO })
+  }
   await app.register(rutasCatalogo(catalogo), { prefix: PREFIJO })
   await app.register(rutasHallazgos(repositorio, repositorioEvidencia), { prefix: PREFIJO })
   await app.register(rutasResumen(catalogo, repositorio), { prefix: PREFIJO })

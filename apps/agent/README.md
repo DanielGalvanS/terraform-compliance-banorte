@@ -83,6 +83,7 @@ export GOOGLE_CLOUD_LOCATION=us-central1
 | `MODELO_AGENTE` | Modelo de Gemini | `gemini-3.5-flash` |
 | `MODELO_RESPALDO` | Modelo del segundo intento si el primero falla; vacío lo desactiva | `gemini-3.5-flash-lite` |
 | `API_URL` | API de cumplimiento, para `buscar_hallazgos` y `buscar_excepciones` | sin API: las búsquedas responden "no disponible" |
+| `API_TOKEN` | Token del agente para la API (rol `Agente`, solo lectura más registrar su decisión). En desarrollo: `AUTH_SECRETO=… npm run token --workspace @compliance-ops/api -- --rol Agente`. Nunca llega al modelo | sin token: la API responde 401 y las búsquedas dan "no disponible" |
 | `AGENTE_DEBUG` | `1` muestra el rastro completo de ADK cuando Gemini falla | apagado: el motivo sale en una línea |
 | `RUTA_CATALOGO` | Catálogo de controles | `infra/policies/mappings.yaml` |
 

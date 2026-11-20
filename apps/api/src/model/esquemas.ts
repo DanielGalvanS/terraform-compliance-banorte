@@ -9,9 +9,41 @@ import { z } from 'zod'
  */
 
 export const Severidad = z.enum(['Crítica', 'Alta', 'Media', 'Baja'])
+
+/**
+ * Roles de la plataforma. Los cuatro primeros son personas (el diseño de OIDC);
+ * Agente y Pipeline son servicios con identidad propia, para que su acceso se
+ * pueda acotar y auditar igual que el de una persona.
+ */
+export const Rol = z.enum([
+  'Compliance Lead',
+  'Aprobador',
+  'Desarrollador',
+  'Auditor',
+  'Agente',
+  'Pipeline',
+])
 export const Ambiente = z.enum(['Dev', 'QA', 'Prod'])
 export const EstadoHallazgo = z.enum(['Abierto', 'En remediación', 'Excepción', 'Cerrado'])
 export const Origen = z.enum(['Plan', 'Drift', 'Evento', 'Auditoría'])
+
+/** Lo que se puede hacer en la API; `model/permisos.ts` dice qué rol puede qué. */
+export const Accion = z.enum([
+  'leer',
+  'solicitarExcepcion',
+  'decidirExcepcion',
+  'revocarExcepcion',
+  'cambiarEstadoHallazgo',
+  'registrarHallazgo',
+  'registrarDecision',
+])
+
+/** Quién hace la petición, según el token. Nunca según el cuerpo. */
+export const Identidad = z.object({
+  sujeto: z.string().min(1).describe('Identificador estable de la persona o el servicio'),
+  nombre: z.string().min(1).describe('Nombre que queda en la evidencia'),
+  rol: Rol,
+})
 
 export const Marco = z.object({
   clave: z.string().describe('Identificador interno, por ejemplo cis_gcp'),
@@ -97,14 +129,13 @@ export const NuevoHallazgo = z.object({
 })
 
 /**
- * Cambio de estado de un hallazgo. `cambiadoPor` viene en el cuerpo porque aún
- * no hay autenticación; cuando exista OIDC saldrá del token. El comentario no
- * lleva mínimo aquí para que la regla responda 422 con `motivos`.
+ * Cambio de estado de un hallazgo. Quién lo cambia sale del token, nunca del
+ * cuerpo. El comentario no lleva mínimo aquí para que la regla responda 422
+ * con `motivos`.
  */
 export const CambioEstadoHallazgo = z.object({
   estado: EstadoHallazgo,
   comentario: z.string().describe('Por qué cambia; queda en la evidencia'),
-  cambiadoPor: z.string().min(1).describe('Quién lo cambia; saldrá del token con OIDC'),
 })
 
 export const FiltroHallazgos = z.object({
@@ -139,6 +170,9 @@ export const Error = z.object({
   detalle: z.string().optional(),
 })
 
+export type Rol = z.infer<typeof Rol>
+export type Identidad = z.infer<typeof Identidad>
+export type Accion = z.infer<typeof Accion>
 export type Marco = z.infer<typeof Marco>
 export type Control = z.infer<typeof Control>
 export type Hallazgo = z.infer<typeof Hallazgo>
@@ -189,7 +223,10 @@ export const Excepcion = z.object({
 /**
  * Solicitud de excepción.
  *
- * No incluye estado ni severidad: el estado siempre nace «Pendiente» —nada se
+ * No incluye quién la solicita: sale del token. Si el cliente pudiera
+ * declararlo, cualquiera solicitaría a nombre de otro.
+ *
+ * Tampoco incluye estado ni severidad: el estado siempre nace «Pendiente» —nada se
  * exceptúa sin que una persona lo apruebe— y la severidad la decide el
  * control, no quien la pide.
  */
@@ -200,10 +237,6 @@ export const NuevaExcepcion = z.object({
   justificacion: z.string(),
   venceEl: z.string(),
   aprobador: z.string().min(1).describe('A quién se le pide la aprobación'),
-  // Viene en el cuerpo porque aún no hay autenticación. Cuando exista OIDC
-  // (ver «Autenticación» en el README) saldrá del token: dejar que el cliente
-  // declare quién es permitiría solicitar a nombre de otro.
-  solicitante: z.string().min(1).describe('Quién solicita la excepción'),
   planRemediacion: z.string().optional(),
 })
 

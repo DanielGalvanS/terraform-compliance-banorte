@@ -6,7 +6,20 @@ export const demoUser: User = {
   email: 'ana.martinez@banco.mx',
   role: 'Compliance Lead',
   initials: 'AM',
+  permissions: null,
 }
+
+/**
+ * Cuentas de demostración de la API, una por rol. Son las de
+ * `apps/api/src/repositorios/usuariosDemo.ts`; aquí solo sirven para
+ * precargar el correo al elegir un rol en la pantalla de acceso.
+ */
+export const demoAccounts = [
+  { email: 'ana.martinez@banco.mx', role: 'Compliance Lead' },
+  { email: 'roberto.silva@banco.mx', role: 'Aprobador' },
+  { email: 'carlos.vega@banco.mx', role: 'Desarrollador' },
+  { email: 'lucia.ramos@banco.mx', role: 'Auditor' },
+] as const
 
 /**
  * Credenciales precargadas del prototipo.

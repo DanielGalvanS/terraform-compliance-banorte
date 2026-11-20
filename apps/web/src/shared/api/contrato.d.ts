@@ -46,6 +46,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/sesion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Inicia sesión con un usuario de demostración
+         * @description Solo en modo local (AUTH_MODO=local). Los usuarios de demostración tienen una contraseña pública: sirven para elegir con qué rol probar, no para proteger nada. Devuelve los permisos del rol para que la pantalla oculte lo que no se puede hacer, sin copiar la tabla de la API.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        email: string;
+                        password: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            token: string;
+                            usuario: {
+                                nombre: string;
+                                email: string;
+                                /** @enum {string} */
+                                rol: "Compliance Lead" | "Aprobador" | "Desarrollador" | "Auditor" | "Agente" | "Pipeline";
+                                iniciales: string;
+                            };
+                            permisos: ("leer" | "solicitarExcepcion" | "decidirExcepcion" | "revocarExcepcion" | "cambiarEstadoHallazgo" | "registrarHallazgo" | "registrarDecision")[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/marcos": {
         parameters: {
             query?: never;
@@ -80,6 +148,30 @@ export interface paths {
                                 version?: string;
                                 ambito?: string;
                             }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
                         };
                     };
                 };
@@ -137,6 +229,30 @@ export interface paths {
                                     porValidar: boolean;
                                 }[];
                             }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
                         };
                     };
                 };
@@ -218,6 +334,30 @@ export interface paths {
                                     };
                                 };
                             }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
                         };
                     };
                 };
@@ -349,6 +489,30 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
             };
         };
         delete?: never;
@@ -424,6 +588,30 @@ export interface paths {
                     };
                 };
                 /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
                 404: {
                     headers: {
                         [name: string]: unknown;
@@ -478,8 +666,6 @@ export interface paths {
                         estado: "Abierto" | "En remediación" | "Excepción" | "Cerrado";
                         /** @description Por qué cambia; queda en la evidencia */
                         comentario: string;
-                        /** @description Quién lo cambia; saldrá del token con OIDC */
-                        cambiadoPor: string;
                     };
                 };
             };
@@ -528,6 +714,30 @@ export interface paths {
                                     anadidas: string[];
                                 };
                             };
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
                         };
                     };
                 };
@@ -619,6 +829,30 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
             };
         };
         put?: never;
@@ -695,6 +929,30 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
             };
         };
         put?: never;
@@ -720,8 +978,6 @@ export interface paths {
                         venceEl: string;
                         /** @description A quién se le pide la aprobación */
                         aprobador: string;
-                        /** @description Quién solicita la excepción */
-                        solicitante: string;
                         planRemediacion?: string;
                     };
                 };
@@ -764,6 +1020,30 @@ export interface paths {
                             /** @enum {string} */
                             estado: "Pendiente" | "Activa" | "Vencida" | "Rechazada" | "Revocada";
                             planRemediacion: string | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
                         };
                     };
                 };
@@ -854,6 +1134,30 @@ export interface paths {
                     };
                 };
                 /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
                 404: {
                     headers: {
                         [name: string]: unknown;
@@ -900,8 +1204,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        /** @description Quién aprueba; saldrá del token con OIDC */
-                        aprobadaPor: string;
                         /** @description Fundamento de la decisión */
                         comentario: string;
                     };
@@ -945,6 +1247,30 @@ export interface paths {
                             /** @enum {string} */
                             estado: "Pendiente" | "Activa" | "Vencida" | "Rechazada" | "Revocada";
                             planRemediacion: string | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
                         };
                     };
                 };
@@ -1021,8 +1347,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        /** @description Quién rechaza; saldrá del token con OIDC */
-                        rechazadaPor: string;
                         /** @description Fundamento de la decisión */
                         comentario: string;
                     };
@@ -1066,6 +1390,30 @@ export interface paths {
                             /** @enum {string} */
                             estado: "Pendiente" | "Activa" | "Vencida" | "Rechazada" | "Revocada";
                             planRemediacion: string | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
                         };
                     };
                 };
@@ -1173,6 +1521,30 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
             };
         };
         put?: never;
@@ -1241,6 +1613,30 @@ export interface paths {
                                 noConformes: number;
                             };
                             etiquetasObligatorias: string[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
                         };
                     };
                 };

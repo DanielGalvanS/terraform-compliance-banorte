@@ -11,6 +11,7 @@ arbitraria.
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 import httpx
@@ -74,6 +75,18 @@ def consultar_recurso(direccion: str, tool_context: ToolContext) -> dict[str, An
 _TRANSPORTE: httpx.AsyncBaseTransport | None = None
 
 
+def cabeceras_api() -> dict[str, str]:
+    """Token del agente para la API, si lo hay.
+
+    Se lee del entorno en cada llamada y nunca pasa por el estado de la sesión:
+    el modelo no debe ver el token, ni poder pedir que se use con otra URL.
+    En desarrollo se emite con ``npm run token -- --rol Agente``; en GCP saldrá
+    de la cuenta de servicio ``app-agente``.
+    """
+    token = os.environ.get("API_TOKEN")
+    return {"authorization": f"Bearer {token}"} if token else {}
+
+
 async def consultar_api(base: str | None, ruta: str, parametros: dict[str, str]) -> dict[str, Any] | None:
     """GET a la API de cumplimiento. None si no hay API o no responde.
 
@@ -85,7 +98,9 @@ async def consultar_api(base: str | None, ruta: str, parametros: dict[str, str])
         return None
     try:
         async with httpx.AsyncClient(timeout=TIEMPO_API, transport=_TRANSPORTE) as cliente:
-            respuesta = await cliente.get(f"{base.rstrip('/')}/api/v1{ruta}", params=parametros)
+            respuesta = await cliente.get(
+                f"{base.rstrip('/')}/api/v1{ruta}", params=parametros, headers=cabeceras_api()
+            )
             respuesta.raise_for_status()
             return respuesta.json()
     except (httpx.HTTPError, ValueError):
