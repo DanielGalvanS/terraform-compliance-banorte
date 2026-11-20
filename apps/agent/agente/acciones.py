@@ -81,6 +81,11 @@ def comentario(decision: Decision) -> str:
         lineas += ["**Ajustes que hizo el código a la opinión del modelo:**", ""]
         lineas += [f"- {_celda(a)}" for a in decision.ajustes]
         lineas += [""]
+    if decision.intentos_fallidos:
+        lineas += [
+            f"Respondió el modelo de respaldo; antes falló: {_celda('; '.join(decision.intentos_fallidos))}.",
+            "",
+        ]
     lineas += [
         f"<sub>Modelo {decision.modelo} · prompt {decision.version_prompt} · "
         f"herramientas usadas: {len(decision.herramientas_usadas)} · ejecución {decision.ejecucion_id}</sub>",

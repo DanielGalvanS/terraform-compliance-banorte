@@ -7,6 +7,10 @@ Invariantes (las pruebas las comprueban con un modelo falso):
   la ejecución es un fallo.
 - Cualquier fallo (modelo, esquema, tiempo) termina en ``error_agente``, que el
   pipeline trata como bloqueo (regla segura de DEV-46).
+
+Si el primer intento falla, el segundo usa el modelo de respaldo
+(``MODELO_RESPALDO``). Cada intento fallido queda en ``intentos_fallidos`` con
+un motivo legible («modelo saturado (503)», no un rastro de Python).
 """
 
 from __future__ import annotations
@@ -18,16 +22,18 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+import httpx
 from google.adk.models.base_llm import BaseLlm
 from google.adk.runners import InMemoryRunner
+from google.genai import errors as genai_errors
 from google.genai import types
 from pydantic import ValidationError
 
 from . import catalogo as catalogo_mod
 from . import sanitizar
-from .agent import CLAVE_SALIDA, crear_agente, nombre_modelo
+from .agent import CLAVE_SALIDA, TIEMPO_LLAMADA_MS, crear_agente, nombre_modelo, nombre_respaldo
 from .esquemas import Clasificacion, Decision, RespuestaModelo, Violacion
-from .herramientas import CLAVE_API, CLAVE_RECURSOS, hay_excepcion_activa
+from .herramientas import CLAVE_API, CLAVE_RECURSOS, HERRAMIENTAS, hay_excepcion_activa
 from .instruccion import VERSION_PROMPT
 from .violaciones import desde_veredicto
 
@@ -38,6 +44,9 @@ INTENTOS = 2
 RESULTADOS_VALIDOS = {"conforme", "bloqueado", "error"}
 # La prioridad menos urgente que se acepta para cada severidad (la misma tabla de la instrucción).
 PRIORIDAD_POR_SEVERIDAD = {"Crítica": 1, "Alta": 2, "Media": 3, "Baja": 4}
+# Solo se registran las herramientas del agente, no las internas de ADK
+# (por ejemplo set_model_response, con la que algunos modelos entregan la salida).
+NOMBRES_HERRAMIENTAS = frozenset(h.__name__ for h in HERRAMIENTAS)
 
 
 class FalloAgente(Exception):
@@ -62,20 +71,39 @@ def mensaje_para_modelo(violaciones: list[Violacion], ambiente: str, origen: str
     )
 
 
+def _describir(error: Exception) -> str:
+    """Motivo legible de un fallo del modelo, para el registro y el comentario del PR."""
+    if isinstance(error, genai_errors.APIError):
+        codigo = error.code
+        if codigo in (500, 502, 503, 504):
+            return f"modelo saturado o sin respuesta ({codigo})"
+        if codigo == 429:
+            return "cuota del modelo agotada (429)"
+        if codigo == 404:
+            return "el modelo no existe para esta cuenta (404)"
+        if codigo in (400, 401, 403):
+            return f"la llave o la cuenta no puede usar el modelo ({codigo})"
+        return f"error de la API de Gemini ({codigo})"
+    if isinstance(error, httpx.TimeoutException):
+        return f"una llamada al modelo pasó de {TIEMPO_LLAMADA_MS // 1000} s"
+    return f"{type(error).__name__}: {error}"[:300]
+
+
 async def _una_corrida(
-    modelo: str | BaseLlm, mensaje: str, estado: dict[str, Any]
-) -> tuple[RespuestaModelo, list[str]]:
+    modelo: str | BaseLlm, mensaje: str, estado: dict[str, Any], herramientas: list[str]
+) -> RespuestaModelo:
+    """Una ejecución del agente. ``herramientas`` se llena sobre la marcha, así
+    que conserva lo que el agente alcanzó a consultar aunque el intento se corte."""
     runner = InMemoryRunner(agent=crear_agente(modelo), app_name=APP)
     sesion = await runner.session_service.create_session(app_name=APP, user_id=USUARIO, state=estado)
 
-    herramientas: list[str] = []
     texto_final = ""
     async for evento in runner.run_async(
         user_id=USUARIO,
         session_id=sesion.id,
         new_message=types.Content(role="user", parts=[types.Part(text=mensaje)]),
     ):
-        herramientas.extend(llamada.name for llamada in evento.get_function_calls())
+        herramientas.extend(n for n in (ll.name for ll in evento.get_function_calls()) if n in NOMBRES_HERRAMIENTAS)
         if evento.is_final_response() and evento.content and evento.content.parts:
             texto_final = "".join(p.text or "" for p in evento.content.parts if not p.thought)
 
@@ -83,8 +111,8 @@ async def _una_corrida(
     salida = sesion.state.get(CLAVE_SALIDA) if sesion else None
     try:
         if isinstance(salida, dict):
-            return RespuestaModelo.model_validate(salida), herramientas
-        return RespuestaModelo.model_validate_json(texto_final), herramientas
+            return RespuestaModelo.model_validate(salida)
+        return RespuestaModelo.model_validate_json(texto_final)
     except ValidationError as error:
         raise FalloAgente(f"la respuesta no cumple el esquema: {error.error_count()} error(es)") from error
 
@@ -162,12 +190,16 @@ async def analizar_async(
     origen: str = "Plan",
     api_url: str | None = None,
     modelo: str | BaseLlm | None = None,
+    respaldo: str | BaseLlm | None = None,
     catalogo: catalogo_mod.Catalogo | None = None,
     tiempo_limite: float = TIEMPO_LIMITE,
     intentos: int = INTENTOS,
 ) -> Decision:
     catalogo = catalogo or catalogo_mod.por_defecto()
     modelo = modelo or nombre_modelo()
+    if respaldo is None and isinstance(modelo, str):
+        respaldo = nombre_respaldo()
+    candidatos = [modelo] + ([respaldo] if respaldo and respaldo != modelo else [])
     resultado = veredicto.get("resultado")
     resultado = resultado if resultado in RESULTADOS_VALIDOS else "error"
     violaciones = desde_veredicto(veredicto)
@@ -203,14 +235,16 @@ async def analizar_async(
 
     estado_sesion = {CLAVE_RECURSOS: sanitizar.plan(plan or {}), CLAVE_API: api_url}
     mensaje = mensaje_para_modelo(violaciones, ambiente, origen)
-    nombre = modelo if isinstance(modelo, str) else modelo.model
-
-    ultimo_error = "sin intentos"
+    fallidos: list[str] = []
     herramientas: list[str] = []
-    for _ in range(max(1, intentos)):
+    nombre = ""
+    for i in range(max(1, intentos)):
+        actual = candidatos[min(i, len(candidatos) - 1)]
+        nombre = actual if isinstance(actual, str) else actual.model
+        herramientas = []
         try:
-            respuesta, herramientas = await asyncio.wait_for(
-                _una_corrida(modelo, mensaje, estado_sesion), timeout=tiempo_limite
+            respuesta = await asyncio.wait_for(
+                _una_corrida(actual, mensaje, estado_sesion, herramientas), timeout=tiempo_limite
             )
             _verificar_cobertura(respuesta, violaciones)
             clasificaciones, ajustes = await _armar_clasificaciones(respuesta, violaciones, catalogo, api_url)
@@ -221,22 +255,24 @@ async def analizar_async(
                 clasificaciones=clasificaciones,
                 herramientas_usadas=herramientas,
                 ajustes=ajustes,
+                intentos_fallidos=fallidos,
                 modelo=nombre,
             )
         except asyncio.TimeoutError:
-            ultimo_error = f"el modelo no respondió en {tiempo_limite:.0f} s"
+            fallidos.append(f"{nombre}: no terminó en {tiempo_limite:.0f} s")
         except FalloAgente as error:
-            ultimo_error = str(error)
+            fallidos.append(f"{nombre}: {error}")
         except Exception as error:  # noqa: BLE001 — cualquier fallo del modelo bloquea
-            ultimo_error = f"{type(error).__name__}: {error}"[:500]
+            fallidos.append(f"{nombre}: {_describir(error)}")
 
     return Decision(
         **base,
         estado="error_agente",
         resumen="El agente no pudo clasificar las violaciones. Por regla segura, el cambio queda bloqueado.",
         herramientas_usadas=herramientas,
+        intentos_fallidos=fallidos,
         modelo=nombre,
-        error=ultimo_error,
+        error="; ".join(fallidos),
     )
 
 

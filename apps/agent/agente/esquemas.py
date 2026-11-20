@@ -91,7 +91,11 @@ class Decision(BaseModel):
         default=[],
         description="Correcciones que el código hizo a la opinión del modelo, con su motivo.",
     )
-    modelo: str | None = None
+    intentos_fallidos: list[str] = Field(
+        default=[],
+        description="Intentos que fallaron antes del resultado, con el modelo y el motivo.",
+    )
+    modelo: str | None = Field(default=None, description="Modelo del último intento.")
     version_prompt: str
     hash_entradas: str
     error: str | None = None
