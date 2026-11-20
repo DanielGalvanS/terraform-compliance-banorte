@@ -40,7 +40,8 @@ de incumplimientos que luego se reporta al auditor.
 
 | Método | Ruta | Para qué |
 | --- | --- | --- |
-| GET | `/salud` | Vida del servicio y si hay persistencia |
+| GET | `/salud` | Vida del servicio y si hay persistencia (pública) |
+| POST | `/api/v1/sesion` | Inicia sesión con un usuario de demostración; solo en modo local (pública) |
 | GET | `/api/v1/resumen` | Cifras de portada |
 | GET | `/api/v1/marcos` | Marcos en alcance |
 | GET | `/api/v1/controles` | Controles y su mapeo; filtra por `?marco=` |
@@ -67,12 +68,14 @@ servidor.
 | Regla | Respuesta | Por qué |
 | --- | --- | --- |
 | Solo se decide una excepción **Pendiente y vigente** | 409 | Decidir dos veces, o aprobar algo vencido, rompe la trazabilidad |
-| Quien decide no puede ser quien la solicitó (sin distinguir mayúsculas ni espacios) | 422 | Segregación de funciones: nadie se aprueba a sí mismo |
+| Quien decide no puede ser quien la solicitó: mismo sujeto del token, o mismo nombre sin distinguir mayúsculas ni espacios | 422 | Segregación de funciones: nadie se aprueba a sí mismo |
 | El comentario es obligatorio, de al menos 10 caracteres | 422 | La decisión sin fundamento no es evidencia |
 | Aprobar no cambia `venceEl` | — | La vigencia la acotó la solicitud (máximo 90 días) |
 
-Quien solicita y quien decide llegan hoy en el cuerpo de la petición. Cuando
-exista OIDC saldrán del token.
+Quien solicita y quien decide salen del token, nunca del cuerpo de la
+petición. Se compara también el sujeto del token (`sub`) porque la persona no
+lo controla: cambiar su nombre en el proveedor de identidad no le permite
+aprobar lo suyo.
 
 Cada decisión queda en el registro de evidencia.
 
@@ -112,8 +115,81 @@ el proceso puede reescribir el arreglo. Lo que sí hace es que una alteración
 sea **detectable**. La inmutabilidad real la da el bucket con retención del
 módulo `infra/modules/logging`; esta estructura queda lista para escribir ahí.
 
-## Autenticación
+## Autenticación y roles
 
-**No hay.** El diseño pide OIDC con cuatro roles: Compliance Lead, Aprobador,
-Desarrollador y Auditor de solo lectura. Hasta que exista, la API no debe
-exponerse fuera de un entorno de desarrollo.
+Toda ruta de `/api/v1` exige `Authorization: Bearer <token>`, salvo
+`/sesion`. Sin token, o con uno inválido o vencido, responde **401**; con un
+rol que no alcanza, **403**. La autorización corre antes de leer el cuerpo, así
+que quien no tiene permiso no recibe el detalle de validación.
+
+### Quién puede qué
+
+La tabla vive en `src/model/permisos.ts`:
+
+| Acción | Compliance Lead | Aprobador | Desarrollador | Auditor | Agente | Pipeline |
+| --- | :-: | :-: | :-: | :-: | :-: | :-: |
+| Leer todo | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Solicitar excepción | ✓ | | ✓ | | | |
+| Aprobar o rechazar excepción | ✓ | ✓ | | | | |
+| Revocar excepción | ✓ | | | | | |
+| Cambiar estado de hallazgo | ✓ | ✓ | ✓ | | | |
+| Registrar hallazgo | ✓ | | | | | ✓ |
+| Registrar decisión del agente | | | | | ✓ | |
+
+- El **Auditor solo lee**: si pudiera cambiar algo, dejaría de ser
+  independiente de lo que audita.
+- El **Agente** registra su opinión y nada más: no decide excepciones ni
+  cambia estados. Las políticas deciden; la IA interpreta.
+
+### Dos modos
+
+Las rutas dependen de la interfaz `Verificador` (`src/auth/verificador.ts`),
+así que cambiar de modo no toca ninguna ruta.
+
+| `AUTH_MODO` | Quién firma los tokens | Para qué |
+| --- | --- | --- |
+| `local` (por defecto) | La propia API, con HS256 y `AUTH_SECRETO` | Desarrollo y pruebas |
+| `jwks` | El proveedor de identidad; se verifican con sus llaves públicas (`AUTH_JWKS_URL`, `AUTH_EMISOR`, `AUTH_AUDIENCIA`) | Cualquier ambiente real |
+
+En modo `jwks` el rol sale del claim `rol`. Un token sin ese claim no tiene
+permisos: no se supone un rol por defecto.
+
+### Modo local: usuarios de demostración
+
+`POST /api/v1/sesion` acepta cuatro usuarios, uno por rol de persona, todos
+con la contraseña `demo`:
+
+| Correo | Rol |
+| --- | --- |
+| `ana.martinez@banco.mx` | Compliance Lead |
+| `roberto.silva@banco.mx` | Aprobador |
+| `carlos.vega@banco.mx` | Desarrollador |
+| `lucia.ramos@banco.mx` | Auditor |
+
+**Esto no es seguridad**: la contraseña es pública y sirve para elegir con qué
+rol probar. Por eso:
+
+- `/sesion` solo existe con `AUTH_MODO=local`; en `jwks` responde 404.
+- La API **no arranca** en modo local si hay `DATABASE_URL`: los usuarios de
+  demostración no deben convivir con datos reales.
+- Si no se fija `AUTH_SECRETO`, se genera uno al azar en cada arranque. Un
+  secreto escrito en el código sería el mismo en todas las copias del
+  repositorio y cualquiera podría firmar tokens.
+
+Tokens para servicios (el agente y el pipeline), con el mismo `AUTH_SECRETO`
+con el que arranca la API:
+
+```bash
+export AUTH_SECRETO="$(openssl rand -hex 32)"
+npm run dev:api
+npm run token --workspace @compliance-ops/api -- --rol Agente     # en otra terminal, mismo AUTH_SECRETO
+```
+
+### El frontend
+
+La pantalla de acceso llama a `/sesion` y guarda el token **en memoria**, no
+en `localStorage`: un script inyectado en la página podría leer
+`localStorage` y llevárselo. El costo es que al recargar hay que volver a
+entrar. `/sesion` devuelve también los permisos del rol, y la pantalla oculta
+lo que no se puede hacer sin copiar la tabla; la API lo vuelve a comprobar de
+todos modos.

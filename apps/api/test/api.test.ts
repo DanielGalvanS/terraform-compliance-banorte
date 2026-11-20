@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest'
+import { configDePrueba, conToken } from './auth.ts'
 import { construirApp, PREFIJO } from '../src/app.ts'
-import { cargarConfig } from '../src/config.ts'
 
 /**
  * Las pruebas levantan la app con `inject`: sin puerto, sin red y sin base de
@@ -11,7 +11,7 @@ let app: Awaited<ReturnType<typeof construirApp>>
 
 beforeAll(async () => {
   // 'fatal' es el nivel más callado que acepta la configuración.
-  app = await construirApp({ config: cargarConfig({ NIVEL_LOG: 'fatal' }) })
+  app = await construirApp({ config: configDePrueba() })
   await app.ready()
 })
 
@@ -27,14 +27,14 @@ const cuerpoValido = {
 
 describe('catálogo', () => {
   it('sirve los marcos del archivo de políticas', async () => {
-    const r = await app.inject({ method: 'GET', url: `${PREFIJO}/marcos` })
+    const r = await app.inject(conToken({ method: 'GET', url: `${PREFIJO}/marcos` }))
     expect(r.statusCode).toBe(200)
     const cortos = r.json().marcos.map((m: { nombreCorto: string }) => m.nombreCorto)
     expect(cortos.sort()).toEqual(['CIS GCP', 'LFPDPPP', 'NIST 800-53', 'SOC 2'])
   })
 
   it('cada control declara al menos un marco', async () => {
-    const r = await app.inject({ method: 'GET', url: `${PREFIJO}/controles` })
+    const r = await app.inject(conToken({ method: 'GET', url: `${PREFIJO}/controles` }))
     const controles = r.json().controles
     expect(controles.length).toBeGreaterThan(0)
     for (const control of controles) {
@@ -43,7 +43,7 @@ describe('catálogo', () => {
   })
 
   it('filtra controles por marco', async () => {
-    const r = await app.inject({ method: 'GET', url: `${PREFIJO}/controles?marco=LFPDPPP` })
+    const r = await app.inject(conToken({ method: 'GET', url: `${PREFIJO}/controles?marco=LFPDPPP` }))
     const controles = r.json().controles
     expect(controles.length).toBeGreaterThan(0)
     for (const control of controles) {
@@ -54,40 +54,40 @@ describe('catálogo', () => {
 
 describe('hallazgos', () => {
   it('devuelve 404 ante un identificador que no existe', async () => {
-    const r = await app.inject({
+    const r = await app.inject(conToken({
       method: 'GET',
       url: `${PREFIJO}/hallazgos/00000000-0000-4000-8000-000000000000`,
-    })
+    }))
     expect(r.statusCode).toBe(404)
   })
 
   it('rechaza un identificador que no es uuid', async () => {
-    const r = await app.inject({ method: 'GET', url: `${PREFIJO}/hallazgos/no-es-uuid` })
+    const r = await app.inject(conToken({ method: 'GET', url: `${PREFIJO}/hallazgos/no-es-uuid` }))
     expect(r.statusCode).toBe(400)
   })
 
   it('rechaza un cuerpo con severidad inválida', async () => {
-    const r = await app.inject({
+    const r = await app.inject(conToken({
       method: 'POST',
       url: `${PREFIJO}/hallazgos`,
       payload: { ...cuerpoValido, severidad: 'Urgentísima' },
-    })
+    }))
     expect(r.statusCode).toBe(400)
   })
 
   it('crea un hallazgo y lo devuelve por su identificador', async () => {
-    const creado = await app.inject({
+    const creado = await app.inject(conToken({
       method: 'POST',
       url: `${PREFIJO}/hallazgos`,
       payload: cuerpoValido,
-    })
+    }))
     expect(creado.statusCode).toBe(201)
     expect(creado.json().estado).toBe('Abierto')
 
-    const leido = await app.inject({
+    const leido = await app.inject(conToken({
       method: 'GET',
       url: `${PREFIJO}/hallazgos/${creado.json().id}`,
-    })
+    }))
     expect(leido.statusCode).toBe(200)
     expect(leido.json().titulo).toBe(cuerpoValido.titulo)
   })
@@ -97,18 +97,18 @@ describe('hallazgos', () => {
     // el escáner de secretos del pipeline marcara esta prueba.
     const cabeceras = { 'idempotency-key': 'clave-de-prueba' }
 
-    const primero = await app.inject({
+    const primero = await app.inject(conToken({
       method: 'POST',
       url: `${PREFIJO}/hallazgos`,
       headers: cabeceras,
       payload: cuerpoValido,
-    })
-    const segundo = await app.inject({
+    }))
+    const segundo = await app.inject(conToken({
       method: 'POST',
       url: `${PREFIJO}/hallazgos`,
       headers: cabeceras,
       payload: cuerpoValido,
-    })
+    }))
 
     expect(primero.statusCode).toBe(201)
     // 200 y no 201: el reintento no creó nada.
@@ -117,28 +117,28 @@ describe('hallazgos', () => {
   })
 
   it('sin la cabecera sí crea otro', async () => {
-    const uno = await app.inject({ method: 'POST', url: `${PREFIJO}/hallazgos`, payload: cuerpoValido })
-    const dos = await app.inject({ method: 'POST', url: `${PREFIJO}/hallazgos`, payload: cuerpoValido })
+    const uno = await app.inject(conToken({ method: 'POST', url: `${PREFIJO}/hallazgos`, payload: cuerpoValido }))
+    const dos = await app.inject(conToken({ method: 'POST', url: `${PREFIJO}/hallazgos`, payload: cuerpoValido }))
     expect(dos.json().id).not.toBe(uno.json().id)
   })
 
   it('filtra por severidad', async () => {
-    const r = await app.inject({ method: 'GET', url: `${PREFIJO}/hallazgos?severidad=Crítica` })
+    const r = await app.inject(conToken({ method: 'GET', url: `${PREFIJO}/hallazgos?severidad=Crítica` }))
     for (const h of r.json().hallazgos) expect(h.severidad).toBe('Crítica')
   })
 })
 
 describe('estado de un hallazgo', () => {
   const crear = async () =>
-    (await app.inject({ method: 'POST', url: `${PREFIJO}/hallazgos`, payload: cuerpoValido })).json()
+    (await app.inject(conToken({ method: 'POST', url: `${PREFIJO}/hallazgos`, payload: cuerpoValido }))).json()
       .id as string
 
   const cambiar = (id: string, estado: string, comentario = 'Se asigna al equipo de red') =>
-    app.inject({
+    app.inject(conToken({
       method: 'PATCH',
       url: `${PREFIJO}/hallazgos/${id}/estado`,
-      payload: { estado, comentario, cambiadoPor: 'Roberto Silva' },
-    })
+      payload: { estado, comentario },
+    }))
 
   it('recorre Abierto → En remediación → Cerrado → Abierto', async () => {
     const id = await crear()
@@ -177,25 +177,25 @@ describe('estado de un hallazgo', () => {
   it('el filtro por estado refleja el cambio', async () => {
     const id = await crear()
     await cambiar(id, 'En remediación')
-    const r = await app.inject({ method: 'GET', url: `${PREFIJO}/hallazgos?estado=En remediación` })
+    const r = await app.inject(conToken({ method: 'GET', url: `${PREFIJO}/hallazgos?estado=En remediación` }))
     expect(r.json().hallazgos.map((h: { id: string }) => h.id)).toContain(id)
-    const abiertos = await app.inject({ method: 'GET', url: `${PREFIJO}/hallazgos?estado=Abierto` })
+    const abiertos = await app.inject(conToken({ method: 'GET', url: `${PREFIJO}/hallazgos?estado=Abierto` }))
     expect(abiertos.json().hallazgos.map((h: { id: string }) => h.id)).not.toContain(id)
   })
 
   it('el navegador puede enviar PATCH: CORS lo permite', async () => {
-    const r = await app.inject({
+    const r = await app.inject(conToken({
       method: 'OPTIONS',
       url: `${PREFIJO}/hallazgos/${await crear()}/estado`,
       headers: { origin: 'http://localhost:5173', 'access-control-request-method': 'PATCH' },
-    })
+    }))
     expect(r.headers['access-control-allow-methods']).toContain('PATCH')
   })
 })
 
 describe('salud', () => {
   it('avisa de que no hay persistencia', async () => {
-    const r = await app.inject({ method: 'GET', url: '/salud' })
+    const r = await app.inject(conToken({ method: 'GET', url: '/salud' }))
     expect(r.json().estado).toBe('ok')
     // Mientras sea false, lo que sirve la API son datos de ejemplo.
     expect(r.json().persistencia).toBe(false)

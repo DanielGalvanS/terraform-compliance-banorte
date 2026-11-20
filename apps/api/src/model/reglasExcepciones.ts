@@ -114,8 +114,13 @@ const normalizar = (nombre: string) => nombre.trim().toLocaleLowerCase('es')
  * vean todo; la ruta decide cuál responder primero.
  */
 export function validarDecision(
-  guardada: { estadoGuardado: EstadoExcepcion; venceEl: string; solicitadaPor: string },
-  decision: { decididaPor: string; comentario: string },
+  guardada: {
+    estadoGuardado: EstadoExcepcion
+    venceEl: string
+    solicitadaPor: string
+    solicitanteSujeto?: string | null
+  },
+  decision: { decididaPor: string; sujeto?: string; comentario: string },
   ahora: Date = new Date(),
 ): ResultadoDecision {
   // Se usa el estado vigente y no el guardado: una pendiente cuya fecha pasó
@@ -128,8 +133,14 @@ export function validarDecision(
 
   const motivos: MotivoRechazo[] = []
 
-  // Segregación de funciones: nadie se aprueba a sí mismo.
-  if (normalizar(decision.decididaPor) === normalizar(guardada.solicitadaPor)) {
+  // Segregación de funciones: nadie se aprueba a sí mismo. Se compara el
+  // identificador del token, que la persona no controla, y también el nombre:
+  // basta con que coincida uno para rechazar.
+  const mismoSujeto =
+    decision.sujeto !== undefined &&
+    guardada.solicitanteSujeto != null &&
+    decision.sujeto === guardada.solicitanteSujeto
+  if (mismoSujeto || normalizar(decision.decididaPor) === normalizar(guardada.solicitadaPor)) {
     motivos.push({
       campo: 'decididaPor',
       mensaje: 'Quien solicitó la excepción no puede decidirla.',
