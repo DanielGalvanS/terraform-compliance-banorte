@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import shutil
 import subprocess
@@ -93,8 +94,8 @@ def test_consultar_recurso_solo_lee_del_estado(plan_violaciones):
 
 def test_sin_api_las_busquedas_lo_dicen():
     contexto = ContextoFalso({herramientas.CLAVE_API: None})
-    assert herramientas.buscar_hallazgos("CO-NET-01", "x", contexto)["disponible"] is False
-    assert herramientas.buscar_excepciones("CO-NET-01", "x", contexto)["disponible"] is False
+    assert asyncio.run(herramientas.buscar_hallazgos("CO-NET-01", "x", contexto))["disponible"] is False
+    assert asyncio.run(herramientas.buscar_excepciones("CO-NET-01", "x", contexto))["disponible"] is False
 
 
 @pytest.mark.skipif(shutil.which("conftest") is None, reason="conftest no está instalado")

@@ -10,6 +10,11 @@ cambiarlo:
 
 - Sus cuatro herramientas son de solo lectura.
 - El resultado de la compuerta y la severidad los copia el código, no el modelo.
+- El modelo puede subir la urgencia de una violación, nunca bajarla de lo que
+  marca su severidad, y solo puede sugerir «ninguna» acción si el código confirma
+  una excepción activa en la API. Cada corrección queda en `ajustes`.
+- El texto del modelo se neutraliza antes del comentario del PR: no menciona a
+  nadie con `@`, ni inserta HTML, imágenes o enlaces.
 - Si el agente falla o responde algo incompleto, la decisión es `error_agente`,
   el comando sale con código 1 y el pipeline bloquea (regla segura, DEV-46).
 
@@ -85,13 +90,14 @@ export GOOGLE_CLOUD_LOCATION=us-central1
 - el veredicto copiado;
 - una clasificación por violación: prioridad, explicación, riesgo, remediación, acción sugerida, confianza y citas del catálogo;
 - las herramientas usadas;
+- los `ajustes` que el código hizo a la opinión del modelo;
 - el modelo y la versión del prompt.
 
 | `estado` | Cuándo | Código de salida |
 |---|---|---|
 | `analizado` | Clasificó todas las violaciones | 0 |
 | `sin_violaciones` | La compuerta dio conforme; no se llama al modelo | 0 |
-| `sin_analisis` | La compuerta dio error; ya bloquea ella | 0 |
+| `sin_analisis` | La compuerta dio error, o bloqueó sin violaciones legibles; ya bloquea ella | 0 |
 | `error_agente` | El modelo falló, se tardó o respondió incompleto | 1 (bloquea) |
 
 ## Datos de prueba
@@ -106,7 +112,8 @@ bash infra/pipelines/scripts/policy_check.sh infra/policies/fixtures/plan_violac
 ```
 
 Después se copia el resultado a `tests/datos/veredicto_violaciones.json`,
-dejando `fecha`, `commit` y `actor` con los valores fijos.
+dejando `fecha`, `commit` y `actor` con los valores fijos y `archivo` como
+ruta relativa (`infra/policies/fixtures/plan_violaciones.json`).
 
 ## Siguiente
 
