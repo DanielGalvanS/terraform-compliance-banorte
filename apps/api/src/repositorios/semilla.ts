@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { Hallazgo } from '../model/esquemas.ts'
+import type { HallazgoGuardado } from '../model/esquemas.ts'
 import type { RecursoGuardado } from '../model/recursos.ts'
 import type { ExcepcionGuardada } from './excepcionesRepositorio.ts'
 
@@ -8,7 +8,7 @@ import type { ExcepcionGuardada } from './excepcionesRepositorio.ts'
  * Son los mismos casos que muestra el prototipo, y cada uno cita un control
  * que existe en el catálogo.
  */
-export const hallazgosDeEjemplo: Hallazgo[] = [
+export const hallazgosDeEjemplo: HallazgoGuardado[] = [
   {
     id: randomUUID(),
     control: 'CO-NET-01',

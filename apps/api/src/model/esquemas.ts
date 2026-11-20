@@ -103,6 +103,13 @@ export const DetalleHallazgo = z.object({
   remediacion: Remediacion,
 })
 
+/** La excepción que cubre a un hallazgo, para enlazarla desde la pantalla. */
+export const ReferenciaExcepcion = z.object({
+  id: z.uuid(),
+  codigo: z.string(),
+  venceEl: z.string().describe('Fecha yyyy-mm-dd'),
+})
+
 export const Hallazgo = z.object({
   id: z.uuid(),
   control: z.string().nullable().describe('Código del control; nulo si ninguna política lo cubre'),
@@ -115,7 +122,16 @@ export const Hallazgo = z.object({
   mensaje: z.string(),
   detectadoEn: z.string().describe('Fecha ISO 8601'),
   detalle: DetalleHallazgo.optional(),
+  excepcion: ReferenciaExcepcion.nullable().describe(
+    'La excepción activa y vigente que lo cubre; con ella el estado se muestra como Excepción',
+  ),
 })
+
+/**
+ * Lo que se guarda de un hallazgo. La excepción que lo cubre no se guarda: se
+ * calcula al leer, para que vencer o revocar la excepción se refleje sola.
+ */
+export const HallazgoGuardado = Hallazgo.omit({ excepcion: true })
 
 /** Lo que el pipeline envía al detectar un incumplimiento. */
 export const NuevoHallazgo = z.object({
@@ -180,6 +196,7 @@ export type Accion = z.infer<typeof Accion>
 export type Marco = z.infer<typeof Marco>
 export type Control = z.infer<typeof Control>
 export type Hallazgo = z.infer<typeof Hallazgo>
+export type HallazgoGuardado = z.infer<typeof HallazgoGuardado>
 export type DetalleHallazgo = z.infer<typeof DetalleHallazgo>
 export type NuevoHallazgo = z.infer<typeof NuevoHallazgo>
 export type FiltroHallazgos = z.infer<typeof FiltroHallazgos>

@@ -168,8 +168,10 @@ export async function construirApp({
     await app.register(rutasSesion(secreto), { prefix: PREFIJO })
   }
   await app.register(rutasCatalogo(catalogo), { prefix: PREFIJO })
-  await app.register(rutasHallazgos(repositorio, repositorioEvidencia), { prefix: PREFIJO })
-  await app.register(rutasResumen(catalogo, repositorio), { prefix: PREFIJO })
+  await app.register(rutasHallazgos(repositorio, repositorioExcepciones, repositorioEvidencia), {
+    prefix: PREFIJO,
+  })
+  await app.register(rutasResumen(catalogo, repositorio, repositorioExcepciones), { prefix: PREFIJO })
   await app.register(rutasExcepciones(catalogo, repositorioExcepciones, repositorioEvidencia), { prefix: PREFIJO })
   await app.register(rutasEvidencia(repositorioEvidencia), { prefix: PREFIJO })
   await app.register(
@@ -182,7 +184,10 @@ export async function construirApp({
     ),
     { prefix: PREFIJO },
   )
-  await app.register(rutasRecursos(catalogo, recursosDeEjemplo, repositorio), { prefix: PREFIJO })
+  await app.register(
+    rutasRecursos(catalogo, recursosDeEjemplo, repositorio, repositorioExcepciones),
+    { prefix: PREFIJO },
+  )
 
   return app
 }

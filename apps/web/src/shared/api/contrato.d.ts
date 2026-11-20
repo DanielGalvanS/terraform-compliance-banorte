@@ -273,7 +273,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Hallazgos, con filtros opcionales */
+        /**
+         * Hallazgos, con filtros opcionales
+         * @description El estado se deriva: un hallazgo abierto o en remediación que cubre una excepción activa y vigente se muestra como Excepción, y vuelve solo a su estado cuando la excepción vence o se revoca. El filtro ?estado= usa ese estado mostrado.
+         */
         get: {
             parameters: {
                 query?: {
@@ -335,6 +338,14 @@ export interface paths {
                                         anadidas: string[];
                                     };
                                 };
+                                /** @description La excepción activa y vigente que lo cubre; con ella el estado se muestra como Excepción */
+                                excepcion: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    codigo: string;
+                                    /** @description Fecha yyyy-mm-dd */
+                                    venceEl: string;
+                                } | null;
                             }[];
                         };
                     };
@@ -441,6 +452,14 @@ export interface paths {
                                     anadidas: string[];
                                 };
                             };
+                            /** @description La excepción activa y vigente que lo cubre; con ella el estado se muestra como Excepción */
+                            excepcion: {
+                                /** Format: uuid */
+                                id: string;
+                                codigo: string;
+                                /** @description Fecha yyyy-mm-dd */
+                                venceEl: string;
+                            } | null;
                         };
                     };
                 };
@@ -488,6 +507,14 @@ export interface paths {
                                     anadidas: string[];
                                 };
                             };
+                            /** @description La excepción activa y vigente que lo cubre; con ella el estado se muestra como Excepción */
+                            excepcion: {
+                                /** Format: uuid */
+                                id: string;
+                                codigo: string;
+                                /** @description Fecha yyyy-mm-dd */
+                                venceEl: string;
+                            } | null;
                         };
                     };
                 };
@@ -586,6 +613,14 @@ export interface paths {
                                     anadidas: string[];
                                 };
                             };
+                            /** @description La excepción activa y vigente que lo cubre; con ella el estado se muestra como Excepción */
+                            excepcion: {
+                                /** Format: uuid */
+                                id: string;
+                                codigo: string;
+                                /** @description Fecha yyyy-mm-dd */
+                                venceEl: string;
+                            } | null;
                         };
                     };
                 };
@@ -650,7 +685,7 @@ export interface paths {
         head?: never;
         /**
          * Cambia el estado de un hallazgo
-         * @description Solo se permiten estas transiciones: Abierto → En remediación, Cerrado; En remediación → Abierto, Cerrado; Cerrado → Abierto; Excepción → ninguno. Otra responde 409. A Excepción no se llega por aquí sino aprobando una excepción (422), para no saltarse la aprobación humana. El comentario es obligatorio (422) y el cambio queda en el registro de evidencia.
+         * @description Solo se permiten estas transiciones: Abierto → En remediación, Cerrado; En remediación → Abierto, Cerrado; Cerrado → Abierto; Excepción → ninguno. Otra responde 409. A Excepción no se llega por aquí sino aprobando una excepción (422), para no saltarse la aprobación humana. Uno cubierto por una excepción vigente tampoco cambia por aquí (409): hay que revocarla o esperar a que venza. El comentario es obligatorio (422) y el cambio queda en el registro de evidencia.
          */
         patch: {
             parameters: {
@@ -716,6 +751,14 @@ export interface paths {
                                     anadidas: string[];
                                 };
                             };
+                            /** @description La excepción activa y vigente que lo cubre; con ella el estado se muestra como Excepción */
+                            excepcion: {
+                                /** Format: uuid */
+                                id: string;
+                                codigo: string;
+                                /** @description Fecha yyyy-mm-dd */
+                                venceEl: string;
+                            } | null;
                         };
                     };
                 };

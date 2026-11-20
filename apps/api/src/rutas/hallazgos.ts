@@ -10,7 +10,14 @@ import {
 } from '../model/esquemas.ts'
 import { TRANSICIONES, validarCambioEstado } from '../model/reglasHallazgos.ts'
 import type { EvidenciaRepositorio } from '../repositorios/evidenciaRepositorio.ts'
+import type { ExcepcionesRepositorio } from '../repositorios/excepcionesRepositorio.ts'
 import type { HallazgosRepositorio } from '../repositorios/hallazgosRepositorio.ts'
+import {
+  completarHallazgo,
+  excepcionesActivas,
+  listarHallazgos,
+  obtenerHallazgo,
+} from './hallazgosVigentes.ts'
 
 /** Error con el detalle de cada campo rechazado, no solo un mensaje suelto. */
 const ErrorValidacion = ErrorRespuesta.extend({
@@ -23,6 +30,7 @@ const transicionesLegibles = Object.entries(TRANSICIONES)
 
 export function rutasHallazgos(
   repositorio: HallazgosRepositorio,
+  excepciones: ExcepcionesRepositorio,
   evidencia: EvidenciaRepositorio,
 ): FastifyPluginAsyncZod {
   return async (app) => {
@@ -32,12 +40,19 @@ export function rutasHallazgos(
         onRequest: requiere('leer'),
         schema: {
           summary: 'Hallazgos, con filtros opcionales',
+          description:
+            'El estado se deriva: un hallazgo abierto o en remediación que cubre una ' +
+            'excepción activa y vigente se muestra como Excepción, y vuelve solo a su ' +
+            'estado cuando la excepción vence o se revoca. El filtro ?estado= usa ese ' +
+            'estado mostrado.',
           tags: ['hallazgos'],
           querystring: FiltroHallazgos,
           response: { ...respuestasAuth, 200: z.object({ hallazgos: z.array(Hallazgo) }) },
         },
       },
-      async (peticion) => ({ hallazgos: await repositorio.listar(peticion.query) }),
+      async (peticion) => ({
+        hallazgos: await listarHallazgos(repositorio, excepciones, peticion.query),
+      }),
     )
 
     app.get(
@@ -52,7 +67,7 @@ export function rutasHallazgos(
         },
       },
       async (peticion, respuesta) => {
-        const hallazgo = await repositorio.obtener(peticion.params.id)
+        const hallazgo = await obtenerHallazgo(repositorio, excepciones, peticion.params.id)
         if (hallazgo === null) {
           return respuesta.code(404).send({ error: 'No existe ese hallazgo' })
         }
@@ -80,8 +95,10 @@ export function rutasHallazgos(
       async (peticion, respuesta) => {
         const clave = peticion.headers['idempotency-key']
         const { hallazgo, yaExistia } = await repositorio.crear(peticion.body, clave)
+        // Un hallazgo nuevo puede nacer cubierto por una excepción ya aprobada.
+        const completo = completarHallazgo(hallazgo, await excepcionesActivas(excepciones))
         // 200 y no 201: con un reintento no se creó nada nuevo.
-        return respuesta.code(yaExistia ? 200 : 201).send(hallazgo)
+        return respuesta.code(yaExistia ? 200 : 201).send(completo)
       },
     )
 
@@ -96,8 +113,9 @@ export function rutasHallazgos(
           description:
             `Solo se permiten estas transiciones: ${transicionesLegibles}. Otra responde ` +
             '409. A Excepción no se llega por aquí sino aprobando una excepción (422), para ' +
-            'no saltarse la aprobación humana. El comentario es obligatorio (422) y el ' +
-            'cambio queda en el registro de evidencia.',
+            'no saltarse la aprobación humana. Uno cubierto por una excepción vigente ' +
+            'tampoco cambia por aquí (409): hay que revocarla o esperar a que venza. El ' +
+            'comentario es obligatorio (422) y el cambio queda en el registro de evidencia.',
           tags: ['hallazgos'],
           params: z.object({ id: z.uuid() }),
           body: CambioEstadoHallazgo,
@@ -113,9 +131,19 @@ export function rutasHallazgos(
       async (peticion, respuesta) => {
         const { estado, comentario } = peticion.body
         const quien = actor(peticion)
-        const hallazgo = await repositorio.obtener(peticion.params.id)
+        const hallazgo = await obtenerHallazgo(repositorio, excepciones, peticion.params.id)
         if (hallazgo === null) {
           return respuesta.code(404).send({ error: 'No existe ese hallazgo' })
+        }
+
+        // Mientras la excepción lo cubre, cerrarlo o reabrirlo a mano dejaría
+        // el registro diciendo dos cosas a la vez. El camino es revocarla.
+        if (hallazgo.excepcion !== null) {
+          return respuesta.code(409).send({
+            error:
+              `Está cubierto por la excepción ${hallazgo.excepcion.codigo} hasta ` +
+              `${hallazgo.excepcion.venceEl}; revócala o espera a que venza.`,
+          })
         }
 
         const { conflicto, motivos } = validarCambioEstado(hallazgo.estado, estado, comentario)
@@ -147,7 +175,7 @@ export function rutasHallazgos(
             sujeto: quien.sujeto,
           },
         })
-        return cambiado
+        return completarHallazgo(cambiado, await excepcionesActivas(excepciones))
       },
     )
   }
