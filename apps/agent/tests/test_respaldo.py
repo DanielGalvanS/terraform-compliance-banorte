@@ -13,7 +13,7 @@ from google.genai import errors
 from agente import acciones, agent
 from agente.ejecutar import analizar
 
-from conftest import ModeloFalso
+from conftest import DATOS, ModeloFalso
 
 
 def saturado() -> errors.ServerError:
@@ -94,3 +94,46 @@ def test_cada_llamada_a_gemini_tiene_limite_y_pocos_reintentos():
 def test_motivos_legibles(veredicto_violaciones, plan_violaciones, error, motivo):
     decision = analizar(veredicto_violaciones, plan_violaciones, modelo=ModeloFalso(excepcion=error, peticiones=[]), intentos=1)
     assert decision.error == f"modelo-falso: {motivo}"
+
+
+def test_secretos_e_iam_siempre_se_escalan(veredicto_violaciones, plan_violaciones, modelo):
+    """En la prueba real, lite sugirió un PR para la contraseña en texto plano."""
+    decision = analizar(veredicto_violaciones, plan_violaciones, modelo=modelo)  # el falso sugiere proponer_pr a todo
+
+    acciones_por_control = {c.control: c.accion_sugerida for c in decision.clasificaciones}
+    assert acciones_por_control["CO-SEC-01"] == "escalar_jira"
+    assert acciones_por_control["CO-IAM-01"] == "escalar_jira"
+    assert acciones_por_control["CO-TAG-01"] == "proponer_pr"
+    assert any("rotar" in a for a in decision.ajustes)
+
+
+GUION_CLI = """
+import sys
+sys.path[:0] = [".", "tests"]
+import agente.cli as cli
+from conftest import ModeloFalso
+from test_respaldo import saturado
+original = cli.analizar
+cli.analizar = lambda *a, **k: original(*a, **k, modelo=ModeloFalso(excepcion=saturado(), peticiones=[]), intentos=1)
+sys.exit(cli.main(sys.argv[1:]))
+"""
+
+
+def test_la_cli_no_imprime_el_rastro_de_adk(tmp_path):
+    """En un proceso aparte: dentro de pytest los logs se capturan y no se verían."""
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    entorno = {k: v for k, v in os.environ.items() if k != "AGENTE_DEBUG"}
+    corrida = subprocess.run(
+        [sys.executable, "-c", GUION_CLI, "analizar",
+         "--veredicto", str(DATOS / "veredicto_violaciones.json"),
+         "--salida", str(tmp_path / "decision.json")],
+        cwd=Path(__file__).parents[1], env=entorno, capture_output=True, text=True, check=False,
+    )
+
+    assert corrida.returncode == 1
+    assert "Traceback" not in corrida.stderr
+    assert "modelo saturado o sin respuesta (503)" in corrida.stderr

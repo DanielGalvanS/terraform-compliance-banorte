@@ -12,7 +12,9 @@ cambiarlo:
 - El resultado de la compuerta y la severidad los copia el código, no el modelo.
 - El modelo puede subir la urgencia de una violación, nunca bajarla de lo que
   marca su severidad, y solo puede sugerir «ninguna» acción si el código confirma
-  una excepción activa en la API. Cada corrección queda en `ajustes`.
+  una excepción activa en la API. Los secretos expuestos (CO-SEC-01) y los
+  permisos amplios de IAM (CO-IAM-01) siempre se escalan, aunque el modelo
+  sugiera un PR. Cada corrección queda en `ajustes`.
 - El texto del modelo se neutraliza antes del comentario del PR: no menciona a
   nadie con `@`, ni inserta HTML, imágenes o enlaces.
 - Si el agente falla o responde algo incompleto, la decisión es `error_agente`,
@@ -81,6 +83,7 @@ export GOOGLE_CLOUD_LOCATION=us-central1
 | `MODELO_AGENTE` | Modelo de Gemini | `gemini-3.5-flash` |
 | `MODELO_RESPALDO` | Modelo del segundo intento si el primero falla; vacío lo desactiva | `gemini-3.5-flash-lite` |
 | `API_URL` | API de cumplimiento, para `buscar_hallazgos` y `buscar_excepciones` | sin API: las búsquedas responden "no disponible" |
+| `AGENTE_DEBUG` | `1` muestra el rastro completo de ADK cuando Gemini falla | apagado: el motivo sale en una línea |
 | `RUTA_CATALOGO` | Catálogo de controles | `infra/policies/mappings.yaml` |
 
 ## Salida
