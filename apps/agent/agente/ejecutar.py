@@ -46,6 +46,13 @@ RESULTADOS_VALIDOS = {"conforme", "bloqueado", "error"}
 PRIORIDAD_POR_SEVERIDAD = {"Crítica": 1, "Alta": 2, "Media": 3, "Baja": 4}
 # Solo se registran las herramientas del agente, no las internas de ADK
 # (por ejemplo set_model_response, con la que algunos modelos entregan la salida).
+# Controles que un PR de Terraform no resuelve solo: un secreto que ya pasó por
+# el plan hay que rotarlo, y un permiso amplio de IAM lo decide su dueño.
+# Aunque el modelo sugiera proponer_pr, se escalan.
+SIEMPRE_ESCALAR = {
+    "CO-SEC-01": "un secreto expuesto se tiene que rotar, no basta con cambiar el código",
+    "CO-IAM-01": "quitar un permiso amplio lo decide el dueño de la cuenta",
+}
 NOMBRES_HERRAMIENTAS = frozenset(h.__name__ for h in HERRAMIENTAS)
 
 
@@ -165,6 +172,9 @@ async def _armar_clasificaciones(
 
         if opinion["accion_sugerida"] == "ninguna" and not await hay_excepcion_activa(api_url, v.control, v.recurso):
             ajustes.append(f"{v.id}: acción «ninguna» → escalar_jira; no hay una excepción activa que la respalde")
+            opinion["accion_sugerida"] = "escalar_jira"
+        elif opinion["accion_sugerida"] == "proponer_pr" and v.control in SIEMPRE_ESCALAR:
+            ajustes.append(f"{v.id}: acción proponer_pr → escalar_jira; {SIEMPRE_ESCALAR[v.control]}")
             opinion["accion_sugerida"] = "escalar_jira"
 
         resultado.append(
