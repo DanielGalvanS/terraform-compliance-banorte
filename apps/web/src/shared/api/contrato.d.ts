@@ -826,6 +826,18 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Default Response */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
             };
         };
         trace?: never;
@@ -1406,6 +1418,18 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Default Response */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
             };
         };
         delete?: never;
@@ -1557,6 +1581,18 @@ export interface paths {
                                 campo: string;
                                 mensaje: string;
                             }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
                         };
                     };
                 };
@@ -1714,6 +1750,18 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Default Response */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
             };
         };
         delete?: never;
@@ -1792,6 +1840,18 @@ export interface paths {
                 };
                 /** @description Default Response */
                 403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                503: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -2172,6 +2232,18 @@ export interface paths {
                                 campo: string;
                                 mensaje: string;
                             }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
                         };
                     };
                 };

@@ -24,6 +24,7 @@ import type {
   ExcepcionesRepositorio,
   ExcepcionGuardada,
 } from '../repositorios/excepcionesRepositorio.ts'
+import { respuestaSinEvidencia } from './respuestas.ts'
 
 /** Error con el detalle de cada campo rechazado, no solo un mensaje suelto. */
 const ErrorValidacion = ErrorRespuesta.extend({
@@ -42,6 +43,7 @@ const CuerpoDecision = z.object({
 
 const respuestasDecision = {
   ...respuestasAuth,
+  ...respuestaSinEvidencia,
   200: Excepcion,
   404: ErrorRespuesta,
   409: ErrorRespuesta,
@@ -125,6 +127,18 @@ export function rutasExcepciones(
       }
     }
 
+    // La evidencia va antes que el cambio: si el bucket no la acepta, lanza
+    // EvidenciaNoDisponible, la API responde 503 y la excepción queda como
+    // estaba. Un cambio sin evidencia es peor que una evidencia de un intento:
+    // lo segundo solo puede pasar si el cambio falla después de validarse, y
+    // con Postgres esto irá en una transacción.
+    await evidencia.registrar({
+      tipo: estado === 'Activa' ? 'excepcion.aprobada' : 'excepcion.rechazada',
+      objetoId: guardada.id,
+      actor: quien.nombre,
+      detalle: { codigo: guardada.codigo, comentario: comentario.trim(), sujeto: quien.sujeto },
+    })
+
     const decidida = await repositorio.decidir(id, {
       estado,
       decididaPor: quien.nombre,
@@ -135,19 +149,6 @@ export function rutasExcepciones(
     if (decidida === null) {
       return { codigo: 404 as const, cuerpo: { error: 'No existe esa excepción' } }
     }
-
-    // Se registra después de decidir, no antes: la evidencia describe lo que
-    // pasó, y una decisión que falló no pasó.
-    await evidencia.registrar({
-      tipo: estado === 'Activa' ? 'excepcion.aprobada' : 'excepcion.rechazada',
-      objetoId: decidida.id,
-      actor: quien.nombre,
-      detalle: {
-        codigo: decidida.codigo,
-        comentario: decidida.comentarioDecision ?? '',
-        sujeto: quien.sujeto,
-      },
-    })
     return { codigo: 200 as const, cuerpo: completar(decidida, await hallazgosAbiertos()) }
   }
 
@@ -324,24 +325,22 @@ export function rutasExcepciones(
         }
 
         const quien = actor(peticion)
+        const motivo = peticion.body.comentario.trim()
+        // Evidencia primero, como al decidir: sin ella no se revoca.
+        await evidencia.registrar({
+          tipo: 'excepcion.revocada',
+          objetoId: guardada.id,
+          actor: quien.nombre,
+          detalle: { codigo: guardada.codigo, comentario: motivo, sujeto: quien.sujeto },
+        })
         const revocada = await repositorio.revocar(guardada.id, {
           revocadaPor: quien.nombre,
-          motivo: peticion.body.comentario.trim(),
+          motivo,
           revocadaEn: new Date().toISOString(),
         })
         if (revocada === null) {
           return respuesta.code(404).send({ error: 'No existe esa excepción' })
         }
-        await evidencia.registrar({
-          tipo: 'excepcion.revocada',
-          objetoId: revocada.id,
-          actor: quien.nombre,
-          detalle: {
-            codigo: revocada.codigo,
-            comentario: revocada.motivoRevocacion ?? '',
-            sujeto: quien.sujeto,
-          },
-        })
         return completar(revocada, await hallazgosAbiertos())
       },
     )

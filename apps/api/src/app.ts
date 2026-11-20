@@ -13,6 +13,7 @@ import { z } from 'zod'
 import { registrarAutenticacion } from './auth/autorizacion.ts'
 import { verificadorJwks, verificadorLocal, type Verificador } from './auth/verificador.ts'
 import type { Config } from './config.ts'
+import { EvidenciaNoDisponible } from './repositorios/almacenObjetos.ts'
 import { cargarCatalogo } from './repositorios/catalogoRepositorio.ts'
 import {
   decisionesEnMemoria,
@@ -105,6 +106,19 @@ export async function construirApp({
 
   const secreto = secretoLocal(config)
   registrarAutenticacion(app, verificador ?? construirVerificador(config, secreto))
+
+  // Sin evidencia no hay cambio: las rutas la escriben antes de aplicar
+  // nada, y si el bucket no la acepta se responde 503 con el cambio sin
+  // aplicar. Cualquier otro error sigue al manejador por defecto.
+  app.setErrorHandler((error, peticion, respuesta) => {
+    if (error instanceof EvidenciaNoDisponible) {
+      peticion.log.error({ err: error.cause }, 'el bucket de evidencia no respondió')
+      return respuesta.code(503).send({
+        error: 'No se pudo registrar la evidencia; el cambio no se aplicó',
+      })
+    }
+    throw error
+  })
 
   app.setValidatorCompiler(validatorCompiler)
   app.setSerializerCompiler(serializerCompiler)

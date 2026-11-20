@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { requiere, respuestasAuth } from '../auth/autorizacion.ts'
 import { EventoEvidencia, TipoEvento } from '../model/esquemas.ts'
 import type { EvidenciaRepositorio } from '../repositorios/evidenciaRepositorio.ts'
+import { respuestaSinEvidencia } from './respuestas.ts'
 
 export function rutasEvidencia(evidencia: EvidenciaRepositorio): FastifyPluginAsyncZod {
   return async (app) => {
@@ -23,6 +24,9 @@ export function rutasEvidencia(evidencia: EvidenciaRepositorio): FastifyPluginAs
           }),
           response: {
             ...respuestasAuth,
+            // verificar() relee el bucket; si no responde, no se puede decir
+            // que la cadena esté íntegra.
+            ...respuestaSinEvidencia,
             200: z.object({
               eventos: z.array(EventoEvidencia),
               integra: z.boolean().describe('Si ningún evento del registro fue alterado'),

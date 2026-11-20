@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
 import { actor, requiere, respuestasAuth } from '../auth/autorizacion.ts'
@@ -15,6 +16,7 @@ import type { DecisionesRepositorio } from '../repositorios/decisionesRepositori
 import type { EvidenciaRepositorio } from '../repositorios/evidenciaRepositorio.ts'
 import type { ExcepcionesRepositorio } from '../repositorios/excepcionesRepositorio.ts'
 import type { HallazgosRepositorio } from '../repositorios/hallazgosRepositorio.ts'
+import { respuestaSinEvidencia } from './respuestas.ts'
 
 const ErrorValidacion = ErrorRespuesta.extend({
   motivos: z.array(z.object({ campo: z.string(), mensaje: z.string() })),
@@ -60,6 +62,7 @@ export function rutasDecisiones(
             201: DecisionAgente,
             409: ErrorRespuesta,
             422: ErrorValidacion,
+            ...respuestaSinEvidencia,
           },
         },
       },
@@ -104,22 +107,27 @@ export function rutasDecisiones(
         )
 
         const quien = actor(peticion)
-        const decision = await repositorio.crear({
-          ...nueva,
-          clasificaciones,
-          registradaPor: quien.nombre,
-        })
+        // Evidencia primero: si el bucket no la acepta, responde 503 y la
+        // decisión no se guarda. El agente lo trata como cualquier otro fallo
+        // de registro y bloquea el pipeline.
+        const id = randomUUID()
         await evidencia.registrar({
           tipo: 'agente.decision',
-          objetoId: decision.id,
+          objetoId: id,
           actor: quien.nombre,
           detalle: {
-            ejecucionId: decision.ejecucionId,
-            estado: decision.estado,
-            resultadoCompuerta: decision.resultadoCompuerta,
-            hashEntradas: decision.hashEntradas,
+            ejecucionId: nueva.ejecucionId,
+            estado: nueva.estado,
+            resultadoCompuerta: nueva.resultadoCompuerta,
+            hashEntradas: nueva.hashEntradas,
             sujeto: quien.sujeto,
           },
+        })
+        const decision = await repositorio.crear({
+          ...nueva,
+          id,
+          clasificaciones,
+          registradaPor: quien.nombre,
         })
         return respuesta.code(201).send(decision)
       },

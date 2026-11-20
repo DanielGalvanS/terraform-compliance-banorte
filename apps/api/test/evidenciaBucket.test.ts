@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
+import { construirApp, PREFIJO } from '../src/app.ts'
+import { configDePrueba, conToken, tokenDe, USUARIOS } from './auth.ts'
 import {
   almacenEnMemoria,
   almacenGcs,
@@ -171,5 +173,94 @@ describe('almacén sobre Cloud Storage', () => {
     expect(await almacen.leer('evidencia/0000000001.json')).toBe(
       'contenido de evidencia/0000000001.json',
     )
+  })
+})
+
+describe('sin evidencia no hay cambio', () => {
+  let app: Awaited<ReturnType<typeof construirApp>>
+  let ana: string
+  let roberto: string
+
+  beforeAll(async () => {
+    // El bucket carga bien, pero no acepta escrituras.
+    app = await construirApp({
+      config: configDePrueba(),
+      evidencia: await evidenciaEnBucket(almacenCaido({ crear: true })),
+    })
+    await app.ready()
+    ana = await tokenDe(USUARIOS.lead)
+    roberto = await tokenDe(USUARIOS.aprobador)
+  })
+
+  const pedir = (metodo: 'GET' | 'POST' | 'PATCH', ruta: string, token = ana, payload?: object) =>
+    app.inject(conToken({ method: metodo, url: `${PREFIJO}${ruta}`, ...(payload ? { payload } : {}) }, token))
+
+  const excepcion = async (codigo: string) =>
+    (await pedir('GET', '/excepciones')).json().excepciones.find((e: { codigo: string }) => e.codigo === codigo)
+
+  it('aprobar responde 503 y la excepción sigue pendiente', async () => {
+    const pendiente = await excepcion('EXC-1044')
+    const r = await pedir('POST', `/excepciones/${pendiente.id}/aprobar`, roberto, {
+      comentario: 'Riesgo aceptado hasta la migración',
+    })
+    expect(r.statusCode).toBe(503)
+    expect(r.json().error).toContain('no se aplicó')
+    expect((await excepcion('EXC-1044')).estado).toBe('Pendiente')
+  })
+
+  it('revocar responde 503 y la excepción sigue activa', async () => {
+    const activa = await excepcion('EXC-1048')
+    const r = await pedir('POST', `/excepciones/${activa.id}/revocar`, ana, {
+      comentario: 'Se corrigió el firewall en el PR 57',
+    })
+    expect(r.statusCode).toBe(503)
+    expect((await excepcion('EXC-1048')).estado).toBe('Activa')
+  })
+
+  it('cambiar el estado de un hallazgo responde 503 y no cambia', async () => {
+    const abierto = (await pedir('GET', '/hallazgos?estado=Abierto')).json().hallazgos[0]
+    const r = await pedir('PATCH', `/hallazgos/${abierto.id}/estado`, roberto, {
+      estado: 'En remediación',
+      comentario: 'Asignado al equipo de red',
+    })
+    expect(r.statusCode).toBe(503)
+    expect((await pedir('GET', `/hallazgos/${abierto.id}`)).json().estado).toBe('Abierto')
+  })
+
+  it('la decisión del agente responde 503 y no se guarda', async () => {
+    const ejecucionId = crypto.randomUUID()
+    const r = await pedir('POST', '/decisiones', await tokenDe(USUARIOS.agente), {
+      ejecucionId,
+      fecha: '2026-11-20T12:00:00+00:00',
+      origen: 'Plan',
+      ambiente: 'Dev',
+      commit: 'abc1234',
+      resultadoCompuerta: 'conforme',
+      estado: 'sin_violaciones',
+      resumen: 'Sin violaciones.',
+      versionPrompt: '3',
+      hashEntradas: `sha256:${'a'.repeat(64)}`,
+    })
+    expect(r.statusCode).toBe(503)
+    expect((await pedir('GET', `/decisiones?ejecucionId=${ejecucionId}`)).json().decisiones).toEqual([])
+  })
+
+  it('los demás errores siguen como antes: un id inválido es 400', async () => {
+    expect((await pedir('GET', '/hallazgos/no-es-uuid')).statusCode).toBe(400)
+  })
+
+  it('si el bucket no responde al verificar, GET /evidencia responde 503', async () => {
+    let llamadas = 0
+    const base = almacenEnMemoria()
+    // Responde al cargar y falla después, como un bucket que se cae.
+    const inestable: AlmacenObjetos = {
+      ...base,
+      listar: (prefijo) =>
+        llamadas++ === 0 ? base.listar(prefijo) : Promise.reject(new Error('503 del bucket')),
+    }
+    const otra = await construirApp({ config: configDePrueba(), evidencia: await evidenciaEnBucket(inestable) })
+    const r = await otra.inject(conToken({ method: 'GET', url: `${PREFIJO}/evidencia` }))
+    expect(r.statusCode).toBe(503)
+    await otra.close()
   })
 })
