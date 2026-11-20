@@ -9,6 +9,20 @@ import { z } from 'zod'
  */
 
 export const Severidad = z.enum(['Crítica', 'Alta', 'Media', 'Baja'])
+
+/**
+ * Roles de la plataforma. Los cuatro primeros son personas (el diseño de OIDC);
+ * Agente y Pipeline son servicios con identidad propia, para que su acceso se
+ * pueda acotar y auditar igual que el de una persona.
+ */
+export const Rol = z.enum([
+  'Compliance Lead',
+  'Aprobador',
+  'Desarrollador',
+  'Auditor',
+  'Agente',
+  'Pipeline',
+])
 export const Ambiente = z.enum(['Dev', 'QA', 'Prod'])
 export const EstadoHallazgo = z.enum(['Abierto', 'En remediación', 'Excepción', 'Cerrado'])
 export const Origen = z.enum(['Plan', 'Drift', 'Evento', 'Auditoría'])
@@ -139,6 +153,7 @@ export const Error = z.object({
   detalle: z.string().optional(),
 })
 
+export type Rol = z.infer<typeof Rol>
 export type Marco = z.infer<typeof Marco>
 export type Control = z.infer<typeof Control>
 export type Hallazgo = z.infer<typeof Hallazgo>
