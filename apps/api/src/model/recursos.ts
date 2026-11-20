@@ -76,3 +76,20 @@ export function etiquetasFaltantes(
     return valor === undefined || valor.trim() === ''
   })
 }
+
+/**
+ * Si dos direcciones de Terraform nombran el mismo recurso.
+ *
+ * La compuerta reporta la dirección completa, con el módulo
+ * (`module.red.google_compute_firewall.allow_ssh`), y un hallazgo puede
+ * guardar la corta (`google_compute_firewall.allow_ssh`). Se acepta que una
+ * termine en la otra, pero siempre con tipo y nombre: comparar solo el nombre
+ * confundiría `google_sql_database_instance.main` con
+ * `google_compute_instance.main`.
+ */
+export function coincideRecurso(guardado: string, buscado: string): boolean {
+  const a = guardado.trim()
+  const b = buscado.trim()
+  if (a === '' || b === '') return false
+  return a === b || a.endsWith(`.${b}`) || b.endsWith(`.${a}`)
+}

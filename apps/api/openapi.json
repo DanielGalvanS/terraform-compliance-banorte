@@ -493,6 +493,15 @@
             "in": "query",
             "name": "control",
             "required": false
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "recurso",
+            "required": false,
+            "description": "Dirección de Terraform, corta o con módulo; ver coincideRecurso"
           }
         ],
         "responses": {
@@ -1974,6 +1983,15 @@
             "in": "query",
             "name": "control",
             "required": false
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "recurso",
+            "required": false,
+            "description": "Dirección de Terraform, corta o con módulo; ver coincideRecurso"
           }
         ],
         "responses": {

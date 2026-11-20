@@ -143,6 +143,10 @@ export const FiltroHallazgos = z.object({
   ambiente: Ambiente.optional(),
   estado: EstadoHallazgo.optional(),
   control: z.string().optional(),
+  recurso: z
+    .string()
+    .optional()
+    .describe('Dirección de Terraform, corta o con módulo; ver coincideRecurso'),
 })
 
 /**
@@ -244,6 +248,10 @@ export const FiltroExcepciones = z.object({
   estado: EstadoExcepcion.optional(),
   ambiente: Ambiente.optional(),
   control: z.string().optional(),
+  recurso: z
+    .string()
+    .optional()
+    .describe('Dirección de Terraform, corta o con módulo; ver coincideRecurso'),
 })
 
 export type Excepcion = z.infer<typeof Excepcion>

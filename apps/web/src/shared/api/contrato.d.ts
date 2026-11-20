@@ -281,6 +281,8 @@ export interface paths {
                     ambiente?: "Dev" | "QA" | "Prod";
                     estado?: "Abierto" | "En remediación" | "Excepción" | "Cerrado";
                     control?: string;
+                    /** @description Dirección de Terraform, corta o con módulo; ver coincideRecurso */
+                    recurso?: string;
                 };
                 header?: never;
                 path?: never;
@@ -880,6 +882,8 @@ export interface paths {
                     estado?: "Pendiente" | "Activa" | "Vencida" | "Rechazada" | "Revocada";
                     ambiente?: "Dev" | "QA" | "Prod";
                     control?: string;
+                    /** @description Dirección de Terraform, corta o con módulo; ver coincideRecurso */
+                    recurso?: string;
                 };
                 header?: never;
                 path?: never;
