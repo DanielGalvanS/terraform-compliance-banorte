@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 import { configDePrueba, conToken } from './auth.ts'
 import { construirApp, PREFIJO } from '../src/app.ts'
-import { estadoDeRecurso, etiquetasFaltantes } from '../src/model/recursos.ts'
+import { coincideRecurso, estadoDeRecurso, etiquetasFaltantes } from '../src/model/recursos.ts'
 
 const OBLIGATORIAS = ['duenio', 'ambiente', 'clasificacion_datos', 'centro_costos', 'marco_aplicable']
 const completas = Object.fromEntries(OBLIGATORIAS.map((c) => [c, 'x']))
@@ -64,6 +64,35 @@ describe('estado derivado', () => {
 
   it('una excepción vigente tampoco', () => {
     expect(estadoDeRecurso([], [{ estado: 'Excepción' }])).toBe('Conforme')
+  })
+})
+
+describe('coincidencia de recursos', () => {
+  const corta = 'google_compute_firewall.allow_ssh'
+
+  it('la misma dirección coincide', () => {
+    expect(coincideRecurso(corta, corta)).toBe(true)
+  })
+
+  it('la dirección con módulo coincide con la corta, en los dos sentidos', () => {
+    const larga = `module.firewall.${corta}`
+    expect(coincideRecurso(corta, larga)).toBe(true)
+    expect(coincideRecurso(larga, corta)).toBe(true)
+  })
+
+  it('el mismo nombre con otro tipo no coincide', () => {
+    expect(
+      coincideRecurso('google_sql_database_instance.main', 'google_compute_instance.main'),
+    ).toBe(false)
+  })
+
+  it('un nombre que solo contiene al otro no coincide', () => {
+    expect(coincideRecurso(corta, 'google_compute_firewall.allow_ssh_extra')).toBe(false)
+    expect(coincideRecurso(corta, 'ssh')).toBe(false)
+  })
+
+  it('vacío no coincide con nada', () => {
+    expect(coincideRecurso(corta, '')).toBe(false)
   })
 })
 

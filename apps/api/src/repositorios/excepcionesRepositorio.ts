@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { EstadoExcepcion, Excepcion, FiltroExcepciones } from '../model/esquemas.ts'
+import { coincideRecurso } from '../model/recursos.ts'
 import { estadoVigente } from '../model/reglasExcepciones.ts'
 
 /** Lo que el repositorio guarda; el estado mostrado se deriva al leer. */
@@ -55,6 +56,7 @@ export function excepcionesEnMemoria(semilla: ExcepcionGuardada[] = []): Excepci
         (e) =>
           (filtro.ambiente === undefined || e.ambiente === filtro.ambiente) &&
           (filtro.control === undefined || e.control === filtro.control) &&
+          (filtro.recurso === undefined || coincideRecurso(e.recurso, filtro.recurso)) &&
           (filtro.estado === undefined ||
             estadoVigente(e.estadoGuardado, e.venceEl) === filtro.estado),
       )

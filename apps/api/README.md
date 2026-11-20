@@ -45,18 +45,21 @@ de incumplimientos que luego se reporta al auditor.
 | GET | `/api/v1/resumen` | Cifras de portada |
 | GET | `/api/v1/marcos` | Marcos en alcance |
 | GET | `/api/v1/controles` | Controles y su mapeo; filtra por `?marco=` |
-| GET | `/api/v1/hallazgos` | Hallazgos, con filtros |
+| GET | `/api/v1/hallazgos` | Hallazgos, con filtros; `?recurso=` acepta la dirección con módulo |
 | GET | `/api/v1/hallazgos/:id` | Un hallazgo |
 | POST | `/api/v1/hallazgos` | Registra uno; acepta `Idempotency-Key` |
 | PATCH | `/api/v1/hallazgos/:id/estado` | Cambia su estado; ver «Estados de un hallazgo» |
-| GET | `/api/v1/excepciones` | Excepciones, con filtros; el estado se deriva de la fecha |
+| GET | `/api/v1/excepciones` | Excepciones, con filtros (también `?recurso=`); el estado se deriva de la fecha |
 | POST | `/api/v1/excepciones` | Solicita una; siempre nace `Pendiente` |
 | GET | `/api/v1/excepciones/:id` | Una excepción |
 | POST | `/api/v1/excepciones/:id/aprobar` | La aprueba: pasa a `Activa` |
 | POST | `/api/v1/excepciones/:id/rechazar` | La rechaza: pasa a `Rechazada` |
 | GET | `/api/v1/evidencia` | Registro de evidencia y si la cadena está íntegra; filtra por `?tipo=` y `?objetoId=` |
+| POST | `/api/v1/decisiones` | El agente registra la decisión de una ejecución; solo rol Agente |
+| GET | `/api/v1/decisiones` | Decisiones del agente; filtra por `?ejecucionId=` y `?estado=` |
+| GET | `/api/v1/decisiones/:id` | Una decisión |
 
-Siguen pendientes las decisiones del agente y las aprobaciones de despliegue.
+Siguen pendientes las aprobaciones de despliegue.
 
 ## Decidir una excepción
 
@@ -78,6 +81,34 @@ lo controla: cambiar su nombre en el proveedor de identidad no le permite
 aprobar lo suyo.
 
 Cada decisión queda en el registro de evidencia.
+
+## Decisiones del agente
+
+El agente (`apps/agent`) lee hallazgos y excepciones con `GET` y, al terminar
+cada ejecución, registra su decisión con `POST /decisiones`. Es lo único que
+puede escribir: **la API registra la opinión del agente, pero no cambia
+veredictos, hallazgos ni excepciones por lo que diga**.
+
+- **Idempotente por `ejecucionId`.** El agente reintenta si la red falla. Con
+  el mismo `hashEntradas` responde 200 con lo ya registrado; con otro, 409,
+  porque dos decisiones distintas con el mismo id no pueden ser la misma
+  ejecución.
+- **La API vuelve a comprobar la coherencia** (`src/model/reglasDecisiones.ts`),
+  aunque el agente ya lo hace: el texto lo escribe un modelo que lee planes
+  editables por cualquiera.
+
+| Regla | Respuesta |
+| --- | --- |
+| Un veredicto `conforme` corresponde exactamente a `sin_violaciones` | 422 |
+| `analizado` solo con veredicto `bloqueado` y al menos una clasificación | 422 |
+| Los demás estados no llevan clasificaciones | 422 |
+| El control existe en el catálogo y la severidad es la suya | 422 |
+| «Ninguna» acción solo si hay una excepción activa para ese control y recurso | 422 |
+
+- Cada clasificación se liga al hallazgo del mismo control y recurso, si
+  existe (`hallazgoId`), prefiriendo uno abierto.
+- Cada registro deja un evento `agente.decision` en la evidencia, con el
+  `hashEntradas` que lo liga al `decision.json` completo del pipeline.
 
 ## Estados de un hallazgo
 
