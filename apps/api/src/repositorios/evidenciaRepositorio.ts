@@ -20,7 +20,7 @@ export type EvidenciaRepositorio = {
   registrar(evento: NuevoEvento): Promise<EventoEvidencia>
   /** Del más reciente al más antiguo. */
   listar(filtro: { tipo?: TipoEvento; objetoId?: string }): Promise<EventoEvidencia[]>
-  verificar(): Promise<{ integra: boolean; primerEventoAlterado: number | null }>
+  verificar(): Promise<ResultadoVerificacion>
 }
 
 /**
@@ -85,21 +85,32 @@ export function evidenciaEnMemoria(eventos: EventoEvidencia[] = []): EvidenciaRe
     },
 
     async verificar() {
-      let hashEsperado = HASH_INICIAL
-      for (const [indice, evento] of eventos.entries()) {
-        const { hash, ...sinHash } = evento
-        // Se revisan el enlace con el anterior, el contenido y que no falte
-        // ningún evento: borrar uno deja un hueco en la secuencia.
-        if (
-          evento.secuencia !== indice + 1 ||
-          evento.hashAnterior !== hashEsperado ||
-          hash !== calcularHash(sinHash)
-        ) {
-          return { integra: false, primerEventoAlterado: evento.secuencia }
-        }
-        hashEsperado = hash
-      }
-      return { integra: true, primerEventoAlterado: null }
+      return verificarCadena(eventos)
     },
   }
+}
+
+export type ResultadoVerificacion = { integra: boolean; primerEventoAlterado: number | null }
+
+/**
+ * Revisa una cadena completa, en orden de secuencia.
+ *
+ * Es la única versión de la regla: la usan la implementación en memoria y la
+ * del bucket. Se revisan el enlace con el anterior, el contenido y que no
+ * falte ningún evento: borrar uno deja un hueco en la secuencia.
+ */
+export function verificarCadena(eventos: readonly EventoEvidencia[]): ResultadoVerificacion {
+  let hashEsperado = HASH_INICIAL
+  for (const [indice, evento] of eventos.entries()) {
+    const { hash, ...sinHash } = evento
+    if (
+      evento.secuencia !== indice + 1 ||
+      evento.hashAnterior !== hashEsperado ||
+      hash !== calcularHash(sinHash)
+    ) {
+      return { integra: false, primerEventoAlterado: evento.secuencia }
+    }
+    hashEsperado = hash
+  }
+  return { integra: true, primerEventoAlterado: null }
 }
