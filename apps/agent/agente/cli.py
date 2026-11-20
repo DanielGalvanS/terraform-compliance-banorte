@@ -5,6 +5,9 @@
 
 Códigos de salida:
     0  el agente terminó (aunque la compuerta haya bloqueado: eso lo decide ella)
+       Con --api-url (o API_URL) también registra la decisión en la API. Si la
+       API no la acepta solo avisa: decision.json sigue siendo el registro y el
+       bloqueo lo decide la compuerta, no la API.
     1  el agente falló; el pipeline debe bloquear y notificar (regla segura)
     2  la entrada no se pudo leer; también bloquea
 """
@@ -18,7 +21,7 @@ import os
 import sys
 from pathlib import Path
 
-from . import acciones
+from . import acciones, registro
 from .ejecutar import TIEMPO_LIMITE, analizar
 
 
@@ -76,6 +79,13 @@ def main(argv: list[str] | None = None) -> int:
     Path(args.salida).write_text(decision.model_dump_json(indent=2), encoding="utf-8")
     if args.comentario:
         Path(args.comentario).write_text(acciones.comentario(decision), encoding="utf-8")
+
+    if args.api_url:
+        try:
+            registrada = registro.registrar(args.api_url, decision)
+            print(f"agente: decisión registrada en la API (evidencia #{registrada['evidencia']['secuencia']})", file=sys.stderr)
+        except registro.FalloRegistro as error:
+            print(f"agente: aviso, no se registró en la API ({error}); queda en {args.salida}", file=sys.stderr)
 
     print(
         f"agente: {decision.estado} · compuerta {decision.resultado_compuerta} · "

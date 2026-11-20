@@ -82,7 +82,7 @@ export GOOGLE_CLOUD_LOCATION=us-central1
 |---|---|---|
 | `MODELO_AGENTE` | Modelo de Gemini | `gemini-3.5-flash` |
 | `MODELO_RESPALDO` | Modelo del segundo intento si el primero falla; vacío lo desactiva | `gemini-3.5-flash-lite` |
-| `API_URL` | API de cumplimiento, para `buscar_hallazgos` y `buscar_excepciones` | sin API: las búsquedas responden "no disponible" |
+| `API_URL` | API de cumplimiento: búsquedas del agente y registro de la decisión | sin API: las búsquedas responden "no disponible" y no se registra |
 | `AGENTE_DEBUG` | `1` muestra el rastro completo de ADK cuando Gemini falla | apagado: el motivo sale en una línea |
 | `RUTA_CATALOGO` | Catálogo de controles | `infra/policies/mappings.yaml` |
 
@@ -104,6 +104,28 @@ export GOOGLE_CLOUD_LOCATION=us-central1
 | `sin_violaciones` | La compuerta dio conforme; no se llama al modelo | 0 |
 | `sin_analisis` | La compuerta dio error, o bloqueó sin violaciones legibles; ya bloquea ella | 0 |
 | `error_agente` | El modelo falló, se tardó o respondió incompleto | 1 (bloquea) |
+
+## Registro en la API
+
+Con `--api-url` (o `API_URL`), al terminar se envía la decisión a
+`POST /api/v1/decisiones`. La API crea un hallazgo por violación y agrega el
+evento `agente.decision` a la cadena de evidencia. Si la API no responde, el
+comando solo avisa: `decision.json` sigue siendo el registro y el bloqueo lo
+decide la compuerta.
+
+```bash
+npm run dev:api        # en otra terminal, desde la raíz del repo
+.venv/bin/python -m agente analizar --api-url http://127.0.0.1:8080 \
+  --veredicto tests/datos/veredicto_violaciones.json \
+  --plan ../../infra/policies/fixtures/plan_violaciones.json
+curl -s 'http://127.0.0.1:8080/api/v1/evidencia?tipo=agente.decision'
+```
+
+`apps/api/test/datos/decision_agente.json` es el contrato entre los dos: la
+API prueba su ruta con él y `test_el_cuerpo_coincide_con_el_contrato_de_la_api`
+falla si el agente cambia sus campos. Para regenerarlo, corre el agente con el
+modelo falso y guarda `registro.cuerpo(decision)` con `ejecucionId` y `fecha`
+fijos (`3f1c2a9e-5b7d-4e8f-9a6b-1c2d3e4f5a6b`, `2026-11-23T00:00:00+00:00`).
 
 ## Si Gemini falla
 
@@ -139,7 +161,6 @@ ruta relativa (`infra/policies/fixtures/plan_violaciones.json`).
 
 ## Siguiente
 
-- Registrar cada decisión en la API y en la cadena de evidencia.
 - Agregar el paso del agente en `plan.yml`.
 - Escalar a Jira (DEV-51).
 - Desplegar en Cloud Run para el drift.
