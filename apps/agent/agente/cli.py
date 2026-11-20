@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import sys
 from pathlib import Path
@@ -40,8 +41,17 @@ def _argumentos(argv: list[str] | None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def _silenciar_adk() -> None:
+    """ADK imprime el rastro completo de Python cuando Gemini falla, aunque el
+    agente lo maneje (reintento, respaldo). El motivo ya queda en una línea en
+    decision.json; AGENTE_DEBUG=1 vuelve a mostrar el detalle."""
+    if os.environ.get("AGENTE_DEBUG") != "1":
+        logging.getLogger("google_adk").setLevel(logging.CRITICAL)
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _argumentos(argv)
+    _silenciar_adk()
 
     try:
         veredicto = _leer_json(args.veredicto)

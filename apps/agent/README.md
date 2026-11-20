@@ -12,7 +12,9 @@ cambiarlo:
 - El resultado de la compuerta y la severidad los copia el código, no el modelo.
 - El modelo puede subir la urgencia de una violación, nunca bajarla de lo que
   marca su severidad, y solo puede sugerir «ninguna» acción si el código confirma
-  una excepción activa en la API. Cada corrección queda en `ajustes`.
+  una excepción activa en la API. Los secretos expuestos (CO-SEC-01) y los
+  permisos amplios de IAM (CO-IAM-01) siempre se escalan, aunque el modelo
+  sugiera un PR. Cada corrección queda en `ajustes`.
 - El texto del modelo se neutraliza antes del comentario del PR: no menciona a
   nadie con `@`, ni inserta HTML, imágenes o enlaces.
 - Si el agente falla o responde algo incompleto, la decisión es `error_agente`,
@@ -79,7 +81,9 @@ export GOOGLE_CLOUD_LOCATION=us-central1
 | Variable | Para qué | Por defecto |
 |---|---|---|
 | `MODELO_AGENTE` | Modelo de Gemini | `gemini-3.5-flash` |
+| `MODELO_RESPALDO` | Modelo del segundo intento si el primero falla; vacío lo desactiva | `gemini-3.5-flash-lite` |
 | `API_URL` | API de cumplimiento, para `buscar_hallazgos` y `buscar_excepciones` | sin API: las búsquedas responden "no disponible" |
+| `AGENTE_DEBUG` | `1` muestra el rastro completo de ADK cuando Gemini falla | apagado: el motivo sale en una línea |
 | `RUTA_CATALOGO` | Catálogo de controles | `infra/policies/mappings.yaml` |
 
 ## Salida
@@ -91,7 +95,8 @@ export GOOGLE_CLOUD_LOCATION=us-central1
 - una clasificación por violación: prioridad, explicación, riesgo, remediación, acción sugerida, confianza y citas del catálogo;
 - las herramientas usadas;
 - los `ajustes` que el código hizo a la opinión del modelo;
-- el modelo y la versión del prompt.
+- los `intentos_fallidos`, con el modelo y el motivo («modelo saturado o sin respuesta (503)»);
+- el modelo que respondió y la versión del prompt.
 
 | `estado` | Cuándo | Código de salida |
 |---|---|---|
@@ -99,6 +104,23 @@ export GOOGLE_CLOUD_LOCATION=us-central1
 | `sin_violaciones` | La compuerta dio conforme; no se llama al modelo | 0 |
 | `sin_analisis` | La compuerta dio error, o bloqueó sin violaciones legibles; ya bloquea ella | 0 |
 | `error_agente` | El modelo falló, se tardó o respondió incompleto | 1 (bloquea) |
+
+## Si Gemini falla
+
+Con la llave gratuita es común que un modelo esté saturado (503). Cada llamada
+a Gemini corta a los 60 s con dos reintentos, y si el primer intento falla el
+segundo usa `MODELO_RESPALDO`. Para ver qué modelos acepta tu llave:
+
+```bash
+.venv/bin/python -c "from google import genai; print([m.name for m in genai.Client().models.list() if 'flash' in m.name])"
+```
+
+| Motivo en `error` | Qué hacer |
+|---|---|
+| `modelo saturado o sin respuesta (503)` | Esperar unos minutos o cambiar `MODELO_AGENTE` |
+| `cuota del modelo agotada (429)` | Esperar un minuto; la capa gratuita tiene límite por minuto |
+| `el modelo no existe para esta cuenta (404)` | Elegir otro de la lista de arriba |
+| `la llave o la cuenta no puede usar el modelo` | Revisar `GOOGLE_API_KEY` o los permisos de `app-agente` |
 
 ## Datos de prueba
 

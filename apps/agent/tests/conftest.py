@@ -7,6 +7,7 @@ así se ejercita el ciclo completo de ADK (herramientas, estado, esquema) sin re
 
 from __future__ import annotations
 
+import asyncio
 import copy
 import json
 from pathlib import Path
@@ -78,13 +79,19 @@ class ModeloFalso(BaseLlm):
     model: str = "modelo-falso"
     final: Callable[[list[str]], Any] = respuesta_completa
     error: str | None = None
+    # Una excepción real de la librería (por ejemplo un ServerError 503).
+    excepcion: Any = None
+    # Segundos que tarda en dar la respuesta final, para probar los cortes por tiempo.
+    espera: float = 0
+    # Entregar la salida como lo hace Gemini real: llamando a set_model_response.
+    por_set_model_response: bool = False
     pedir_herramientas: bool = True
     peticiones: list[str] = []
     turnos: int = 0
 
     @property
     def capabilities(self) -> LlmCapabilities:
-        return LlmCapabilities(output_schema_and_tools=True)
+        return LlmCapabilities(output_schema_and_tools=not self.por_set_model_response)
 
     async def generate_content_async(
         self, llm_request: LlmRequest, stream: bool = False
@@ -97,6 +104,8 @@ class ModeloFalso(BaseLlm):
                 ensure_ascii=False,
             )
         )
+        if self.excepcion is not None:
+            raise self.excepcion
         if self.error:
             raise RuntimeError(self.error)
 
@@ -114,7 +123,13 @@ class ModeloFalso(BaseLlm):
             yield LlmResponse(content=types.Content(role="model", parts=llamadas))
             return
 
+        if self.espera:
+            await asyncio.sleep(self.espera)
         cuerpo = self.final(ids_de_entrada(llm_request))
+        if self.por_set_model_response and isinstance(cuerpo, dict):
+            llamada = types.FunctionCall(name="set_model_response", args=cuerpo)
+            yield LlmResponse(content=types.Content(role="model", parts=[types.Part(function_call=llamada)]))
+            return
         texto = cuerpo if isinstance(cuerpo, str) else json.dumps(cuerpo, ensure_ascii=False)
         yield LlmResponse(content=types.Content(role="model", parts=[types.Part(text=texto)]))
 

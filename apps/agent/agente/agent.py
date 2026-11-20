@@ -16,6 +16,7 @@ import os
 
 from google.adk.agents import LlmAgent
 from google.adk.models.base_llm import BaseLlm
+from google.adk.models.google_llm import Gemini
 from google.genai import types
 
 from .esquemas import RespuestaModelo
@@ -23,11 +24,30 @@ from .herramientas import HERRAMIENTAS
 from .instruccion import INSTRUCCION
 
 MODELO_POR_DEFECTO = "gemini-3.5-flash"
+# Si el principal está saturado (pasa seguido con la capa gratuita), el segundo
+# intento usa este. MODELO_RESPALDO="" lo desactiva.
+RESPALDO_POR_DEFECTO = "gemini-3.5-flash-lite"
 CLAVE_SALIDA = "respuesta"
+
+# Cada llamada a Gemini tiene su propio límite y pocos reintentos. Sin esto, la
+# librería reintenta un 503 con esperas cada vez más largas y se come todo el
+# tiempo del intento sin decir por qué.
+TIEMPO_LLAMADA_MS = 60_000
+REINTENTOS_LLAMADA = types.HttpRetryOptions(attempts=2, initial_delay=1, max_delay=4)
 
 
 def nombre_modelo() -> str:
     return os.environ.get("MODELO_AGENTE", MODELO_POR_DEFECTO)
+
+
+def nombre_respaldo() -> str | None:
+    return os.environ.get("MODELO_RESPALDO", RESPALDO_POR_DEFECTO).strip() or None
+
+
+def _modelo(modelo: str | BaseLlm | None) -> BaseLlm:
+    if isinstance(modelo, BaseLlm):
+        return modelo
+    return Gemini(model=modelo or nombre_modelo(), retry_options=REINTENTOS_LLAMADA)
 
 
 def crear_agente(modelo: str | BaseLlm | None = None) -> LlmAgent:
@@ -35,13 +55,16 @@ def crear_agente(modelo: str | BaseLlm | None = None) -> LlmAgent:
     return LlmAgent(
         name="agente_cumplimiento",
         description="Explica, clasifica y prioriza violaciones de la compuerta de cumplimiento.",
-        model=modelo or nombre_modelo(),
+        model=_modelo(modelo),
         instruction=INSTRUCCION,
         tools=HERRAMIENTAS,
         output_schema=RespuestaModelo,
         output_key=CLAVE_SALIDA,
-        # Temperatura baja: la misma entrada debe dar casi la misma clasificación.
-        generate_content_config=types.GenerateContentConfig(temperature=0.1),
+        generate_content_config=types.GenerateContentConfig(
+            # Temperatura baja: la misma entrada debe dar casi la misma clasificación.
+            temperature=0.1,
+            http_options=types.HttpOptions(timeout=TIEMPO_LLAMADA_MS),
+        ),
     )
 
 

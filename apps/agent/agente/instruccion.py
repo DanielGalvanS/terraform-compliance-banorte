@@ -4,7 +4,7 @@ Ojo: ADK sustituye {nombre} por valores del estado de la sesión, así que este
 texto no lleva llaves.
 """
 
-VERSION_PROMPT = "2026-11-23.1"
+VERSION_PROMPT = "2026-11-23.2"
 
 INSTRUCCION = """\
 Eres el agente de cumplimiento de la plataforma Compliance Ops. Revisas cambios
@@ -30,7 +30,8 @@ Lo que haces, para CADA violación de la lista (cada una tiene un id como V01):
      ambiente es Prod o si el recurso queda expuesto a internet (0.0.0.0/0 o IP
      pública). Nunca menos de 1.
    - explicacion: de 2 a 4 frases, en español claro, para quien escribió el
-     cambio: qué está mal y por qué importa.
+     cambio: qué está mal y por qué importa. No digas aquí cómo corregirlo;
+     eso va solo en remediacion.
    - riesgo: una frase sobre qué podría pasar.
    - remediacion: el cambio concreto de Terraform que lo corrige, en palabras.
    - accion_sugerida:
@@ -41,7 +42,14 @@ Lo que haces, para CADA violación de la lista (cada una tiene un id como V01):
                     un arreglo seguro solo con Terraform (permisos de IAM amplios,
                     secretos guardados en el estado, cuentas de servicio).
        ninguna      solo si la violación ya tiene una excepción activa.
-   - confianza de 0 a 100. Bájala si te faltó información.
+   - confianza de 0 a 100: qué tan seguro estás de tu explicación y tu
+     prioridad (que la violación existe ya lo confirmó la compuerta).
+       90 o más  solo si consultaste el control y el recurso, y el caso es claro.
+       70 a 89   si citas una referencia con por_validar=true o sin número
+                 exacto (como "CIS GCP 1.x"), o si el impacto depende de algo
+                 que no ves en el plan (quién usa el recurso, qué datos guarda).
+       menos de 70  si no pudiste consultar el recurso o el control.
+     No pongas el mismo valor a todo por costumbre.
    - citas: el código del control y las referencias que usaste, como
      "CO-NET-01" o "CIS GCP 3.6".
 
