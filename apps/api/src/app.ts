@@ -13,12 +13,14 @@ import { z } from 'zod'
 import { registrarAutenticacion } from './auth/autorizacion.ts'
 import { verificadorJwks, verificadorLocal, type Verificador } from './auth/verificador.ts'
 import type { Config } from './config.ts'
+import { almacenGcs, EvidenciaNoDisponible } from './repositorios/almacenObjetos.ts'
 import { cargarCatalogo } from './repositorios/catalogoRepositorio.ts'
 import {
   decisionesEnMemoria,
   type DecisionesRepositorio,
 } from './repositorios/decisionesRepositorio.ts'
 import {
+  evidenciaEnBucket,
   evidenciaEnMemoria,
   type EvidenciaRepositorio,
 } from './repositorios/evidenciaRepositorio.ts'
@@ -106,6 +108,19 @@ export async function construirApp({
   const secreto = secretoLocal(config)
   registrarAutenticacion(app, verificador ?? construirVerificador(config, secreto))
 
+  // Sin evidencia no hay cambio: las rutas la escriben antes de aplicar
+  // nada, y si el bucket no la acepta se responde 503 con el cambio sin
+  // aplicar. Cualquier otro error sigue al manejador por defecto.
+  app.setErrorHandler((error, peticion, respuesta) => {
+    if (error instanceof EvidenciaNoDisponible) {
+      peticion.log.error({ err: error.cause }, 'el bucket de evidencia no respondió')
+      return respuesta.code(503).send({
+        error: 'No se pudo registrar la evidencia; el cambio no se aplicó',
+      })
+    }
+    throw error
+  })
+
   app.setValidatorCompiler(validatorCompiler)
   app.setSerializerCompiler(serializerCompiler)
 
@@ -135,7 +150,23 @@ export async function construirApp({
   const repositorioExcepciones = excepciones ?? excepcionesEnMemoria(excepcionesDeEjemplo)
   // Sin semilla: la evidencia de ejemplo no probaría nada, y una cadena que
   // empieza vacía es la que se puede verificar desde el primer evento.
-  const repositorioEvidencia = evidencia ?? evidenciaEnMemoria()
+  // Con EVIDENCIA_BUCKET, si el bucket no responde al arrancar, la API no
+  // arranca: aceptar cambios sin poder escribir su evidencia sería peor.
+  const repositorioEvidencia =
+    evidencia ??
+    (config.EVIDENCIA_BUCKET === undefined
+      ? evidenciaEnMemoria()
+      : await evidenciaEnBucket(almacenGcs(config.EVIDENCIA_BUCKET)))
+
+  // Una cadena alterada sí deja arrancar: negarse dejaría a Cumplimiento sin
+  // ver la alteración. Queda en el log y GET /evidencia la muestra.
+  const inicial = await repositorioEvidencia.verificar()
+  if (!inicial.integra) {
+    app.log.error(
+      { primerEventoAlterado: inicial.primerEventoAlterado },
+      'la cadena de evidencia no está íntegra',
+    )
+  }
   const repositorioDecisiones = decisiones ?? decisionesEnMemoria()
 
   app.get(
@@ -152,6 +183,9 @@ export async function construirApp({
             // Mientras sea false, los datos son de ejemplo y no deben
             // confundirse con la postura real.
             persistencia: z.boolean(),
+            // «memoria» detecta una alteración pero no la impide; «bucket»
+            // escribe en el almacén de solo creación con retención.
+            evidencia: z.enum(['memoria', 'bucket']),
           }),
         },
       },
@@ -160,6 +194,7 @@ export async function construirApp({
       estado: 'ok' as const,
       catalogo: catalogo.version,
       persistencia: config.DATABASE_URL !== undefined,
+      evidencia: repositorioEvidencia.almacen,
     }),
   )
 

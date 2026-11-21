@@ -25,7 +25,8 @@ fuente de verdad es el archivo que firma Cumplimiento en el Gate 1.
 el proyecto de GCP. Mientras tanto los hallazgos viven en memoria.
 
 `GET /salud` lo dice sin rodeos: `persistencia: false` significa que lo que
-sirve la API son datos de ejemplo. Conectar Postgres es añadir una
+sirve la API son datos de ejemplo. La evidencia puede ir al bucket aunque no
+haya base: ver «Evidencia». Conectar Postgres es añadir una
 implementación de `HallazgosRepositorio`; las rutas no cambian.
 
 ## Idempotencia
@@ -188,10 +189,54 @@ siempre el mismo hash). El primero se encadena a 64 ceros. Si alguien altera o
 borra un evento intermedio, su hash y los de todos los siguientes dejan de
 coincidir, y `integra` pasa a `false`.
 
-**El límite:** en memoria esto no es inmutable de verdad, porque quien tenga
-el proceso puede reescribir el arreglo. Lo que sí hace es que una alteración
-sea **detectable**. La inmutabilidad real la da el bucket con retención del
-módulo `infra/modules/logging`; esta estructura queda lista para escribir ahí.
+### Dónde vive
+
+| `EVIDENCIA_BUCKET` | Dónde | Qué garantiza |
+| --- | --- | --- |
+| Sin definir | En memoria | La alteración es **detectable**, pero no se impide y se pierde al reiniciar |
+| Nombre del bucket | El bucket con retención de `infra/modules/logging` | La alteración se **impide**, y la cadena sobrevive a reinicios |
+
+`GET /salud` lo dice: `evidencia: 'memoria'` o `'bucket'`.
+
+### En el bucket
+
+- **Cada evento es un objeto propio**, `evidencia/<secuencia en 10 dígitos>.json`,
+  con el JSON canónico. El orden de los nombres es el orden de la cadena.
+- **Nadie lo puede sobrescribir**, ni la propia API, por tres candados
+  independientes:
+  - la API crea cada objeto con `ifGenerationMatch = 0`, que en GCS significa
+    «solo si no existe»;
+  - su cuenta solo tiene `roles/storage.objectCreator`, que no borra;
+  - la retención impide borrar antes del plazo, incluso a un administrador.
+- **Varias instancias:** dos instancias de Cloud Run no pueden crear la misma
+  secuencia. La que pierde recarga la cadena y reintenta con la siguiente.
+- **`verificar` relee el bucket**, no solo el índice en memoria: detecta un
+  objeto alterado aunque la API no se haya enterado. Son tantas lecturas como
+  eventos; con volumen real habría que verificar por tramos.
+
+### Sin evidencia no hay cambio
+
+Aprobar, rechazar, revocar, cambiar el estado de un hallazgo y registrar una
+decisión del agente **escriben la evidencia antes de aplicar el cambio**. Si el
+bucket no la acepta, responden **503** y el cambio no se aplica. Un cambio sin
+evidencia es peor que la evidencia de un intento; lo segundo solo puede pasar
+si el cambio falla después de validarse, y con Postgres irá en una
+transacción.
+
+| Situación | Qué pasa |
+| --- | --- |
+| El bucket no responde al arrancar | La API no arranca: no aceptaría cambios sin poder registrarlos |
+| La cadena está alterada al arrancar | Arranca, lo deja en el log y `GET /evidencia` muestra `integra: false` |
+| Un objeto ya no es un evento legible | No se sigue encadenando: todo cambio responde 503 hasta que alguien lo revise |
+| El bucket no responde al verificar | `GET /evidencia` responde 503 |
+
+### Lo que falta
+
+- Probar contra GCP real: `almacenGcs` se prueba con un cliente falso, porque
+  aún no hay proyecto.
+- En producción, `bloquear_retencion = true` cuando Cumplimiento confirme el
+  plazo. Mientras no se bloquee, la retención la puede acortar un
+  administrador.
 
 ## Autenticación y roles
 
