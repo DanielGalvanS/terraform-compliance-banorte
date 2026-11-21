@@ -138,7 +138,10 @@ module "secretos" {
     }
   }
 
-  depends_on = [google_project_service.apis]
+  # Como Cloud SQL: el secreto no puede crearse antes de que el agente de
+  # Secret Manager tenga permiso sobre la llave. Sin esto Terraform los crea en
+  # paralelo y el primer apply falla con "Permission denied on Cloud KMS".
+  depends_on = [google_project_service.apis, module.kms]
 }
 
 module "sql" {
