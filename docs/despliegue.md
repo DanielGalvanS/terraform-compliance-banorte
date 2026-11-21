@@ -76,7 +76,8 @@ datos, que son los que mueven la factura:
 | Bucket de evidencia | Por almacenamiento. Marginal al principio |
 
 **Apaga lo que no uses.** El ambiente de dev no necesita estar encendido entre
-sesiones de trabajo.
+sesiones de trabajo. Las reglas del equipo para cuidar el crédito están en
+[costos.md](costos.md).
 
 ### Presupuesto y avisos
 
