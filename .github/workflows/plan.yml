@@ -4,8 +4,9 @@ name: Plan y veredicto
 # compuerta de políticas. El veredicto se publica como comentario del pull
 # request y se conserva como artefacto de evidencia.
 #
-# Queda inactivo hasta que existan las variables de GCP. Mientras tanto la
-# compuerta se demuestra con los planes de ejemplo en policies.yml.
+# Corre en los PR que tocan infra/ o este archivo. Si faltan las variables de
+# GCP (por ejemplo en un fork), el job se salta; la compuerta se sigue
+# demostrando con los planes de ejemplo en policies.yml.
 on:
   pull_request:
     paths:
