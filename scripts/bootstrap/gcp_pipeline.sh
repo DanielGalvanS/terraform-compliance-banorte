@@ -210,11 +210,17 @@ roles_apply() {
     roles/cloudkms.admin \
     roles/secretmanager.admin \
     roles/servicenetworking.networksAdmin \
-    roles/logging.configWriter; do
+    roles/logging.configWriter \
+    roles/iam.roleAdmin; do
     rol_en_proyecto "${CUENTA_APPLY}" "${rol}"
   done
   # roles/logging.configWriter: roles/editor no incluye logging.sinks.create y
   # el módulo logging crea el sink de evidencia (403 en el primer apply).
+  # roles/iam.roleAdmin: ni roles/editor ni los administradores de IAM incluyen
+  # iam.roles.create, y module "iam" crea el rol con el que el agente llama a
+  # Vertex AI. No amplía de verdad a ci-apply: con projectIamAdmin ya podía
+  # darse cualquier rol. Lo que vigila los permisos del rol es la precondición
+  # del módulo (decisión 19 de docs/decisiones.md).
   rol_en_bucket_estado "${CUENTA_APPLY}" roles/storage.objectUser
 }
 

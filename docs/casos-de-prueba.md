@@ -88,11 +88,14 @@ aprobar un pull request bloqueado. Lo que sí está construido es la estructura
 que lo hace imposible:
 
 - El agente tendrá **identidad propia**, distinta de la de la API, creada por
-  el módulo `iam` con `roles/viewer` y nada más.
+  el módulo `iam` con `roles/viewer`, permiso de escribir sus logs y un rol
+  personalizado que solo llama a Gemini (`aiplatform.endpoints.predict`, ver
+  la decisión 19). Ninguno de los tres deja crear ni cambiar recursos.
 - El módulo `iam` **rechaza** `roles/owner`, `roles/editor` y los roles que
   permiten escalar privilegios, con una precondición que corta el despliegue.
 - `CO-IAM-01` bloquea esos mismos roles aunque alguien los declare fuera de un
-  módulo aprobado.
+  módulo aprobado, y también un rol personalizado con los permisos que los
+  hacen amplios.
 - La aprobación vive en el **environment de GitHub**, fuera del alcance de
   cualquier credencial de GCP.
 - El veredicto lo emite Conftest en el runner, no un servicio al que el agente
