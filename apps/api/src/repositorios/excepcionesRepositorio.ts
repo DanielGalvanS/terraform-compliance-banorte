@@ -1,10 +1,26 @@
 import { randomUUID } from 'node:crypto'
 import type { EstadoExcepcion, Excepcion, FiltroExcepciones } from '../model/esquemas.ts'
+import { coincideRecurso } from '../model/recursos.ts'
 import { estadoVigente } from '../model/reglasExcepciones.ts'
 
 /** Lo que el repositorio guarda; el estado mostrado se deriva al leer. */
-export type ExcepcionGuardada = Omit<Excepcion, 'estado' | 'controlNombre' | 'marco' | 'severidad'> & {
+export type ExcepcionGuardada = Omit<
+  Excepcion,
+  | 'estado'
+  | 'controlNombre'
+  | 'marco'
+  | 'severidad'
+  | 'diasRestantes'
+  | 'porVencer'
+  | 'hallazgosAfectados'
+> & {
   estadoGuardado: EstadoExcepcion
+  /**
+   * El `sub` del token de quien solicitó. No se expone: sirve para que nadie
+   * apruebe lo suyo aunque cambie su nombre en el proveedor de identidad.
+   * Null en la semilla, que es anterior a la autenticación.
+   */
+  solicitanteSujeto: string | null
 }
 
 export type DatosDeControl = {
@@ -20,13 +36,26 @@ export type Decision = {
   decididaEn: string
 }
 
+export type Revocacion = {
+  revocadaPor: string
+  motivo: string
+  revocadaEn: string
+}
+
 export type ExcepcionesRepositorio = {
   listar(filtro: FiltroExcepciones): Promise<ExcepcionGuardada[]>
   obtener(id: string): Promise<ExcepcionGuardada | null>
   crear(
     datos: Omit<
       ExcepcionGuardada,
-      'id' | 'codigo' | 'estadoGuardado' | 'comentarioDecision' | 'decididaEn'
+      | 'id'
+      | 'codigo'
+      | 'estadoGuardado'
+      | 'comentarioDecision'
+      | 'decididaEn'
+      | 'revocadaPor'
+      | 'revocadaEn'
+      | 'motivoRevocacion'
     >,
   ): Promise<ExcepcionGuardada>
   /**
@@ -35,6 +64,12 @@ export type ExcepcionesRepositorio = {
    * aquí sería tener dos versiones que tarde o temprano discrepan.
    */
   decidir(id: string, decision: Decision): Promise<ExcepcionGuardada | null>
+  /**
+   * Revoca una excepción activa. Igual que `decidir`, no revalida: eso lo
+   * hizo `validarRevocacion`. Guarda en campos propios quién y por qué, para
+   * no borrar quién la había aprobado.
+   */
+  revocar(id: string, revocacion: Revocacion): Promise<ExcepcionGuardada | null>
 }
 
 export function excepcionesEnMemoria(semilla: ExcepcionGuardada[] = []): ExcepcionesRepositorio {
@@ -49,6 +84,7 @@ export function excepcionesEnMemoria(semilla: ExcepcionGuardada[] = []): Excepci
         (e) =>
           (filtro.ambiente === undefined || e.ambiente === filtro.ambiente) &&
           (filtro.control === undefined || e.control === filtro.control) &&
+          (filtro.recurso === undefined || coincideRecurso(e.recurso, filtro.recurso)) &&
           (filtro.estado === undefined ||
             estadoVigente(e.estadoGuardado, e.venceEl) === filtro.estado),
       )
@@ -63,6 +99,9 @@ export function excepcionesEnMemoria(semilla: ExcepcionGuardada[] = []): Excepci
         ...datos,
         comentarioDecision: null,
         decididaEn: null,
+        revocadaPor: null,
+        revocadaEn: null,
+        motivoRevocacion: null,
         id: randomUUID(),
         codigo: `EXC-${siguiente++}`,
         // Nunca nace activa: nada se exceptúa sin aprobación humana.
@@ -90,6 +129,21 @@ export function excepcionesEnMemoria(semilla: ExcepcionGuardada[] = []): Excepci
       }
       excepciones[indice] = decidida
       return decidida
+    },
+
+    async revocar(id, { revocadaPor, motivo, revocadaEn }) {
+      const indice = excepciones.findIndex((e) => e.id === id)
+      if (indice === -1) return null
+      // Objeto nuevo, por la misma razón que en `decidir`.
+      const revocada: ExcepcionGuardada = {
+        ...excepciones[indice]!,
+        estadoGuardado: 'Revocada',
+        revocadaPor,
+        revocadaEn,
+        motivoRevocacion: motivo,
+      }
+      excepciones[indice] = revocada
+      return revocada
     },
   }
 }

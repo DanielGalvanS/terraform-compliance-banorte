@@ -1,12 +1,20 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react'
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
+import { alSesionExpirada } from '@/shared/api'
 import { authRepository } from '../api/authRepository'
 import type { Credentials, User } from '../model'
 
 type AuthContextValue = {
   user: User | null
   isAuthenticated: boolean
-  /** Returns false when the credentials are rejected, so the form can explain. */
-  signIn: (credentials: Credentials) => boolean
+  /** Resolves false when the credentials are rejected, so the form can explain. */
+  signIn: (credentials: Credentials) => Promise<boolean>
   signInWithSso: () => void
   signOut: () => void
 }
@@ -16,17 +24,27 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
 
+  // Si la API responde 401 (token vencido), se vuelve a la pantalla de acceso
+  // en lugar de dejar pantallas vacías con errores sueltos.
+  useEffect(() => {
+    alSesionExpirada(() => setUser(null))
+    return () => alSesionExpirada(null)
+  }, [])
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
       isAuthenticated: user !== null,
-      signIn: (credentials) => {
-        const authenticated = authRepository.signIn(credentials)
+      signIn: async (credentials) => {
+        const authenticated = await authRepository.signIn(credentials)
         setUser(authenticated)
         return authenticated !== null
       },
       signInWithSso: () => setUser(authRepository.signInWithSso()),
-      signOut: () => setUser(null),
+      signOut: () => {
+        authRepository.signOut()
+        setUser(null)
+      },
     }),
     [user],
   )

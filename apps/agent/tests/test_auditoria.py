@@ -127,3 +127,26 @@ def test_bloqueado_sin_violaciones_legibles_no_dice_que_todo_esta_bien(modelo):
     assert decision.estado == "sin_analisis"
     assert "no reportó violaciones legibles" in decision.resumen
     assert modelo.turnos == 0
+
+
+def test_la_api_recibe_el_token_del_agente(api_falsa, monkeypatch):
+    _, pedidas = api_falsa
+    monkeypatch.setenv("API_TOKEN", "token-de-prueba")
+    contexto = ContextoFalso({herramientas.CLAVE_API: "http://api.prueba"})
+    asyncio.run(herramientas.buscar_hallazgos("CO-NET-01", "google_compute_firewall.ssh", contexto))
+    assert pedidas[-1].headers["authorization"] == "Bearer token-de-prueba"
+
+
+def test_sin_token_no_se_manda_cabecera(api_falsa, monkeypatch):
+    _, pedidas = api_falsa
+    monkeypatch.delenv("API_TOKEN", raising=False)
+    contexto = ContextoFalso({herramientas.CLAVE_API: "http://api.prueba"})
+    asyncio.run(herramientas.buscar_hallazgos("CO-NET-01", "google_compute_firewall.ssh", contexto))
+    assert "authorization" not in pedidas[-1].headers
+
+
+def test_el_token_no_queda_en_el_estado_que_ve_el_modelo(api_falsa, monkeypatch):
+    monkeypatch.setenv("API_TOKEN", "token-de-prueba")
+    contexto = ContextoFalso({herramientas.CLAVE_API: "http://api.prueba"})
+    asyncio.run(herramientas.buscar_excepciones("CO-NET-01", "google_compute_firewall.ssh", contexto))
+    assert "token-de-prueba" not in repr(contexto.state)

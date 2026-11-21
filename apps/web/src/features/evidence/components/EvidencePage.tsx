@@ -1,7 +1,8 @@
 import { exceptionsRepository } from '@/features/exceptions'
 import { useDisclosure, useToast } from '@/shared/hooks'
-import { Button, PageTitle, Toast } from '@/shared/ui'
+import { Button, Card, PageTitle, Toast } from '@/shared/ui'
 import { evidenceRepository } from '../api/evidenceRepository'
+import { useEvidenciaApi } from '../hooks/useEvidenciaApi'
 import { ActiveExceptionsCard } from './ActiveExceptionsCard'
 import { AuditExportModal } from './AuditExportModal'
 import { CoverageCard } from './CoverageCard'
@@ -11,6 +12,7 @@ import { ReportBuilder } from './ReportBuilder'
 export function EvidencePage() {
   const exportDialog = useDisclosure()
   const toast = useToast()
+  const evidencia = useEvidenciaApi()
   const activeExceptions = exceptionsRepository
     .list()
     .filter((exception) => exception.state === 'Activa')
@@ -27,12 +29,26 @@ export function EvidencePage() {
           </Button>
         }
       />
+      {evidencia.estado === 'error' && (
+        // Se avisa, pero no se inventa un registro: una pantalla de evidencia
+        // vacía es preferible a una que muestre algo que nadie respalda.
+        <Card>
+          <strong>No se pudo consultar el registro de evidencia: {evidencia.mensaje}</strong>
+          <p>Vuelve a cargar la página cuando la API esté disponible.</p>
+        </Card>
+      )}
       <ReportBuilder
         options={evidenceRepository.getReportOptions()}
         onGenerate={() => toast.show('Reporte en preparación. Te avisaremos al terminar.')}
       />
       <div className="evidence-grid">
-        <EvidenceLogCard entries={evidenceRepository.getEvidenceLog()} />
+        {evidencia.estado === 'listo' && (
+          <EvidenceLogCard
+            entries={evidencia.entradas}
+            integra={evidencia.integra}
+            fuente={evidencia.fuente}
+          />
+        )}
         <CoverageCard coverage={evidenceRepository.getCoverage()} />
       </div>
       <ActiveExceptionsCard exceptions={activeExceptions} />

@@ -11,6 +11,7 @@ arbitraria.
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 import httpx
@@ -74,6 +75,18 @@ def consultar_recurso(direccion: str, tool_context: ToolContext) -> dict[str, An
 _TRANSPORTE: httpx.AsyncBaseTransport | None = None
 
 
+def cabeceras_api() -> dict[str, str]:
+    """Token del agente para la API, si lo hay.
+
+    Se lee del entorno en cada llamada y nunca pasa por el estado de la sesión:
+    el modelo no debe ver el token, ni poder pedir que se use con otra URL.
+    En desarrollo se emite con ``npm run token -- --rol Agente``; en GCP saldrá
+    de la cuenta de servicio ``app-agente``.
+    """
+    token = os.environ.get("API_TOKEN")
+    return {"authorization": f"Bearer {token}"} if token else {}
+
+
 async def consultar_api(base: str | None, ruta: str, parametros: dict[str, str]) -> dict[str, Any] | None:
     """GET a la API de cumplimiento. None si no hay API o no responde.
 
@@ -85,11 +98,19 @@ async def consultar_api(base: str | None, ruta: str, parametros: dict[str, str])
         return None
     try:
         async with httpx.AsyncClient(timeout=TIEMPO_API, transport=_TRANSPORTE) as cliente:
-            respuesta = await cliente.get(f"{base.rstrip('/')}/api/v1{ruta}", params=parametros)
+            respuesta = await cliente.get(
+                f"{base.rstrip('/')}/api/v1{ruta}", params=parametros, headers=cabeceras_api()
+            )
             respuesta.raise_for_status()
             return respuesta.json()
     except (httpx.HTTPError, ValueError):
         return None
+
+
+def filtro(control: str, recurso: str | None) -> dict[str, str]:
+    """Parámetros de búsqueda. La API filtra por recurso con la dirección
+    completa del plan; ``coincide`` se queda como segunda comprobación."""
+    return {"control": control, **({"recurso": recurso} if recurso else {})}
 
 
 def coincide(recurso_api: str, recurso: str | None) -> bool:
@@ -109,7 +130,7 @@ async def buscar_hallazgos(control: str, recurso: str, tool_context: ToolContext
         control: Código del control, por ejemplo "CO-DB-01".
         recurso: Dirección de Terraform del recurso.
     """
-    datos = await consultar_api(tool_context.state.get(CLAVE_API), "/hallazgos", {"control": control})
+    datos = await consultar_api(tool_context.state.get(CLAVE_API), "/hallazgos", filtro(control, recurso))
     if datos is None:
         return {"disponible": False, "motivo": "API de cumplimiento no disponible"}
     previos = [
@@ -130,7 +151,7 @@ async def buscar_excepciones(control: str, recurso: str, tool_context: ToolConte
         control: Código del control, por ejemplo "CO-NET-01".
         recurso: Dirección de Terraform del recurso.
     """
-    datos = await consultar_api(tool_context.state.get(CLAVE_API), "/excepciones", {"control": control})
+    datos = await consultar_api(tool_context.state.get(CLAVE_API), "/excepciones", filtro(control, recurso))
     if datos is None:
         return {"disponible": False, "motivo": "API de cumplimiento no disponible"}
     excepciones = [
@@ -143,7 +164,7 @@ async def buscar_excepciones(control: str, recurso: str, tool_context: ToolConte
 
 async def hay_excepcion_activa(api_url: str | None, control: str, recurso: str | None) -> bool:
     """Lo usa el código (no el modelo) para confirmar una acción 'ninguna'."""
-    datos = await consultar_api(api_url, "/excepciones", {"control": control, "estado": "Activa"})
+    datos = await consultar_api(api_url, "/excepciones", {**filtro(control, recurso), "estado": "Activa"})
     if datos is None:
         return False
     return any(

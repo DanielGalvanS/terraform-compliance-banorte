@@ -33,6 +33,8 @@ export interface paths {
                             /** @description Versión del catálogo cargado */
                             catalogo: string;
                             persistencia: boolean;
+                            /** @enum {string} */
+                            evidencia: "memoria" | "bucket";
                         };
                     };
                 };
@@ -40,6 +42,74 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sesion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Inicia sesión con un usuario de demostración
+         * @description Solo en modo local (AUTH_MODO=local). Los usuarios de demostración tienen una contraseña pública: sirven para elegir con qué rol probar, no para proteger nada. Devuelve los permisos del rol para que la pantalla oculte lo que no se puede hacer, sin copiar la tabla de la API.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        email: string;
+                        password: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            token: string;
+                            usuario: {
+                                nombre: string;
+                                email: string;
+                                /** @enum {string} */
+                                rol: "Compliance Lead" | "Aprobador" | "Desarrollador" | "Auditor" | "Agente" | "Pipeline";
+                                iniciales: string;
+                            };
+                            permisos: ("leer" | "solicitarExcepcion" | "decidirExcepcion" | "revocarExcepcion" | "cambiarEstadoHallazgo" | "registrarHallazgo" | "registrarDecision")[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -80,6 +150,30 @@ export interface paths {
                                 version?: string;
                                 ambito?: string;
                             }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
                         };
                     };
                 };
@@ -140,6 +234,30 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
             };
         };
         put?: never;
@@ -157,7 +275,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Hallazgos, con filtros opcionales */
+        /**
+         * Hallazgos, con filtros opcionales
+         * @description El estado se deriva: un hallazgo abierto o en remediación que cubre una excepción activa y vigente se muestra como Excepción, y vuelve solo a su estado cuando la excepción vence o se revoca. El filtro ?estado= usa ese estado mostrado.
+         */
         get: {
             parameters: {
                 query?: {
@@ -165,6 +286,8 @@ export interface paths {
                     ambiente?: "Dev" | "QA" | "Prod";
                     estado?: "Abierto" | "En remediación" | "Excepción" | "Cerrado";
                     control?: string;
+                    /** @description Dirección de Terraform, corta o con módulo; ver coincideRecurso */
+                    recurso?: string;
                 };
                 header?: never;
                 path?: never;
@@ -217,7 +340,39 @@ export interface paths {
                                         anadidas: string[];
                                     };
                                 };
+                                /** @description La excepción activa y vigente que lo cubre; con ella el estado se muestra como Excepción */
+                                excepcion: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    codigo: string;
+                                    /** @description Fecha yyyy-mm-dd */
+                                    venceEl: string;
+                                } | null;
                             }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
                         };
                     };
                 };
@@ -299,6 +454,14 @@ export interface paths {
                                     anadidas: string[];
                                 };
                             };
+                            /** @description La excepción activa y vigente que lo cubre; con ella el estado se muestra como Excepción */
+                            excepcion: {
+                                /** Format: uuid */
+                                id: string;
+                                codigo: string;
+                                /** @description Fecha yyyy-mm-dd */
+                                venceEl: string;
+                            } | null;
                         };
                     };
                 };
@@ -346,6 +509,38 @@ export interface paths {
                                     anadidas: string[];
                                 };
                             };
+                            /** @description La excepción activa y vigente que lo cubre; con ella el estado se muestra como Excepción */
+                            excepcion: {
+                                /** Format: uuid */
+                                id: string;
+                                codigo: string;
+                                /** @description Fecha yyyy-mm-dd */
+                                venceEl: string;
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
                         };
                     };
                 };
@@ -420,6 +615,38 @@ export interface paths {
                                     anadidas: string[];
                                 };
                             };
+                            /** @description La excepción activa y vigente que lo cubre; con ella el estado se muestra como Excepción */
+                            excepcion: {
+                                /** Format: uuid */
+                                id: string;
+                                codigo: string;
+                                /** @description Fecha yyyy-mm-dd */
+                                venceEl: string;
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
                         };
                     };
                 };
@@ -460,7 +687,7 @@ export interface paths {
         head?: never;
         /**
          * Cambia el estado de un hallazgo
-         * @description Solo se permiten estas transiciones: Abierto → En remediación, Cerrado; En remediación → Abierto, Cerrado; Cerrado → Abierto; Excepción → ninguno. Otra responde 409. A Excepción no se llega por aquí sino aprobando una excepción (422), para no saltarse la aprobación humana. El comentario es obligatorio (422) y el cambio queda en el registro de evidencia.
+         * @description Solo se permiten estas transiciones: Abierto → En remediación, Cerrado; En remediación → Abierto, Cerrado; Cerrado → Abierto; Excepción → ninguno. Otra responde 409. A Excepción no se llega por aquí sino aprobando una excepción (422), para no saltarse la aprobación humana. Uno cubierto por una excepción vigente tampoco cambia por aquí (409): hay que revocarla o esperar a que venza. El comentario es obligatorio (422) y el cambio queda en el registro de evidencia.
          */
         patch: {
             parameters: {
@@ -478,8 +705,6 @@ export interface paths {
                         estado: "Abierto" | "En remediación" | "Excepción" | "Cerrado";
                         /** @description Por qué cambia; queda en la evidencia */
                         comentario: string;
-                        /** @description Quién lo cambia; saldrá del token con OIDC */
-                        cambiadoPor: string;
                     };
                 };
             };
@@ -528,6 +753,38 @@ export interface paths {
                                     anadidas: string[];
                                 };
                             };
+                            /** @description La excepción activa y vigente que lo cubre; con ella el estado se muestra como Excepción */
+                            excepcion: {
+                                /** Format: uuid */
+                                id: string;
+                                codigo: string;
+                                /** @description Fecha yyyy-mm-dd */
+                                venceEl: string;
+                            } | null;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
                         };
                     };
                 };
@@ -568,6 +825,18 @@ export interface paths {
                                 campo: string;
                                 mensaje: string;
                             }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
                         };
                     };
                 };
@@ -619,6 +888,30 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
             };
         };
         put?: never;
@@ -644,8 +937,11 @@ export interface paths {
             parameters: {
                 query?: {
                     estado?: "Pendiente" | "Activa" | "Vencida" | "Rechazada" | "Revocada";
+                    porVencer?: "true" | "false";
                     ambiente?: "Dev" | "QA" | "Prod";
                     control?: string;
+                    /** @description Dirección de Terraform, corta o con módulo; ver coincideRecurso */
+                    recurso?: string;
                 };
                 header?: never;
                 path?: never;
@@ -684,6 +980,11 @@ export interface paths {
                                 comentarioDecision: string | null;
                                 /** @description Fecha ISO 8601; nula mientras está pendiente */
                                 decididaEn: string | null;
+                                /** @description Quién la revocó; nulo si no se ha revocado */
+                                revocadaPor: string | null;
+                                /** @description Fecha ISO 8601 de la revocación */
+                                revocadaEn: string | null;
+                                motivoRevocacion: string | null;
                                 /** @description Fecha ISO 8601 */
                                 solicitadaEn: string;
                                 /** @description Fecha yyyy-mm-dd */
@@ -691,7 +992,37 @@ export interface paths {
                                 /** @enum {string} */
                                 estado: "Pendiente" | "Activa" | "Vencida" | "Rechazada" | "Revocada";
                                 planRemediacion: string | null;
+                                /** @description Días hasta el vencimiento; nulo si ya no está pendiente ni activa */
+                                diasRestantes: number | null;
+                                /** @description Activa y a 7 días o menos de vencer */
+                                porVencer: boolean;
+                                /** @description Hallazgos abiertos o en remediación del mismo control, recurso y ambiente: los que cubre si está activa, o cubriría si se aprueba */
+                                hallazgosAfectados: number;
                             }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
                         };
                     };
                 };
@@ -720,8 +1051,6 @@ export interface paths {
                         venceEl: string;
                         /** @description A quién se le pide la aprobación */
                         aprobador: string;
-                        /** @description Quién solicita la excepción */
-                        solicitante: string;
                         planRemediacion?: string;
                     };
                 };
@@ -757,6 +1086,11 @@ export interface paths {
                             comentarioDecision: string | null;
                             /** @description Fecha ISO 8601; nula mientras está pendiente */
                             decididaEn: string | null;
+                            /** @description Quién la revocó; nulo si no se ha revocado */
+                            revocadaPor: string | null;
+                            /** @description Fecha ISO 8601 de la revocación */
+                            revocadaEn: string | null;
+                            motivoRevocacion: string | null;
                             /** @description Fecha ISO 8601 */
                             solicitadaEn: string;
                             /** @description Fecha yyyy-mm-dd */
@@ -764,6 +1098,36 @@ export interface paths {
                             /** @enum {string} */
                             estado: "Pendiente" | "Activa" | "Vencida" | "Rechazada" | "Revocada";
                             planRemediacion: string | null;
+                            /** @description Días hasta el vencimiento; nulo si ya no está pendiente ni activa */
+                            diasRestantes: number | null;
+                            /** @description Activa y a 7 días o menos de vencer */
+                            porVencer: boolean;
+                            /** @description Hallazgos abiertos o en remediación del mismo control, recurso y ambiente: los que cubre si está activa, o cubriría si se aprueba */
+                            hallazgosAfectados: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
                         };
                     };
                 };
@@ -843,6 +1207,11 @@ export interface paths {
                             comentarioDecision: string | null;
                             /** @description Fecha ISO 8601; nula mientras está pendiente */
                             decididaEn: string | null;
+                            /** @description Quién la revocó; nulo si no se ha revocado */
+                            revocadaPor: string | null;
+                            /** @description Fecha ISO 8601 de la revocación */
+                            revocadaEn: string | null;
+                            motivoRevocacion: string | null;
                             /** @description Fecha ISO 8601 */
                             solicitadaEn: string;
                             /** @description Fecha yyyy-mm-dd */
@@ -850,6 +1219,36 @@ export interface paths {
                             /** @enum {string} */
                             estado: "Pendiente" | "Activa" | "Vencida" | "Rechazada" | "Revocada";
                             planRemediacion: string | null;
+                            /** @description Días hasta el vencimiento; nulo si ya no está pendiente ni activa */
+                            diasRestantes: number | null;
+                            /** @description Activa y a 7 días o menos de vencer */
+                            porVencer: boolean;
+                            /** @description Hallazgos abiertos o en remediación del mismo control, recurso y ambiente: los que cubre si está activa, o cubriría si se aprueba */
+                            hallazgosAfectados: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
                         };
                     };
                 };
@@ -900,8 +1299,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        /** @description Quién aprueba; saldrá del token con OIDC */
-                        aprobadaPor: string;
                         /** @description Fundamento de la decisión */
                         comentario: string;
                     };
@@ -938,6 +1335,11 @@ export interface paths {
                             comentarioDecision: string | null;
                             /** @description Fecha ISO 8601; nula mientras está pendiente */
                             decididaEn: string | null;
+                            /** @description Quién la revocó; nulo si no se ha revocado */
+                            revocadaPor: string | null;
+                            /** @description Fecha ISO 8601 de la revocación */
+                            revocadaEn: string | null;
+                            motivoRevocacion: string | null;
                             /** @description Fecha ISO 8601 */
                             solicitadaEn: string;
                             /** @description Fecha yyyy-mm-dd */
@@ -945,6 +1347,36 @@ export interface paths {
                             /** @enum {string} */
                             estado: "Pendiente" | "Activa" | "Vencida" | "Rechazada" | "Revocada";
                             planRemediacion: string | null;
+                            /** @description Días hasta el vencimiento; nulo si ya no está pendiente ni activa */
+                            diasRestantes: number | null;
+                            /** @description Activa y a 7 días o menos de vencer */
+                            porVencer: boolean;
+                            /** @description Hallazgos abiertos o en remediación del mismo control, recurso y ambiente: los que cubre si está activa, o cubriría si se aprueba */
+                            hallazgosAfectados: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
                         };
                     };
                 };
@@ -985,6 +1417,18 @@ export interface paths {
                                 campo: string;
                                 mensaje: string;
                             }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
                         };
                     };
                 };
@@ -1021,8 +1465,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        /** @description Quién rechaza; saldrá del token con OIDC */
-                        rechazadaPor: string;
                         /** @description Fundamento de la decisión */
                         comentario: string;
                     };
@@ -1059,6 +1501,11 @@ export interface paths {
                             comentarioDecision: string | null;
                             /** @description Fecha ISO 8601; nula mientras está pendiente */
                             decididaEn: string | null;
+                            /** @description Quién la revocó; nulo si no se ha revocado */
+                            revocadaPor: string | null;
+                            /** @description Fecha ISO 8601 de la revocación */
+                            revocadaEn: string | null;
+                            motivoRevocacion: string | null;
                             /** @description Fecha ISO 8601 */
                             solicitadaEn: string;
                             /** @description Fecha yyyy-mm-dd */
@@ -1066,6 +1513,36 @@ export interface paths {
                             /** @enum {string} */
                             estado: "Pendiente" | "Activa" | "Vencida" | "Rechazada" | "Revocada";
                             planRemediacion: string | null;
+                            /** @description Días hasta el vencimiento; nulo si ya no está pendiente ni activa */
+                            diasRestantes: number | null;
+                            /** @description Activa y a 7 días o menos de vencer */
+                            porVencer: boolean;
+                            /** @description Hallazgos abiertos o en remediación del mismo control, recurso y ambiente: los que cubre si está activa, o cubriría si se aprueba */
+                            hallazgosAfectados: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
                         };
                     };
                 };
@@ -1109,6 +1586,184 @@ export interface paths {
                         };
                     };
                 };
+                /** @description Default Response */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/excepciones/{id}/revocar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoca una excepción activa
+         * @description Solo Compliance Lead. Solo una excepción activa y vigente (409): una pendiente se rechaza y una vencida ya no protege nada. El motivo es obligatorio (422). Al revocarla, los hallazgos que cubría vuelven a su estado sin que nadie los toque, y quien la aprobó se conserva.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description Fundamento de la decisión */
+                        comentario: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** Format: uuid */
+                            id: string;
+                            /** @description Identificador legible, por ejemplo EXC-1048 */
+                            codigo: string;
+                            /** @description Código del catálogo, por ejemplo CO-NET-01 */
+                            control: string;
+                            controlNombre: string;
+                            marco: string;
+                            /** @enum {string} */
+                            severidad: "Crítica" | "Alta" | "Media" | "Baja";
+                            recurso: string;
+                            /** @enum {string} */
+                            ambiente: "Dev" | "QA" | "Prod";
+                            justificacion: string;
+                            solicitadaPor: string;
+                            /** @description A quién se le pidió la aprobación; puede no ser quien termine decidiendo */
+                            aprobadorSolicitado: string;
+                            /** @description Quién decidió, aprobando o rechazando; nulo mientras está pendiente */
+                            aprobadaPor: string | null;
+                            /** @description Fundamento de la decisión; nulo mientras está pendiente */
+                            comentarioDecision: string | null;
+                            /** @description Fecha ISO 8601; nula mientras está pendiente */
+                            decididaEn: string | null;
+                            /** @description Quién la revocó; nulo si no se ha revocado */
+                            revocadaPor: string | null;
+                            /** @description Fecha ISO 8601 de la revocación */
+                            revocadaEn: string | null;
+                            motivoRevocacion: string | null;
+                            /** @description Fecha ISO 8601 */
+                            solicitadaEn: string;
+                            /** @description Fecha yyyy-mm-dd */
+                            venceEl: string;
+                            /** @enum {string} */
+                            estado: "Pendiente" | "Activa" | "Vencida" | "Rechazada" | "Revocada";
+                            planRemediacion: string | null;
+                            /** @description Días hasta el vencimiento; nulo si ya no está pendiente ni activa */
+                            diasRestantes: number | null;
+                            /** @description Activa y a 7 días o menos de vencer */
+                            porVencer: boolean;
+                            /** @description Hallazgos abiertos o en remediación del mismo control, recurso y ambiente: los que cubre si está activa, o cubriría si se aprueba */
+                            hallazgosAfectados: number;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                            motivos: {
+                                campo: string;
+                                mensaje: string;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
             };
         };
         delete?: never;
@@ -1131,7 +1786,7 @@ export interface paths {
         get: {
             parameters: {
                 query?: {
-                    tipo?: "excepcion.aprobada" | "excepcion.rechazada" | "hallazgo.estado";
+                    tipo?: "excepcion.aprobada" | "excepcion.rechazada" | "excepcion.revocada" | "hallazgo.estado" | "agente.decision";
                     objetoId?: string;
                 };
                 header?: never;
@@ -1153,7 +1808,7 @@ export interface paths {
                                 /** @description 1, 2, 3… sin huecos */
                                 secuencia: number;
                                 /** @enum {string} */
-                                tipo: "excepcion.aprobada" | "excepcion.rechazada" | "hallazgo.estado";
+                                tipo: "excepcion.aprobada" | "excepcion.rechazada" | "excepcion.revocada" | "hallazgo.estado" | "agente.decision";
                                 /** @description Id de la excepción o del hallazgo */
                                 objetoId: string;
                                 actor: string;
@@ -1170,6 +1825,556 @@ export interface paths {
                             }[];
                             /** @description Si ningún evento del registro fue alterado */
                             integra: boolean;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/decisiones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Decisiones del agente, de la más reciente a la más antigua */
+        get: {
+            parameters: {
+                query?: {
+                    ejecucionId?: string;
+                    estado?: "analizado" | "sin_violaciones" | "sin_analisis" | "error_agente";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            decisiones: {
+                                /** @description Id de la ejecución; repetirlo no duplica */
+                                ejecucionId: string;
+                                /** Format: date-time */
+                                fecha: string;
+                                /** @enum {string} */
+                                origen: "Plan" | "Drift" | "Evento" | "Auditoría";
+                                /** @enum {string} */
+                                ambiente: "Dev" | "QA" | "Prod";
+                                commit: string;
+                                /**
+                                 * @description Copiado de la compuerta; el agente no lo decide
+                                 * @enum {string}
+                                 */
+                                resultadoCompuerta: "conforme" | "bloqueado" | "error";
+                                /** @enum {string} */
+                                estado: "analizado" | "sin_violaciones" | "sin_analisis" | "error_agente";
+                                resumen: string;
+                                clasificaciones: {
+                                    /** @description Id de la violación en esa ejecución, por ejemplo V01 */
+                                    violacion: string;
+                                    control: string;
+                                    recurso: string | null;
+                                    /** @description La del catálogo; la API comprueba que no se haya cambiado */
+                                    severidad: string;
+                                    /** @description 1 = atender ya */
+                                    prioridad: number;
+                                    /** @enum {string} */
+                                    accionSugerida: "proponer_pr" | "escalar_jira" | "ninguna";
+                                    confianza: number;
+                                    explicacion: string;
+                                    remediacion: string;
+                                    /**
+                                     * Format: uuid
+                                     * @description Hallazgo del mismo control y recurso, si existe
+                                     */
+                                    hallazgoId: string | null;
+                                }[];
+                                /** @default [] */
+                                herramientasUsadas: string[];
+                                /**
+                                 * @description Correcciones que el código del agente hizo a la opinión del modelo
+                                 * @default []
+                                 */
+                                ajustes: string[];
+                                /** @default null */
+                                modelo: string | null;
+                                versionPrompt: string;
+                                hashEntradas: string;
+                                /** @default null */
+                                error: string | null;
+                                /** Format: uuid */
+                                id: string;
+                                /** @description Fecha ISO 8601 en que la API la recibió */
+                                registradaEn: string;
+                                /** @description Identidad del token que la envió */
+                                registradaPor: string;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Registra la decisión de una ejecución del agente
+         * @description Solo el rol Agente. Idempotente por ejecucionId: repetir el envío con el mismo contenido (mismo hashEntradas) responde 200 con lo ya registrado; con otro contenido, 409. La API vuelve a comprobar la coherencia de la decisión (422): el estado corresponde al veredicto, la severidad es la del catálogo y «ninguna» acción solo se acepta con una excepción activa. Queda en el registro de evidencia.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description Id de la ejecución; repetirlo no duplica */
+                        ejecucionId: string;
+                        /** Format: date-time */
+                        fecha: string;
+                        /** @enum {string} */
+                        origen: "Plan" | "Drift" | "Evento" | "Auditoría";
+                        /** @enum {string} */
+                        ambiente: "Dev" | "QA" | "Prod";
+                        commit: string;
+                        /**
+                         * @description Copiado de la compuerta; el agente no lo decide
+                         * @enum {string}
+                         */
+                        resultadoCompuerta: "conforme" | "bloqueado" | "error";
+                        /** @enum {string} */
+                        estado: "analizado" | "sin_violaciones" | "sin_analisis" | "error_agente";
+                        resumen: string;
+                        /** @default [] */
+                        clasificaciones?: {
+                            /** @description Id de la violación en esa ejecución, por ejemplo V01 */
+                            violacion: string;
+                            control: string;
+                            recurso: string | null;
+                            /** @description La del catálogo; la API comprueba que no se haya cambiado */
+                            severidad: string;
+                            /** @description 1 = atender ya */
+                            prioridad: number;
+                            /** @enum {string} */
+                            accionSugerida: "proponer_pr" | "escalar_jira" | "ninguna";
+                            confianza: number;
+                            explicacion: string;
+                            remediacion: string;
+                        }[];
+                        /** @default [] */
+                        herramientasUsadas?: string[];
+                        /**
+                         * @description Correcciones que el código del agente hizo a la opinión del modelo
+                         * @default []
+                         */
+                        ajustes?: string[];
+                        /** @default null */
+                        modelo?: string | null;
+                        versionPrompt: string;
+                        hashEntradas: string;
+                        /** @default null */
+                        error?: string | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Id de la ejecución; repetirlo no duplica */
+                            ejecucionId: string;
+                            /** Format: date-time */
+                            fecha: string;
+                            /** @enum {string} */
+                            origen: "Plan" | "Drift" | "Evento" | "Auditoría";
+                            /** @enum {string} */
+                            ambiente: "Dev" | "QA" | "Prod";
+                            commit: string;
+                            /**
+                             * @description Copiado de la compuerta; el agente no lo decide
+                             * @enum {string}
+                             */
+                            resultadoCompuerta: "conforme" | "bloqueado" | "error";
+                            /** @enum {string} */
+                            estado: "analizado" | "sin_violaciones" | "sin_analisis" | "error_agente";
+                            resumen: string;
+                            clasificaciones: {
+                                /** @description Id de la violación en esa ejecución, por ejemplo V01 */
+                                violacion: string;
+                                control: string;
+                                recurso: string | null;
+                                /** @description La del catálogo; la API comprueba que no se haya cambiado */
+                                severidad: string;
+                                /** @description 1 = atender ya */
+                                prioridad: number;
+                                /** @enum {string} */
+                                accionSugerida: "proponer_pr" | "escalar_jira" | "ninguna";
+                                confianza: number;
+                                explicacion: string;
+                                remediacion: string;
+                                /**
+                                 * Format: uuid
+                                 * @description Hallazgo del mismo control y recurso, si existe
+                                 */
+                                hallazgoId: string | null;
+                            }[];
+                            /** @default [] */
+                            herramientasUsadas: string[];
+                            /**
+                             * @description Correcciones que el código del agente hizo a la opinión del modelo
+                             * @default []
+                             */
+                            ajustes: string[];
+                            /** @default null */
+                            modelo: string | null;
+                            versionPrompt: string;
+                            hashEntradas: string;
+                            /** @default null */
+                            error: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @description Fecha ISO 8601 en que la API la recibió */
+                            registradaEn: string;
+                            /** @description Identidad del token que la envió */
+                            registradaPor: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Id de la ejecución; repetirlo no duplica */
+                            ejecucionId: string;
+                            /** Format: date-time */
+                            fecha: string;
+                            /** @enum {string} */
+                            origen: "Plan" | "Drift" | "Evento" | "Auditoría";
+                            /** @enum {string} */
+                            ambiente: "Dev" | "QA" | "Prod";
+                            commit: string;
+                            /**
+                             * @description Copiado de la compuerta; el agente no lo decide
+                             * @enum {string}
+                             */
+                            resultadoCompuerta: "conforme" | "bloqueado" | "error";
+                            /** @enum {string} */
+                            estado: "analizado" | "sin_violaciones" | "sin_analisis" | "error_agente";
+                            resumen: string;
+                            clasificaciones: {
+                                /** @description Id de la violación en esa ejecución, por ejemplo V01 */
+                                violacion: string;
+                                control: string;
+                                recurso: string | null;
+                                /** @description La del catálogo; la API comprueba que no se haya cambiado */
+                                severidad: string;
+                                /** @description 1 = atender ya */
+                                prioridad: number;
+                                /** @enum {string} */
+                                accionSugerida: "proponer_pr" | "escalar_jira" | "ninguna";
+                                confianza: number;
+                                explicacion: string;
+                                remediacion: string;
+                                /**
+                                 * Format: uuid
+                                 * @description Hallazgo del mismo control y recurso, si existe
+                                 */
+                                hallazgoId: string | null;
+                            }[];
+                            /** @default [] */
+                            herramientasUsadas: string[];
+                            /**
+                             * @description Correcciones que el código del agente hizo a la opinión del modelo
+                             * @default []
+                             */
+                            ajustes: string[];
+                            /** @default null */
+                            modelo: string | null;
+                            versionPrompt: string;
+                            hashEntradas: string;
+                            /** @default null */
+                            error: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @description Fecha ISO 8601 en que la API la recibió */
+                            registradaEn: string;
+                            /** @description Identidad del token que la envió */
+                            registradaPor: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                            motivos: {
+                                campo: string;
+                                mensaje: string;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/decisiones/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Una decisión del agente */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Id de la ejecución; repetirlo no duplica */
+                            ejecucionId: string;
+                            /** Format: date-time */
+                            fecha: string;
+                            /** @enum {string} */
+                            origen: "Plan" | "Drift" | "Evento" | "Auditoría";
+                            /** @enum {string} */
+                            ambiente: "Dev" | "QA" | "Prod";
+                            commit: string;
+                            /**
+                             * @description Copiado de la compuerta; el agente no lo decide
+                             * @enum {string}
+                             */
+                            resultadoCompuerta: "conforme" | "bloqueado" | "error";
+                            /** @enum {string} */
+                            estado: "analizado" | "sin_violaciones" | "sin_analisis" | "error_agente";
+                            resumen: string;
+                            clasificaciones: {
+                                /** @description Id de la violación en esa ejecución, por ejemplo V01 */
+                                violacion: string;
+                                control: string;
+                                recurso: string | null;
+                                /** @description La del catálogo; la API comprueba que no se haya cambiado */
+                                severidad: string;
+                                /** @description 1 = atender ya */
+                                prioridad: number;
+                                /** @enum {string} */
+                                accionSugerida: "proponer_pr" | "escalar_jira" | "ninguna";
+                                confianza: number;
+                                explicacion: string;
+                                remediacion: string;
+                                /**
+                                 * Format: uuid
+                                 * @description Hallazgo del mismo control y recurso, si existe
+                                 */
+                                hallazgoId: string | null;
+                            }[];
+                            /** @default [] */
+                            herramientasUsadas: string[];
+                            /**
+                             * @description Correcciones que el código del agente hizo a la opinión del modelo
+                             * @default []
+                             */
+                            ajustes: string[];
+                            /** @default null */
+                            modelo: string | null;
+                            versionPrompt: string;
+                            hashEntradas: string;
+                            /** @default null */
+                            error: string | null;
+                            /** Format: uuid */
+                            id: string;
+                            /** @description Fecha ISO 8601 en que la API la recibió */
+                            registradaEn: string;
+                            /** @description Identidad del token que la envió */
+                            registradaPor: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
                         };
                     };
                 };
@@ -1241,6 +2446,30 @@ export interface paths {
                                 noConformes: number;
                             };
                             etiquetasObligatorias: string[];
+                        };
+                    };
+                };
+                /** @description Default Response */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
+                        };
+                    };
+                };
+                /** @description Default Response */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            error: string;
+                            detalle?: string;
                         };
                     };
                 };

@@ -1,5 +1,6 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
+import { requiere, respuestasAuth } from '../auth/autorizacion.ts'
 import { Ambiente } from '../model/esquemas.ts'
 import {
   estadoDeRecurso,
@@ -9,17 +10,21 @@ import {
   type RecursoGuardado,
 } from '../model/recursos.ts'
 import type { Catalogo } from '../repositorios/catalogoRepositorio.ts'
+import type { ExcepcionesRepositorio } from '../repositorios/excepcionesRepositorio.ts'
 import type { HallazgosRepositorio } from '../repositorios/hallazgosRepositorio.ts'
+import { listarHallazgos } from './hallazgosVigentes.ts'
 
 export function rutasRecursos(
   catalogo: Catalogo,
   recursos: RecursoGuardado[],
   hallazgos: HallazgosRepositorio,
+  excepciones: ExcepcionesRepositorio,
 ): FastifyPluginAsyncZod {
   return async (app) => {
     app.get(
       '/recursos',
       {
+        onRequest: requiere('leer'),
         schema: {
           summary: 'Inventario de recursos gestionados',
           description:
@@ -33,6 +38,7 @@ export function rutasRecursos(
             buscar: z.string().optional(),
           }),
           response: {
+            ...respuestasAuth,
             200: z.object({
               recursos: z.array(Recurso),
               resumen: ResumenInventario,
@@ -42,7 +48,7 @@ export function rutasRecursos(
         },
       },
       async (peticion) => {
-        const todos = await hallazgos.listar({})
+        const todos = await listarHallazgos(hallazgos, excepciones)
         const porRecurso = new Map<string, { estado: string }[]>()
         for (const hallazgo of todos) {
           const lista = porRecurso.get(hallazgo.recurso) ?? []

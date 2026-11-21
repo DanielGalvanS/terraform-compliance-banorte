@@ -138,7 +138,10 @@ module "secretos" {
     }
   }
 
-  depends_on = [google_project_service.apis]
+  # Como Cloud SQL: el secreto no puede crearse antes de que el agente de
+  # Secret Manager tenga permiso sobre la llave. Sin esto Terraform los crea en
+  # paralelo y el primer apply falla con "Permission denied on Cloud KMS".
+  depends_on = [google_project_service.apis, module.kms]
 }
 
 module "sql" {
@@ -189,6 +192,11 @@ module "logging" {
 
   # En dev la retención no se bloquea: es irreversible y aquí solo estorbaría.
   bloquear_retencion = false
+
+  # La API escribe la evidencia de sus decisiones (solo crear) y la relee para
+  # verificar la cadena. Con EVIDENCIA_BUCKET apuntando a este bucket.
+  escritores = { app-api = module.iam.miembros["app-api"] }
+  lectores   = { app-api = module.iam.miembros["app-api"] }
 
   depends_on = [google_project_service.apis]
 }

@@ -1,7 +1,8 @@
 import { beforeAll, describe, expect, it } from 'vitest'
+import { configDePrueba, conToken } from './auth.ts'
 import { construirApp, PREFIJO } from '../src/app.ts'
-import { cargarConfig } from '../src/config.ts'
-import { estadoDeRecurso, etiquetasFaltantes } from '../src/model/recursos.ts'
+import { coincideRecurso, estadoDeRecurso, etiquetasFaltantes } from '../src/model/recursos.ts'
+import { excepcionesEnMemoria } from '../src/repositorios/excepcionesRepositorio.ts'
 
 const OBLIGATORIAS = ['duenio', 'ambiente', 'clasificacion_datos', 'centro_costos', 'marco_aplicable']
 const completas = Object.fromEntries(OBLIGATORIAS.map((c) => [c, 'x']))
@@ -67,16 +68,45 @@ describe('estado derivado', () => {
   })
 })
 
+describe('coincidencia de recursos', () => {
+  const corta = 'google_compute_firewall.allow_ssh'
+
+  it('la misma dirección coincide', () => {
+    expect(coincideRecurso(corta, corta)).toBe(true)
+  })
+
+  it('la dirección con módulo coincide con la corta, en los dos sentidos', () => {
+    const larga = `module.firewall.${corta}`
+    expect(coincideRecurso(corta, larga)).toBe(true)
+    expect(coincideRecurso(larga, corta)).toBe(true)
+  })
+
+  it('el mismo nombre con otro tipo no coincide', () => {
+    expect(
+      coincideRecurso('google_sql_database_instance.main', 'google_compute_instance.main'),
+    ).toBe(false)
+  })
+
+  it('un nombre que solo contiene al otro no coincide', () => {
+    expect(coincideRecurso(corta, 'google_compute_firewall.allow_ssh_extra')).toBe(false)
+    expect(coincideRecurso(corta, 'ssh')).toBe(false)
+  })
+
+  it('vacío no coincide con nada', () => {
+    expect(coincideRecurso(corta, '')).toBe(false)
+  })
+})
+
 describe('ruta de recursos', () => {
   let app: Awaited<ReturnType<typeof construirApp>>
 
   beforeAll(async () => {
-    app = await construirApp({ config: cargarConfig({ NIVEL_LOG: 'fatal' }) })
+    app = await construirApp({ config: configDePrueba() })
     await app.ready()
   })
 
   const pedir = async (query = '') =>
-    (await app.inject({ method: 'GET', url: `${PREFIJO}/recursos${query}` })).json()
+    (await app.inject(conToken({ method: 'GET', url: `${PREFIJO}/recursos${query}` }))).json()
 
   it('a la VPC no se le exigen etiquetas', async () => {
     const { recursos } = await pedir()
@@ -92,9 +122,23 @@ describe('ruta de recursos', () => {
   })
 
   it('marca no conforme el recurso con hallazgo abierto', async () => {
-    const { recursos } = await pedir()
+    // Sin excepciones: en la semilla, EXC-1048 cubre este firewall.
+    const sinExcepciones = await construirApp({
+      config: configDePrueba(),
+      excepciones: excepcionesEnMemoria([]),
+    })
+    const { recursos } = (
+      await sinExcepciones.inject(conToken({ method: 'GET', url: `${PREFIJO}/recursos` }))
+    ).json()
     const firewall = recursos.find((r: { nombre: string }) => r.nombre === 'fw-allow-ssh')
     expect(firewall.estado).toBe('No conforme')
+    await sinExcepciones.close()
+  })
+
+  it('con una excepción vigente, el hallazgo deja de contar como incumplimiento', async () => {
+    const { recursos } = await pedir()
+    const firewall = recursos.find((r: { nombre: string }) => r.nombre === 'fw-allow-ssh')
+    expect(firewall.estado).not.toBe('No conforme')
   })
 
   it('marca sin etiqueta al que le falta una clave', async () => {

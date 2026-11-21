@@ -83,6 +83,7 @@ export GOOGLE_CLOUD_LOCATION=us-central1
 | `MODELO_AGENTE` | Modelo de Gemini | `gemini-3.5-flash` |
 | `MODELO_RESPALDO` | Modelo del segundo intento si el primero falla; vacío lo desactiva | `gemini-3.5-flash-lite` |
 | `API_URL` | API de cumplimiento, para `buscar_hallazgos` y `buscar_excepciones` | sin API: las búsquedas responden "no disponible" |
+| `API_TOKEN` | Token del agente para la API (rol `Agente`, solo lectura más registrar su decisión). En desarrollo: `AUTH_SECRETO=… npm run token --workspace @compliance-ops/api -- --rol Agente`. Nunca llega al modelo | sin token: la API responde 401 y las búsquedas dan "no disponible" |
 | `AGENTE_DEBUG` | `1` muestra el rastro completo de ADK cuando Gemini falla | apagado: el motivo sale en una línea |
 | `RUTA_CATALOGO` | Catálogo de controles | `infra/policies/mappings.yaml` |
 
@@ -104,6 +105,24 @@ export GOOGLE_CLOUD_LOCATION=us-central1
 | `sin_violaciones` | La compuerta dio conforme; no se llama al modelo | 0 |
 | `sin_analisis` | La compuerta dio error, o bloqueó sin violaciones legibles; ya bloquea ella | 0 |
 | `error_agente` | El modelo falló, se tardó o respondió incompleto | 1 (bloquea) |
+
+### Registro en la API
+
+Con `API_URL`, después de escribir `decision.json` la CLI la registra en
+`POST /api/v1/decisiones` con el token de `API_TOKEN`. Se manda un
+subconjunto (`acciones.para_api`); el archivo completo queda como artefacto
+del pipeline y `hashEntradas` liga los dos.
+
+- **Si el registro falla, sale con código 1** y el pipeline bloquea: una
+  decisión sin evidencia no debe dejar pasar un despliegue.
+- **Un 200 no basta.** Solo cuenta como registrada si la respuesta es JSON
+  con el mismo `ejecucionId` y `hashEntradas` que se enviaron. Un proxy o
+  balanceador que responda 200 con una página HTML no debe pasar por éxito.
+- También se registra un `error_agente`: que el agente falló es evidencia.
+- Reenviar la misma ejecución no la duplica (la API es idempotente por
+  `ejecucionId`).
+
+Sin `API_URL` no se registra nada y el comportamiento es el de antes.
 
 ## Si Gemini falla
 
@@ -139,7 +158,6 @@ ruta relativa (`infra/policies/fixtures/plan_violaciones.json`).
 
 ## Siguiente
 
-- Registrar cada decisión en la API y en la cadena de evidencia.
 - Agregar el paso del agente en `plan.yml`.
 - Escalar a Jira (DEV-51).
 - Desplegar en Cloud Run para el drift.

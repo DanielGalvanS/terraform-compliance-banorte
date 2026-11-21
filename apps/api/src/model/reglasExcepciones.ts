@@ -114,8 +114,13 @@ const normalizar = (nombre: string) => nombre.trim().toLocaleLowerCase('es')
  * vean todo; la ruta decide cuál responder primero.
  */
 export function validarDecision(
-  guardada: { estadoGuardado: EstadoExcepcion; venceEl: string; solicitadaPor: string },
-  decision: { decididaPor: string; comentario: string },
+  guardada: {
+    estadoGuardado: EstadoExcepcion
+    venceEl: string
+    solicitadaPor: string
+    solicitanteSujeto?: string | null
+  },
+  decision: { decididaPor: string; sujeto?: string; comentario: string },
   ahora: Date = new Date(),
 ): ResultadoDecision {
   // Se usa el estado vigente y no el guardado: una pendiente cuya fecha pasó
@@ -128,8 +133,14 @@ export function validarDecision(
 
   const motivos: MotivoRechazo[] = []
 
-  // Segregación de funciones: nadie se aprueba a sí mismo.
-  if (normalizar(decision.decididaPor) === normalizar(guardada.solicitadaPor)) {
+  // Segregación de funciones: nadie se aprueba a sí mismo. Se compara el
+  // identificador del token, que la persona no controla, y también el nombre:
+  // basta con que coincida uno para rechazar.
+  const mismoSujeto =
+    decision.sujeto !== undefined &&
+    guardada.solicitanteSujeto != null &&
+    decision.sujeto === guardada.solicitanteSujeto
+  if (mismoSujeto || normalizar(decision.decididaPor) === normalizar(guardada.solicitadaPor)) {
     motivos.push({
       campo: 'decididaPor',
       mensaje: 'Quien solicitó la excepción no puede decidirla.',
@@ -143,5 +154,34 @@ export function validarDecision(
     })
   }
 
+  return { conflicto, motivos }
+}
+
+/**
+ * Valida una revocación. Solo se revoca lo que está protegiendo algo: una
+ * excepción activa y vigente. Una pendiente se rechaza, y una vencida ya no
+ * protege nada. Como al decidir, el conflicto (409) va aparte de los datos
+ * (422).
+ *
+ * No hay regla de segregación: revocar reduce el riesgo en vez de aceptarlo,
+ * y quien la solicitó debe poder pedir que se retire en cuanto la corrige.
+ */
+export function validarRevocacion(
+  guardada: { estadoGuardado: EstadoExcepcion; venceEl: string },
+  comentario: string,
+  ahora: Date = new Date(),
+): ResultadoDecision {
+  const estado = estadoVigente(guardada.estadoGuardado, guardada.venceEl, ahora)
+  const conflicto =
+    estado === 'Activa' ? null : `Solo se revoca una excepción activa; esta está ${estado}.`
+  const motivos: MotivoRechazo[] =
+    comentario.trim().length < MINIMO_COMENTARIO_DECISION
+      ? [
+          {
+            campo: 'comentario',
+            mensaje: `El motivo debe tener al menos ${MINIMO_COMENTARIO_DECISION} caracteres.`,
+          },
+        ]
+      : []
   return { conflicto, motivos }
 }

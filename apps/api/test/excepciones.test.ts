@@ -1,6 +1,9 @@
 import { beforeAll, describe, expect, it } from 'vitest'
+import { configDePrueba, conToken, tokenDe, USUARIOS } from './auth.ts'
+
+const TOKEN_CARLOS = await tokenDe(USUARIOS.desarrollador)
+const TOKEN_ROBERTO = await tokenDe(USUARIOS.aprobador)
 import { construirApp, PREFIJO } from '../src/app.ts'
-import { cargarConfig } from '../src/config.ts'
 import { evidenciaEnMemoria } from '../src/repositorios/evidenciaRepositorio.ts'
 import {
   estadoVigente,
@@ -123,6 +126,24 @@ describe('reglas de la decisión', () => {
     expect(camposDecision({ ...decision, decididaPor: '  carlos VEGA ' })).toEqual(['decididaPor'])
   })
 
+  it('el mismo sujeto no decide lo suyo, aunque su nombre sea otro', () => {
+    const r = validarDecision(
+      { ...pendiente, solicitanteSujeto: 'carlos.vega' },
+      { ...decision, decididaPor: 'C. Vega', sujeto: 'carlos.vega' },
+      AHORA,
+    )
+    expect(r.motivos.map((m) => m.campo)).toEqual(['decididaPor'])
+  })
+
+  it('otro sujeto con otro nombre sí puede decidir', () => {
+    const r = validarDecision(
+      { ...pendiente, solicitanteSujeto: 'carlos.vega' },
+      { ...decision, sujeto: 'roberto.silva' },
+      AHORA,
+    )
+    expect(r.motivos).toEqual([])
+  })
+
   it('el comentario es obligatorio', () => {
     expect(camposDecision({ ...decision, comentario: '' })).toEqual(['comentario'])
   })
@@ -152,7 +173,7 @@ describe('rutas de excepciones', () => {
   const evidencia = evidenciaEnMemoria()
 
   beforeAll(async () => {
-    app = await construirApp({ config: cargarConfig({ NIVEL_LOG: 'fatal' }), evidencia })
+    app = await construirApp({ config: configDePrueba(), evidencia })
     await app.ready()
   })
 
@@ -163,29 +184,32 @@ describe('rutas de excepciones', () => {
     justificacion: 'Ventana de migración coordinada con el equipo de seguridad.',
     venceEl: new Date(Date.now() + 20 * 86_400_000).toISOString().slice(0, 10),
     aprobador: 'Roberto Silva',
-    solicitante: 'Carlos Vega',
   }
 
+  /** Carlos solicita; así Roberto, o Ana, pueden decidir. */
+  const solicitar = (payload: Record<string, unknown> = solicitud) =>
+    app.inject(conToken({ method: 'POST', url: `${PREFIJO}/excepciones`, payload }, TOKEN_CARLOS))
+
   it('completa el control desde el catálogo', async () => {
-    const r = await app.inject({ method: 'GET', url: `${PREFIJO}/excepciones` })
+    const r = await app.inject(conToken({ method: 'GET', url: `${PREFIJO}/excepciones` }))
     const primera = r.json().excepciones[0]
     expect(primera.controlNombre).not.toBe('Control desconocido')
     expect(primera.severidad).toBeTruthy()
   })
 
   it('deriva Vencida de la fecha, aunque esté guardada como Activa', async () => {
-    const r = await app.inject({ method: 'GET', url: `${PREFIJO}/excepciones?estado=Vencida` })
+    const r = await app.inject(conToken({ method: 'GET', url: `${PREFIJO}/excepciones?estado=Vencida` }))
     const vencidas = r.json().excepciones
     expect(vencidas.length).toBeGreaterThan(0)
     for (const e of vencidas) expect(e.estado).toBe('Vencida')
   })
 
   it('una solicitud válida nace Pendiente y sin aprobador', async () => {
-    const r = await app.inject({
+    const r = await app.inject(conToken({
       method: 'POST',
       url: `${PREFIJO}/excepciones`,
       payload: solicitud,
-    })
+    }))
     expect(r.statusCode).toBe(201)
     // Nada se exceptúa sin que una persona lo apruebe.
     expect(r.json().estado).toBe('Pendiente')
@@ -194,31 +218,36 @@ describe('rutas de excepciones', () => {
   })
 
   it('la solicitud guarda a quién se le pidió la aprobación', async () => {
-    const r = await app.inject({
-      method: 'POST',
-      url: `${PREFIJO}/excepciones`,
-      payload: solicitud,
-    })
+    const r = await solicitar()
     expect(r.json().aprobadorSolicitado).toBe('Roberto Silva')
+  })
+
+  it('quien solicita sale del token, aunque el cuerpo diga otra cosa', async () => {
+    const r = await solicitar({ ...solicitud, solicitante: 'Otra Persona' })
+    expect(r.statusCode).toBe(201)
     expect(r.json().solicitadaPor).toBe('Carlos Vega')
   })
 
+  it('el sujeto del token no se expone en la respuesta', async () => {
+    expect((await solicitar()).json()).not.toHaveProperty('solicitanteSujeto')
+  })
+
   it('la severidad la decide el control, no quien solicita', async () => {
-    const r = await app.inject({
+    const r = await app.inject(conToken({
       method: 'POST',
       url: `${PREFIJO}/excepciones`,
       payload: { ...solicitud, control: 'CO-TAG-01' },
-    })
+    }))
     // CO-TAG-01 es de severidad media en el catálogo.
     expect(r.json().severidad).toBe('Media')
   })
 
   it('devuelve 422 con el detalle de cada campo', async () => {
-    const r = await app.inject({
+    const r = await app.inject(conToken({
       method: 'POST',
       url: `${PREFIJO}/excepciones`,
       payload: { ...solicitud, justificacion: 'corta', control: 'CO-NO-99' },
-    })
+    }))
     expect(r.statusCode).toBe(422)
     expect(r.json().motivos.map((m: { campo: string }) => m.campo).sort()).toEqual([
       'control',
@@ -227,10 +256,10 @@ describe('rutas de excepciones', () => {
   })
 
   it('la nueva aparece en la lista', async () => {
-    const antes = (await app.inject({ method: 'GET', url: `${PREFIJO}/excepciones` })).json()
+    const antes = (await app.inject(conToken({ method: 'GET', url: `${PREFIJO}/excepciones` }))).json()
       .excepciones.length
-    await app.inject({ method: 'POST', url: `${PREFIJO}/excepciones`, payload: solicitud })
-    const despues = (await app.inject({ method: 'GET', url: `${PREFIJO}/excepciones` })).json()
+    await app.inject(conToken({ method: 'POST', url: `${PREFIJO}/excepciones`, payload: solicitud }))
+    const despues = (await app.inject(conToken({ method: 'GET', url: `${PREFIJO}/excepciones` }))).json()
       .excepciones.length
     expect(despues).toBe(antes + 1)
   })
@@ -238,23 +267,22 @@ describe('rutas de excepciones', () => {
   describe('decisión', () => {
     const crear = async () =>
       (
-        await app.inject({ method: 'POST', url: `${PREFIJO}/excepciones`, payload: solicitud })
+        await solicitar()
       ).json().id as string
 
-    const aprobar = (id: string, cuerpo: Record<string, string> = {}) =>
-      app.inject({
+    const aprobar = (id: string, cuerpo: Record<string, string> = {}, token = TOKEN_ROBERTO) =>
+      app.inject(conToken({
         method: 'POST',
         url: `${PREFIJO}/excepciones/${id}/aprobar`,
         payload: {
-          aprobadaPor: 'Roberto Silva',
           comentario: 'Riesgo aceptado hasta la ventana de cambio',
           ...cuerpo,
         },
-      })
+      }, token))
 
     it('GET por id devuelve la excepción completa', async () => {
       const id = await crear()
-      const r = await app.inject({ method: 'GET', url: `${PREFIJO}/excepciones/${id}` })
+      const r = await app.inject(conToken({ method: 'GET', url: `${PREFIJO}/excepciones/${id}` }))
       expect(r.statusCode).toBe(200)
       expect(r.json().id).toBe(id)
       expect(r.json().controlNombre).not.toBe('Control desconocido')
@@ -262,10 +290,10 @@ describe('rutas de excepciones', () => {
     })
 
     it('GET por id responde 404 si no existe', async () => {
-      const r = await app.inject({
+      const r = await app.inject(conToken({
         method: 'GET',
         url: `${PREFIJO}/excepciones/00000000-0000-4000-8000-000000000000`,
-      })
+      }))
       expect(r.statusCode).toBe(404)
     })
 
@@ -298,6 +326,21 @@ describe('rutas de excepciones', () => {
       expect(await evidencia.listar({ objetoId: id })).toEqual([])
     })
 
+    it('quien aprueba sale del token, aunque el cuerpo diga otra cosa', async () => {
+      const r = await aprobar(await crear(), { aprobadaPor: 'Otra Persona' })
+      expect(r.json().aprobadaPor).toBe('Roberto Silva')
+    })
+
+    it('el mismo sujeto no aprueba lo suyo aunque cambie de nombre', async () => {
+      const ana = await tokenDe(USUARIOS.lead)
+      const propia = await app.inject(
+        conToken({ method: 'POST', url: `${PREFIJO}/excepciones`, payload: solicitud }, ana),
+      )
+      const renombrada = await tokenDe({ ...USUARIOS.lead, nombre: 'A. Martínez Ruiz' })
+      const r = await aprobar(propia.json().id, {}, renombrada)
+      expect(r.statusCode).toBe(422)
+    })
+
     it('aprobarla otra vez responde 409', async () => {
       const id = await crear()
       await aprobar(id)
@@ -305,36 +348,42 @@ describe('rutas de excepciones', () => {
     })
 
     it('rechazar una pendiente la deja Rechazada', async () => {
-      const r = await app.inject({
+      const r = await app.inject(conToken({
         method: 'POST',
         url: `${PREFIJO}/excepciones/${await crear()}/rechazar`,
-        payload: { rechazadaPor: 'Roberto Silva', comentario: 'Hay alternativa sin excepción' },
-      })
+        payload: { comentario: 'Hay alternativa sin excepción' },
+      }, TOKEN_ROBERTO))
       expect(r.statusCode).toBe(200)
       expect(r.json().estado).toBe('Rechazada')
     })
 
     it('el solicitante no puede aprobar su propia excepción', async () => {
-      const r = await aprobar(await crear(), { aprobadaPor: ' carlos vega' })
+      // Carlos es Desarrollador; con su rol ni siquiera llegaría a la regla.
+      // Un Compliance Lead que solicita sí puede decidir, salvo lo propio.
+      const ana = await tokenDe(USUARIOS.lead)
+      const propia = await app.inject(
+        conToken({ method: 'POST', url: `${PREFIJO}/excepciones`, payload: solicitud }, ana),
+      )
+      const r = await aprobar(propia.json().id, {}, ana)
       expect(r.statusCode).toBe(422)
       expect(r.json().motivos.map((m: { campo: string }) => m.campo)).toEqual(['decididaPor'])
     })
 
     it('una vencida de la semilla no se puede aprobar', async () => {
       const vencida = (
-        await app.inject({ method: 'GET', url: `${PREFIJO}/excepciones?estado=Vencida` })
+        await app.inject(conToken({ method: 'GET', url: `${PREFIJO}/excepciones?estado=Vencida` }))
       ).json().excepciones[0]
       expect((await aprobar(vencida.id)).statusCode).toBe(409)
     })
 
     it('decidir una de la semilla no la cambia en otra instancia de la app', async () => {
       const pendiente = (
-        await app.inject({ method: 'GET', url: `${PREFIJO}/excepciones?estado=Pendiente` })
+        await app.inject(conToken({ method: 'GET', url: `${PREFIJO}/excepciones?estado=Pendiente` }))
       ).json().excepciones.find((e: { codigo: string }) => e.codigo === 'EXC-1044')
       expect((await aprobar(pendiente.id)).statusCode).toBe(200)
 
-      const otra = await construirApp({ config: cargarConfig({ NIVEL_LOG: 'fatal' }) })
-      const r = await otra.inject({ method: 'GET', url: `${PREFIJO}/excepciones/${pendiente.id}` })
+      const otra = await construirApp({ config: configDePrueba() })
+      const r = await otra.inject(conToken({ method: 'GET', url: `${PREFIJO}/excepciones/${pendiente.id}` }))
       expect(r.json().estado).toBe('Pendiente')
       await otra.close()
     })

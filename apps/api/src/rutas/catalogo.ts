@@ -1,5 +1,6 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
+import { requiere, respuestasAuth } from '../auth/autorizacion.ts'
 import { Control, Marco } from '../model/esquemas.ts'
 import type { Catalogo } from '../repositorios/catalogoRepositorio.ts'
 
@@ -9,10 +10,12 @@ export function rutasCatalogo(catalogo: Catalogo): FastifyPluginAsyncZod {
     app.get(
       '/marcos',
       {
+        onRequest: requiere('leer'),
         schema: {
           summary: 'Marcos regulatorios en alcance',
           tags: ['catálogo'],
           response: {
+            ...respuestasAuth,
             200: z.object({ version: z.string(), marcos: z.array(Marco) }),
           },
         },
@@ -23,6 +26,7 @@ export function rutasCatalogo(catalogo: Catalogo): FastifyPluginAsyncZod {
     app.get(
       '/controles',
       {
+        onRequest: requiere('leer'),
         schema: {
           summary: 'Controles codificados y su mapeo a marcos',
           tags: ['catálogo'],
@@ -30,6 +34,7 @@ export function rutasCatalogo(catalogo: Catalogo): FastifyPluginAsyncZod {
             marco: z.string().optional().describe('Filtra por nombre corto del marco'),
           }),
           response: {
+            ...respuestasAuth,
             200: z.object({ version: z.string(), controles: z.array(Control) }),
           },
         },

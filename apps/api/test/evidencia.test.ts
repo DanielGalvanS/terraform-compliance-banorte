@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { configDePrueba, conToken, tokenDe, USUARIOS } from './auth.ts'
 import { construirApp, PREFIJO } from '../src/app.ts'
-import { cargarConfig } from '../src/config.ts'
 import type { EventoEvidencia } from '../src/model/esquemas.ts'
 import {
   calcularHash,
@@ -83,10 +83,10 @@ describe('registro de evidencia', () => {
 
 describe('ruta de evidencia', () => {
   it('trae la aprobación y el cambio de estado, el más reciente primero', async () => {
-    const app = await construirApp({ config: cargarConfig({ NIVEL_LOG: 'fatal' }) })
+    const app = await construirApp({ config: configDePrueba() })
 
     const excepcion = (
-      await app.inject({
+      await app.inject(conToken({
         method: 'POST',
         url: `${PREFIJO}/excepciones`,
         payload: {
@@ -96,39 +96,39 @@ describe('ruta de evidencia', () => {
           justificacion: 'Ventana de migración coordinada con el equipo de seguridad.',
           venceEl: new Date(Date.now() + 20 * 86_400_000).toISOString().slice(0, 10),
           aprobador: 'Roberto Silva',
-          solicitante: 'Carlos Vega',
         },
-      })
+      }, await tokenDe(USUARIOS.desarrollador)))
     ).json()
-    await app.inject({
+    await app.inject(conToken({
       method: 'POST',
       url: `${PREFIJO}/excepciones/${excepcion.id}/aprobar`,
-      payload: { aprobadaPor: 'Roberto Silva', comentario: 'Riesgo aceptado hasta la ventana' },
-    })
+      payload: { comentario: 'Riesgo aceptado hasta la ventana' },
+    }, await tokenDe(USUARIOS.aprobador)))
 
     const hallazgo = (
-      await app.inject({ method: 'GET', url: `${PREFIJO}/hallazgos?estado=Abierto` })
+      await app.inject(conToken({ method: 'GET', url: `${PREFIJO}/hallazgos?estado=Abierto` }))
     ).json().hallazgos[0]
-    await app.inject({
+    await app.inject(conToken({
       method: 'PATCH',
       url: `${PREFIJO}/hallazgos/${hallazgo.id}/estado`,
-      payload: { estado: 'En remediación', comentario: 'Asignado a red', cambiadoPor: 'Ana Martínez' },
-    })
+      payload: { estado: 'En remediación', comentario: 'Asignado a red' },
+    }))
 
-    const todo = (await app.inject({ method: 'GET', url: `${PREFIJO}/evidencia` })).json()
+    const todo = (await app.inject(conToken({ method: 'GET', url: `${PREFIJO}/evidencia` }))).json()
     expect(todo.integra).toBe(true)
     expect(todo.eventos.map((e: EventoEvidencia) => e.tipo)).toEqual([
       'hallazgo.estado',
       'excepcion.aprobada',
     ])
-    expect(todo.eventos[0].detalle).toEqual({
-      de: 'Abierto',
-      a: 'En remediación',
-      comentario: 'Asignado a red',
+    // Quién actuó sale del token: Ana cambió el estado y Roberto aprobó.
+    expect(todo.eventos[0]).toMatchObject({
+      actor: 'Ana Martínez',
+      detalle: { de: 'Abierto', a: 'En remediación', comentario: 'Asignado a red', sujeto: 'ana.martinez' },
     })
+    expect(todo.eventos[1].actor).toBe('Roberto Silva')
 
     const filtrado = (
-      await app.inject({ method: 'GET', url: `${PREFIJO}/evidencia?objetoId=${excepcion.id}` })
+      await app.inject(conToken({ method: 'GET', url: `${PREFIJO}/evidencia?objetoId=${excepcion.id}` }))
     ).json()
     expect(filtrado.eventos).toHaveLength(1)
     expect(filtrado.eventos[0].objetoId).toBe(excepcion.id)

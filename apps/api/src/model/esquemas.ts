@@ -9,9 +9,41 @@ import { z } from 'zod'
  */
 
 export const Severidad = z.enum(['Crítica', 'Alta', 'Media', 'Baja'])
+
+/**
+ * Roles de la plataforma. Los cuatro primeros son personas (el diseño de OIDC);
+ * Agente y Pipeline son servicios con identidad propia, para que su acceso se
+ * pueda acotar y auditar igual que el de una persona.
+ */
+export const Rol = z.enum([
+  'Compliance Lead',
+  'Aprobador',
+  'Desarrollador',
+  'Auditor',
+  'Agente',
+  'Pipeline',
+])
 export const Ambiente = z.enum(['Dev', 'QA', 'Prod'])
 export const EstadoHallazgo = z.enum(['Abierto', 'En remediación', 'Excepción', 'Cerrado'])
 export const Origen = z.enum(['Plan', 'Drift', 'Evento', 'Auditoría'])
+
+/** Lo que se puede hacer en la API; `model/permisos.ts` dice qué rol puede qué. */
+export const Accion = z.enum([
+  'leer',
+  'solicitarExcepcion',
+  'decidirExcepcion',
+  'revocarExcepcion',
+  'cambiarEstadoHallazgo',
+  'registrarHallazgo',
+  'registrarDecision',
+])
+
+/** Quién hace la petición, según el token. Nunca según el cuerpo. */
+export const Identidad = z.object({
+  sujeto: z.string().min(1).describe('Identificador estable de la persona o el servicio'),
+  nombre: z.string().min(1).describe('Nombre que queda en la evidencia'),
+  rol: Rol,
+})
 
 export const Marco = z.object({
   clave: z.string().describe('Identificador interno, por ejemplo cis_gcp'),
@@ -71,6 +103,13 @@ export const DetalleHallazgo = z.object({
   remediacion: Remediacion,
 })
 
+/** La excepción que cubre a un hallazgo, para enlazarla desde la pantalla. */
+export const ReferenciaExcepcion = z.object({
+  id: z.uuid(),
+  codigo: z.string(),
+  venceEl: z.string().describe('Fecha yyyy-mm-dd'),
+})
+
 export const Hallazgo = z.object({
   id: z.uuid(),
   control: z.string().nullable().describe('Código del control; nulo si ninguna política lo cubre'),
@@ -83,7 +122,16 @@ export const Hallazgo = z.object({
   mensaje: z.string(),
   detectadoEn: z.string().describe('Fecha ISO 8601'),
   detalle: DetalleHallazgo.optional(),
+  excepcion: ReferenciaExcepcion.nullable().describe(
+    'La excepción activa y vigente que lo cubre; con ella el estado se muestra como Excepción',
+  ),
 })
+
+/**
+ * Lo que se guarda de un hallazgo. La excepción que lo cubre no se guarda: se
+ * calcula al leer, para que vencer o revocar la excepción se refleje sola.
+ */
+export const HallazgoGuardado = Hallazgo.omit({ excepcion: true })
 
 /** Lo que el pipeline envía al detectar un incumplimiento. */
 export const NuevoHallazgo = z.object({
@@ -97,14 +145,13 @@ export const NuevoHallazgo = z.object({
 })
 
 /**
- * Cambio de estado de un hallazgo. `cambiadoPor` viene en el cuerpo porque aún
- * no hay autenticación; cuando exista OIDC saldrá del token. El comentario no
- * lleva mínimo aquí para que la regla responda 422 con `motivos`.
+ * Cambio de estado de un hallazgo. Quién lo cambia sale del token, nunca del
+ * cuerpo. El comentario no lleva mínimo aquí para que la regla responda 422
+ * con `motivos`.
  */
 export const CambioEstadoHallazgo = z.object({
   estado: EstadoHallazgo,
   comentario: z.string().describe('Por qué cambia; queda en la evidencia'),
-  cambiadoPor: z.string().min(1).describe('Quién lo cambia; saldrá del token con OIDC'),
 })
 
 export const FiltroHallazgos = z.object({
@@ -112,6 +159,10 @@ export const FiltroHallazgos = z.object({
   ambiente: Ambiente.optional(),
   estado: EstadoHallazgo.optional(),
   control: z.string().optional(),
+  recurso: z
+    .string()
+    .optional()
+    .describe('Dirección de Terraform, corta o con módulo; ver coincideRecurso'),
 })
 
 /**
@@ -139,9 +190,13 @@ export const Error = z.object({
   detalle: z.string().optional(),
 })
 
+export type Rol = z.infer<typeof Rol>
+export type Identidad = z.infer<typeof Identidad>
+export type Accion = z.infer<typeof Accion>
 export type Marco = z.infer<typeof Marco>
 export type Control = z.infer<typeof Control>
 export type Hallazgo = z.infer<typeof Hallazgo>
+export type HallazgoGuardado = z.infer<typeof HallazgoGuardado>
 export type DetalleHallazgo = z.infer<typeof DetalleHallazgo>
 export type NuevoHallazgo = z.infer<typeof NuevoHallazgo>
 export type FiltroHallazgos = z.infer<typeof FiltroHallazgos>
@@ -180,16 +235,35 @@ export const Excepcion = z.object({
     .nullable()
     .describe('Fundamento de la decisión; nulo mientras está pendiente'),
   decididaEn: z.string().nullable().describe('Fecha ISO 8601; nula mientras está pendiente'),
+  revocadaPor: z.string().nullable().describe('Quién la revocó; nulo si no se ha revocado'),
+  revocadaEn: z.string().nullable().describe('Fecha ISO 8601 de la revocación'),
+  motivoRevocacion: z.string().nullable(),
   solicitadaEn: z.string().describe('Fecha ISO 8601'),
   venceEl: z.string().describe('Fecha yyyy-mm-dd'),
   estado: EstadoExcepcion,
   planRemediacion: z.string().nullable(),
+  diasRestantes: z
+    .number()
+    .int()
+    .nullable()
+    .describe('Días hasta el vencimiento; nulo si ya no está pendiente ni activa'),
+  porVencer: z.boolean().describe('Activa y a 7 días o menos de vencer'),
+  hallazgosAfectados: z
+    .number()
+    .int()
+    .describe(
+      'Hallazgos abiertos o en remediación del mismo control, recurso y ambiente: los que ' +
+        'cubre si está activa, o cubriría si se aprueba',
+    ),
 })
 
 /**
  * Solicitud de excepción.
  *
- * No incluye estado ni severidad: el estado siempre nace «Pendiente» —nada se
+ * No incluye quién la solicita: sale del token. Si el cliente pudiera
+ * declararlo, cualquiera solicitaría a nombre de otro.
+ *
+ * Tampoco incluye estado ni severidad: el estado siempre nace «Pendiente» —nada se
  * exceptúa sin que una persona lo apruebe— y la severidad la decide el
  * control, no quien la pide.
  */
@@ -200,17 +274,19 @@ export const NuevaExcepcion = z.object({
   justificacion: z.string(),
   venceEl: z.string(),
   aprobador: z.string().min(1).describe('A quién se le pide la aprobación'),
-  // Viene en el cuerpo porque aún no hay autenticación. Cuando exista OIDC
-  // (ver «Autenticación» en el README) saldrá del token: dejar que el cliente
-  // declare quién es permitiría solicitar a nombre de otro.
-  solicitante: z.string().min(1).describe('Quién solicita la excepción'),
   planRemediacion: z.string().optional(),
 })
 
 export const FiltroExcepciones = z.object({
   estado: EstadoExcepcion.optional(),
+  // Texto y no booleano: en una query string todo llega como texto.
+  porVencer: z.enum(['true', 'false']).optional(),
   ambiente: Ambiente.optional(),
   control: z.string().optional(),
+  recurso: z
+    .string()
+    .optional()
+    .describe('Dirección de Terraform, corta o con módulo; ver coincideRecurso'),
 })
 
 export type Excepcion = z.infer<typeof Excepcion>
@@ -218,7 +294,13 @@ export type NuevaExcepcion = z.infer<typeof NuevaExcepcion>
 export type FiltroExcepciones = z.infer<typeof FiltroExcepciones>
 export type EstadoExcepcion = z.infer<typeof EstadoExcepcion>
 
-export const TipoEvento = z.enum(['excepcion.aprobada', 'excepcion.rechazada', 'hallazgo.estado'])
+export const TipoEvento = z.enum([
+  'excepcion.aprobada',
+  'excepcion.rechazada',
+  'excepcion.revocada',
+  'hallazgo.estado',
+  'agente.decision',
+])
 
 /**
  * Un evento del registro de evidencia.
@@ -243,3 +325,78 @@ export const EventoEvidencia = z.object({
 
 export type TipoEvento = z.infer<typeof TipoEvento>
 export type EventoEvidencia = z.infer<typeof EventoEvidencia>
+
+export const ResultadoCompuerta = z.enum(['conforme', 'bloqueado', 'error'])
+export const EstadoDecisionAgente = z.enum([
+  'analizado',
+  'sin_violaciones',
+  'sin_analisis',
+  'error_agente',
+])
+export const AccionSugerida = z.enum(['proponer_pr', 'escalar_jira', 'ninguna'])
+
+/** Una violación tal como la clasificó el agente. */
+export const ClasificacionAgente = z.object({
+  violacion: z.string().min(1).max(20).describe('Id de la violación en esa ejecución, por ejemplo V01'),
+  control: z.string().min(1),
+  recurso: z.string().nullable(),
+  // Texto y no Severidad: si el control no está en el catálogo, el agente
+  // manda «Desconocida», y eso merece un 422 con su motivo, no un 400 genérico.
+  severidad: z.string().max(20).describe('La del catálogo; la API comprueba que no se haya cambiado'),
+  prioridad: z.number().int().min(1).max(5).describe('1 = atender ya'),
+  accionSugerida: AccionSugerida,
+  confianza: z.number().int().min(0).max(100),
+  explicacion: z.string().max(2000),
+  remediacion: z.string().max(2000),
+})
+
+/**
+ * Lo que el agente envía al terminar una ejecución. Es un subconjunto de su
+ * `decision.json`: el artefacto completo queda en el pipeline, y
+ * `hashEntradas` liga las dos cosas.
+ *
+ * Los límites de tamaño son defensivos: parte del texto lo escribe un modelo
+ * que lee planes que cualquiera puede editar en su PR.
+ */
+export const NuevaDecisionAgente = z.object({
+  ejecucionId: z.string().min(1).max(100).describe('Id de la ejecución; repetirlo no duplica'),
+  fecha: z.iso.datetime({ offset: true }),
+  origen: Origen,
+  ambiente: Ambiente,
+  commit: z.string().min(1).max(100),
+  resultadoCompuerta: ResultadoCompuerta.describe('Copiado de la compuerta; el agente no lo decide'),
+  estado: EstadoDecisionAgente,
+  resumen: z.string().max(4000),
+  clasificaciones: z.array(ClasificacionAgente).max(200).default([]),
+  herramientasUsadas: z.array(z.string().max(100)).max(50).default([]),
+  ajustes: z
+    .array(z.string().max(1000))
+    .max(500)
+    .default([])
+    .describe('Correcciones que el código del agente hizo a la opinión del modelo'),
+  modelo: z.string().max(100).nullable().default(null),
+  versionPrompt: z.string().min(1).max(50),
+  hashEntradas: z.string().regex(/^sha256:[0-9a-f]{64}$/),
+  error: z.string().max(2000).nullable().default(null),
+})
+
+export const DecisionAgente = NuevaDecisionAgente.extend({
+  id: z.uuid(),
+  registradaEn: z.string().describe('Fecha ISO 8601 en que la API la recibió'),
+  registradaPor: z.string().describe('Identidad del token que la envió'),
+  clasificaciones: z.array(
+    ClasificacionAgente.extend({
+      hallazgoId: z.uuid().nullable().describe('Hallazgo del mismo control y recurso, si existe'),
+    }),
+  ),
+})
+
+export const FiltroDecisiones = z.object({
+  ejecucionId: z.string().optional(),
+  estado: EstadoDecisionAgente.optional(),
+})
+
+export type ClasificacionAgente = z.infer<typeof ClasificacionAgente>
+export type NuevaDecisionAgente = z.infer<typeof NuevaDecisionAgente>
+export type DecisionAgente = z.infer<typeof DecisionAgente>
+export type FiltroDecisiones = z.infer<typeof FiltroDecisiones>

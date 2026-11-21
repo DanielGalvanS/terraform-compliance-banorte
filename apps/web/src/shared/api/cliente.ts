@@ -33,8 +33,51 @@ export type RespuestaRecursos =
 
 export type RecursoApi = RespuestaRecursos['recursos'][number]
 
+export type RespuestaEvidencia =
+  paths['/evidencia']['get']['responses'][200]['content']['application/json']
+
+export type EventoEvidenciaApi = RespuestaEvidencia['eventos'][number]
+
 export type NuevaExcepcionApi =
   paths['/excepciones']['post']['requestBody']['content']['application/json']
+
+export type CredencialesApi =
+  paths['/sesion']['post']['requestBody']['content']['application/json']
+
+export type SesionApi =
+  paths['/sesion']['post']['responses'][200]['content']['application/json']
+
+/**
+ * Token de la sesión. Vive en memoria y no en localStorage: un script inyectado
+ * en la página podría leer localStorage y llevárselo. El costo es que al
+ * recargar hay que volver a iniciar sesión.
+ */
+let tokenActual: string | null = null
+let alExpirar: (() => void) | null = null
+
+export function establecerToken(token: string | null) {
+  tokenActual = token
+}
+
+/** Lo llama la API cuando responde 401: el token venció o ya no es válido. */
+export function alSesionExpirada(accion: (() => void) | null) {
+  alExpirar = accion
+}
+
+function cabeceras(extra: Record<string, string> = {}): Record<string, string> {
+  return {
+    accept: 'application/json',
+    ...(tokenActual === null ? {} : { authorization: `Bearer ${tokenActual}` }),
+    ...extra,
+  }
+}
+
+function revisarSesion(respuesta: Response) {
+  if (respuesta.status === 401 && tokenActual !== null) {
+    tokenActual = null
+    alExpirar?.()
+  }
+}
 
 /** Motivos de rechazo que devuelve la API cuando una solicitud no cumple. */
 export type MotivoRechazo = { campo: string; mensaje: string }
@@ -68,7 +111,7 @@ async function pedir<T>(ruta: string, señal?: AbortSignal): Promise<T> {
   let respuesta: Response
   try {
     respuesta = await fetch(`${URL_API}${ruta}`, {
-      headers: { accept: 'application/json' },
+      headers: cabeceras(),
       signal: señal ?? AbortSignal.timeout(TIEMPO_LIMITE_MS),
     })
   } catch (causa) {
@@ -79,6 +122,7 @@ async function pedir<T>(ruta: string, señal?: AbortSignal): Promise<T> {
     )
   }
 
+  revisarSesion(respuesta)
   if (!respuesta.ok) {
     throw new ErrorApi(`La API respondió ${respuesta.status}`, respuesta.status)
   }
@@ -92,7 +136,7 @@ async function enviar<T>(ruta: string, cuerpo: unknown): Promise<T> {
   try {
     respuesta = await fetch(`${URL_API}${ruta}`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      headers: cabeceras({ 'content-type': 'application/json' }),
       body: JSON.stringify(cuerpo),
       signal: AbortSignal.timeout(TIEMPO_LIMITE_MS),
     })
@@ -100,6 +144,7 @@ async function enviar<T>(ruta: string, cuerpo: unknown): Promise<T> {
     throw new ErrorApi('No se pudo contactar con la API')
   }
 
+  revisarSesion(respuesta)
   // 422 trae el detalle por campo, que el formulario sabe pintar.
   if (respuesta.status === 422) {
     const cuerpoError = (await respuesta.json()) as { error: string; motivos: MotivoRechazo[] }
@@ -117,4 +162,7 @@ export const clienteApi = {
     pedir<RespuestaExcepciones>('/excepciones', señal),
   crearExcepcion: (nueva: NuevaExcepcionApi) => enviar<ExcepcionApi>('/excepciones', nueva),
   listarRecursos: (señal?: AbortSignal) => pedir<RespuestaRecursos>('/recursos', señal),
+  listarEvidencia: (señal?: AbortSignal) =>
+    pedir<RespuestaEvidencia>('/evidencia', señal),
+  iniciarSesion: (credenciales: CredencialesApi) => enviar<SesionApi>('/sesion', credenciales),
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useEnvironment } from '@/app/providers/EnvironmentProvider'
-import { useAuth } from '@/features/auth'
+import { can, useAuth } from '@/features/auth'
 import { useFilters, useToast } from '@/shared/hooks'
 import { ErrorValidacion } from '@/shared/api'
 import {
@@ -43,9 +43,12 @@ export function ExceptionsPage() {
       action={
         <>
           {carga.estado === 'listo' && <FuenteDeDatos fuente={carga.fuente} />}
-          <Button icon="shield" onClick={() => setDrawer({ kind: 'new' })}>
-            Nueva excepción
-          </Button>
+          {/* Solo se ofrece a quien puede solicitarla; la API vuelve a comprobarlo. */}
+          {can(user, 'solicitarExcepcion') && (
+            <Button icon="shield" onClick={() => setDrawer({ kind: 'new' })}>
+              Nueva excepción
+            </Button>
+          )}
         </>
       }
     />

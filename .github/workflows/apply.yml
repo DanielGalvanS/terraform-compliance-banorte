@@ -208,13 +208,19 @@ jobs:
           name: plan-${{ inputs.ambiente }}-${{ github.run_id }}
           path: descarga
 
+      # upload-artifact conserva las rutas a partir de la raíz del repo, porque
+      # veredicto.json y huella.txt están ahí: el plan baja a
+      # descarga/infra/environments/<ambiente>/plan.bin, no a descarga/plan.bin.
+      - name: Ubicar el plan descargado
+        run: echo "PLAN_DESCARGADO=${GITHUB_WORKSPACE}/descarga/infra/environments/${AMBIENTE}/plan.bin" >> "$GITHUB_ENV"
+
       # Si la huella no coincide, el plan que se iba a aplicar no es el que
       # pasó la compuerta ni el que aprobó el revisor.
       - name: Comprobar la huella del plan
         run: |
           set -euo pipefail
           esperada="${{ needs.planear.outputs.huella }}"
-          obtenida="$(sha256sum descarga/plan.bin | cut -d' ' -f1)"
+          obtenida="$(sha256sum "${PLAN_DESCARGADO}" | cut -d' ' -f1)"
           if [[ "${esperada}" != "${obtenida}" ]]; then
             echo "::error title=Plan alterado::La huella no coincide con la aprobada"
             echo "  aprobada: ${esperada}"
@@ -235,7 +241,7 @@ jobs:
         working-directory: infra/environments/${{ inputs.ambiente }}
         run: |
           set -euo pipefail
-          cp "${GITHUB_WORKSPACE}/descarga/plan.bin" plan.bin
+          cp "${PLAN_DESCARGADO}" plan.bin
           # backend.tfbackend no está en el runner (.gitignore): el backend se
           # pasa por línea de comandos, con el mismo prefijo que en local.
           terraform init -input=false -no-color \

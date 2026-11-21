@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto'
 import fastifyCors from '@fastify/cors'
 import fastifySwagger from '@fastify/swagger'
 import fastifySwaggerUi from '@fastify/swagger-ui'
@@ -9,9 +10,17 @@ import {
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod'
 import { z } from 'zod'
+import { registrarAutenticacion } from './auth/autorizacion.ts'
+import { verificadorJwks, verificadorLocal, type Verificador } from './auth/verificador.ts'
 import type { Config } from './config.ts'
+import { almacenGcs, EvidenciaNoDisponible } from './repositorios/almacenObjetos.ts'
 import { cargarCatalogo } from './repositorios/catalogoRepositorio.ts'
 import {
+  decisionesEnMemoria,
+  type DecisionesRepositorio,
+} from './repositorios/decisionesRepositorio.ts'
+import {
+  evidenciaEnBucket,
   evidenciaEnMemoria,
   type EvidenciaRepositorio,
 } from './repositorios/evidenciaRepositorio.ts'
@@ -29,11 +38,13 @@ import {
   recursosDeEjemplo,
 } from './repositorios/semilla.ts'
 import { rutasCatalogo } from './rutas/catalogo.ts'
+import { rutasDecisiones } from './rutas/decisiones.ts'
 import { rutasEvidencia } from './rutas/evidencia.ts'
 import { rutasExcepciones } from './rutas/excepciones.ts'
 import { rutasRecursos } from './rutas/recursos.ts'
 import { rutasHallazgos } from './rutas/hallazgos.ts'
 import { rutasResumen } from './rutas/resumen.ts'
+import { rutasSesion } from './rutas/sesion.ts'
 
 export const PREFIJO = '/api/v1'
 
@@ -43,6 +54,8 @@ type Opciones = {
   hallazgos?: HallazgosRepositorio
   excepciones?: ExcepcionesRepositorio
   evidencia?: EvidenciaRepositorio
+  decisiones?: DecisionesRepositorio
+  verificador?: Verificador
 }
 
 /**
@@ -51,7 +64,35 @@ type Opciones = {
  * Separarlo de `main.ts` permite que las pruebas lo levanten en memoria con
  * `app.inject()`, sin abrir un puerto ni depender del entorno.
  */
-export async function construirApp({ config, hallazgos, excepciones, evidencia }: Opciones) {
+/**
+ * El secreto de los tokens locales. Si no se fijó, uno al azar por proceso:
+ * un secreto escrito en el código sería el mismo en todas las copias del
+ * repositorio, y cualquiera podría firmar tokens válidos.
+ */
+export function secretoLocal(config: Config): string {
+  return config.AUTH_SECRETO ?? randomBytes(32).toString('hex')
+}
+
+function construirVerificador(config: Config, secreto: string): Verificador {
+  if (config.AUTH_MODO === 'jwks') {
+    return verificadorJwks({
+      // cargarConfig ya exige los tres en modo jwks.
+      url: config.AUTH_JWKS_URL!,
+      emisor: config.AUTH_EMISOR!,
+      audiencia: config.AUTH_AUDIENCIA!,
+    })
+  }
+  return verificadorLocal(secreto)
+}
+
+export async function construirApp({
+  config,
+  hallazgos,
+  excepciones,
+  evidencia,
+  decisiones,
+  verificador,
+}: Opciones) {
   const app = Fastify({ logger: { level: config.NIVEL_LOG } }).withTypeProvider<ZodTypeProvider>()
 
   // El frontend se sirve desde otro origen en desarrollo. La lista es
@@ -61,7 +102,23 @@ export async function construirApp({ config, hallazgos, excepciones, evidencia }
     // PATCH para cambiar el estado de un hallazgo. Si falta aquí, las pruebas
     // pasan (inject no aplica CORS) pero el navegador bloquea la petición.
     methods: ['GET', 'POST', 'PATCH'],
-    allowedHeaders: ['content-type', 'idempotency-key'],
+    allowedHeaders: ['content-type', 'idempotency-key', 'authorization'],
+  })
+
+  const secreto = secretoLocal(config)
+  registrarAutenticacion(app, verificador ?? construirVerificador(config, secreto))
+
+  // Sin evidencia no hay cambio: las rutas la escriben antes de aplicar
+  // nada, y si el bucket no la acepta se responde 503 con el cambio sin
+  // aplicar. Cualquier otro error sigue al manejador por defecto.
+  app.setErrorHandler((error, peticion, respuesta) => {
+    if (error instanceof EvidenciaNoDisponible) {
+      peticion.log.error({ err: error.cause }, 'el bucket de evidencia no respondió')
+      return respuesta.code(503).send({
+        error: 'No se pudo registrar la evidencia; el cambio no se aplicó',
+      })
+    }
+    throw error
   })
 
   app.setValidatorCompiler(validatorCompiler)
@@ -78,6 +135,11 @@ export async function construirApp({ config, hallazgos, excepciones, evidencia }
         version: '0.1.0',
       },
       servers: [{ url: PREFIJO }],
+      components: {
+        securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' } },
+      },
+      // Todo exige token salvo lo que se marca con `security: []`.
+      security: [{ bearerAuth: [] }],
     },
     transform: jsonSchemaTransform,
   })
@@ -88,7 +150,24 @@ export async function construirApp({ config, hallazgos, excepciones, evidencia }
   const repositorioExcepciones = excepciones ?? excepcionesEnMemoria(excepcionesDeEjemplo)
   // Sin semilla: la evidencia de ejemplo no probaría nada, y una cadena que
   // empieza vacía es la que se puede verificar desde el primer evento.
-  const repositorioEvidencia = evidencia ?? evidenciaEnMemoria()
+  // Con EVIDENCIA_BUCKET, si el bucket no responde al arrancar, la API no
+  // arranca: aceptar cambios sin poder escribir su evidencia sería peor.
+  const repositorioEvidencia =
+    evidencia ??
+    (config.EVIDENCIA_BUCKET === undefined
+      ? evidenciaEnMemoria()
+      : await evidenciaEnBucket(almacenGcs(config.EVIDENCIA_BUCKET)))
+
+  // Una cadena alterada sí deja arrancar: negarse dejaría a Cumplimiento sin
+  // ver la alteración. Queda en el log y GET /evidencia la muestra.
+  const inicial = await repositorioEvidencia.verificar()
+  if (!inicial.integra) {
+    app.log.error(
+      { primerEventoAlterado: inicial.primerEventoAlterado },
+      'la cadena de evidencia no está íntegra',
+    )
+  }
+  const repositorioDecisiones = decisiones ?? decisionesEnMemoria()
 
   app.get(
     '/salud',
@@ -96,6 +175,7 @@ export async function construirApp({ config, hallazgos, excepciones, evidencia }
       schema: {
         summary: 'Comprobación de vida',
         tags: ['operación'],
+        security: [],
         response: {
           200: z.object({
             estado: z.literal('ok'),
@@ -103,6 +183,9 @@ export async function construirApp({ config, hallazgos, excepciones, evidencia }
             // Mientras sea false, los datos son de ejemplo y no deben
             // confundirse con la postura real.
             persistencia: z.boolean(),
+            // «memoria» detecta una alteración pero no la impide; «bucket»
+            // escribe en el almacén de solo creación con retención.
+            evidencia: z.enum(['memoria', 'bucket']),
           }),
         },
       },
@@ -111,15 +194,38 @@ export async function construirApp({ config, hallazgos, excepciones, evidencia }
       estado: 'ok' as const,
       catalogo: catalogo.version,
       persistencia: config.DATABASE_URL !== undefined,
+      evidencia: repositorioEvidencia.almacen,
     }),
   )
 
+  // Solo en modo local: con un proveedor de identidad, el login es suyo.
+  if (config.AUTH_MODO === 'local') {
+    await app.register(rutasSesion(secreto), { prefix: PREFIJO })
+  }
   await app.register(rutasCatalogo(catalogo), { prefix: PREFIJO })
-  await app.register(rutasHallazgos(repositorio, repositorioEvidencia), { prefix: PREFIJO })
-  await app.register(rutasResumen(catalogo, repositorio), { prefix: PREFIJO })
-  await app.register(rutasExcepciones(catalogo, repositorioExcepciones, repositorioEvidencia), { prefix: PREFIJO })
+  await app.register(rutasHallazgos(repositorio, repositorioExcepciones, repositorioEvidencia), {
+    prefix: PREFIJO,
+  })
+  await app.register(rutasResumen(catalogo, repositorio, repositorioExcepciones), { prefix: PREFIJO })
+  await app.register(
+    rutasExcepciones(catalogo, repositorioExcepciones, repositorio, repositorioEvidencia),
+    { prefix: PREFIJO },
+  )
   await app.register(rutasEvidencia(repositorioEvidencia), { prefix: PREFIJO })
-  await app.register(rutasRecursos(catalogo, recursosDeEjemplo, repositorio), { prefix: PREFIJO })
+  await app.register(
+    rutasDecisiones(
+      catalogo,
+      repositorioDecisiones,
+      repositorio,
+      repositorioExcepciones,
+      repositorioEvidencia,
+    ),
+    { prefix: PREFIJO },
+  )
+  await app.register(
+    rutasRecursos(catalogo, recursosDeEjemplo, repositorio, repositorioExcepciones),
+    { prefix: PREFIJO },
+  )
 
   return app
 }

@@ -47,6 +47,16 @@ export type ComplianceException = {
   state: ExceptionState
   /** Remediation ticket that will close the exception. */
   remediationPlan?: string
+  /**
+   * Lo que calcula la API. Sin API no existen y la pantalla los calcula ella
+   * misma, como antes. Con API manda la API: usa la misma fecha (UTC) que el
+   * resto del sistema y no la del navegador.
+   */
+  expiringSoon?: boolean
+  /** Hallazgos abiertos que cubre si está activa, o cubriría si se aprueba. */
+  affectedFindings?: number
+  revokedBy?: string
+  revocationReason?: string
 }
 
 export type NewExceptionInput = {
