@@ -48,6 +48,29 @@ resource "google_storage_bucket_iam_member" "escritor_del_sink" {
   member = google_logging_project_sink.evidencia.writer_identity
 }
 
+# Quien escribe evidencia solo puede crear: objectCreator no incluye borrar,
+# y sin borrar tampoco se puede sobrescribir. Además, la API crea cada objeto
+# con ifGenerationMatch = 0, y la retención impide borrar incluso a un
+# administrador. Son tres candados independientes.
+#
+# iam_member y no iam_binding: el binding es autoritativo sobre el rol y le
+# quitaría al sink su propio objectCreator (ver docs/decisiones.md).
+resource "google_storage_bucket_iam_member" "escritores" {
+  for_each = var.escritores
+
+  bucket = google_storage_bucket.evidencia.name
+  role   = "roles/storage.objectCreator"
+  member = each.value
+}
+
+resource "google_storage_bucket_iam_member" "lectores" {
+  for_each = var.lectores
+
+  bucket = google_storage_bucket.evidencia.name
+  role   = "roles/storage.objectViewer"
+  member = each.value
+}
+
 # Sin esto, GCP registra las operaciones de administración pero no los accesos
 # a datos, y no habría forma de demostrar quién leyó qué.
 resource "google_project_iam_audit_config" "todos_los_servicios" {

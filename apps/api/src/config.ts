@@ -22,6 +22,12 @@ const esquema = z.object({
   /** Ausente mientras no exista la base; los repositorios usan memoria. */
   DATABASE_URL: z.string().optional(),
   /**
+   * Bucket con retención donde se escribe la evidencia (módulo
+   * infra/modules/logging). Sin él, la evidencia vive en memoria: detecta una
+   * alteración, pero no la impide ni sobrevive a un reinicio.
+   */
+  EVIDENCIA_BUCKET: z.string().min(3).optional(),
+  /**
    * `local` firma y verifica tokens con un secreto propio y habilita los
    * usuarios de demostración. `jwks` verifica tokens del proveedor de
    * identidad con sus llaves públicas; es el modo de cualquier ambiente real.

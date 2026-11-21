@@ -18,6 +18,7 @@ import {
   listarHallazgos,
   obtenerHallazgo,
 } from './hallazgosVigentes.ts'
+import { respuestaSinEvidencia } from './respuestas.ts'
 
 /** Error con el detalle de cada campo rechazado, no solo un mensaje suelto. */
 const ErrorValidacion = ErrorRespuesta.extend({
@@ -125,6 +126,7 @@ export function rutasHallazgos(
             404: ErrorRespuesta,
             409: ErrorRespuesta,
             422: ErrorValidacion,
+            ...respuestaSinEvidencia,
           },
         },
       },
@@ -160,21 +162,23 @@ export function rutasHallazgos(
           })
         }
 
-        const cambiado = await repositorio.cambiarEstado(hallazgo.id, estado)
-        if (cambiado === null) {
-          return respuesta.code(404).send({ error: 'No existe ese hallazgo' })
-        }
+        // Evidencia primero: si el bucket no la acepta, responde 503 y el
+        // hallazgo no cambia. Un cambio sin evidencia no debe existir.
         await evidencia.registrar({
           tipo: 'hallazgo.estado',
-          objetoId: cambiado.id,
+          objetoId: hallazgo.id,
           actor: quien.nombre,
           detalle: {
             de: hallazgo.estado,
-            a: cambiado.estado,
+            a: estado,
             comentario: comentario.trim(),
             sujeto: quien.sujeto,
           },
         })
+        const cambiado = await repositorio.cambiarEstado(hallazgo.id, estado)
+        if (cambiado === null) {
+          return respuesta.code(404).send({ error: 'No existe ese hallazgo' })
+        }
         return completarHallazgo(cambiado, await excepcionesActivas(excepciones))
       },
     )
