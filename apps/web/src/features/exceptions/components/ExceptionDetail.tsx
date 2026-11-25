@@ -26,13 +26,23 @@ function Timeline({ exception }: { exception: ComplianceException }) {
           <small>{isDecided ? exception.approver : 'Pendiente de decisión'}</small>
         </span>
       </div>
-      <div>
-        <i />
-        <span>
-          <strong>Vencimiento o revocación</strong>
-          <small>{formatDate(exception.expiresOn)}</small>
-        </span>
-      </div>
+      {exception.state === 'Revocada' && exception.revokedBy ? (
+        <div>
+          <i className="done" />
+          <span>
+            <strong>Revocada</strong>
+            <small>{exception.revokedBy}</small>
+          </span>
+        </div>
+      ) : (
+        <div>
+          <i className={exception.state === 'Vencida' ? 'done' : undefined} />
+          <span>
+            <strong>Vencimiento o revocación</strong>
+            <small>{formatDate(exception.expiresOn)}</small>
+          </span>
+        </div>
+      )}
     </div>
   )
 }
@@ -57,6 +67,18 @@ export function ExceptionDetail({ exception }: { exception: ComplianceException 
           },
           { label: 'VIGENCIA HASTA', value: <strong>{formatDate(exception.expiresOn)}</strong> },
           { label: 'APROBADOR', value: <strong>{exception.approver}</strong> },
+          // Solo mientras protege algo o podría hacerlo: una rechazada,
+          // revocada o vencida ya no cubre nada.
+          ...(exception.affectedFindings === undefined ||
+          (exception.state !== 'Activa' && exception.state !== 'Pendiente')
+            ? []
+            : [
+                {
+                  label:
+                    exception.state === 'Activa' ? 'HALLAZGOS QUE CUBRE' : 'HALLAZGOS QUE CUBRIRÍA',
+                  value: <strong>{exception.affectedFindings}</strong>,
+                },
+              ]),
           {
             label: 'SOLICITÓ',
             value: <strong>{exception.requestedBy}</strong>,
@@ -67,6 +89,11 @@ export function ExceptionDetail({ exception }: { exception: ComplianceException 
       <DetailSection title="Justificación">
         <p className="detail-copy">{exception.justification}</p>
       </DetailSection>
+      {exception.revocationReason && (
+        <DetailSection title="Motivo de la revocación">
+          <p className="detail-copy">{exception.revocationReason}</p>
+        </DetailSection>
+      )}
       {exception.remediationPlan && (
         <DetailSection title="Plan de remediación">
           <button type="button" className="table-action">

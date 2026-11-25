@@ -209,10 +209,40 @@ roles_apply() {
     roles/iam.serviceAccountAdmin \
     roles/cloudkms.admin \
     roles/secretmanager.admin \
-    roles/servicenetworking.networksAdmin; do
+    roles/servicenetworking.networksAdmin \
+    roles/logging.configWriter \
+    roles/iam.roleAdmin; do
     rol_en_proyecto "${CUENTA_APPLY}" "${rol}"
   done
+  # roles/logging.configWriter: roles/editor no incluye logging.sinks.create y
+  # el módulo logging crea el sink de evidencia (403 en el primer apply).
+  # roles/iam.roleAdmin: ni roles/editor ni los administradores de IAM incluyen
+  # iam.roles.create, y module "iam" crea el rol con el que el agente llama a
+  # Vertex AI. No amplía de verdad a ci-apply: con projectIamAdmin ya podía
+  # darse cualquier rol. Lo que vigila los permisos del rol es la precondición
+  # del módulo (decisión 19 de docs/decisiones.md).
   rol_en_bucket_estado "${CUENTA_APPLY}" roles/storage.objectUser
+}
+
+# --- 5b. Agentes de servicio para las llaves CMEK -----------------------------
+
+crear_agentes_servicio() {
+  titulo "5b. Agentes de servicio de Cloud SQL y Secret Manager"
+  # Terraform da a estos agentes permiso de usar las llaves de KMS, pero Google
+  # los crea hasta que alguien los pide: sin este paso el primer apply falla
+  # con "Service account service-NUMERO@gcp-sa-... does not exist" y Secret
+  # Manager no acepta CMEK. Se piden aquí y no en Terraform porque requieren
+  # el proveedor google-beta. Es idempotente: si ya existen, no pasa nada.
+  ejecutar gcloud services enable \
+    sqladmin.googleapis.com \
+    secretmanager.googleapis.com \
+    --project="${PROJECT_ID}"
+  local servicio
+  for servicio in sqladmin.googleapis.com secretmanager.googleapis.com; do
+    ejecutar_callado gcloud beta services identity create \
+      --service="${servicio}" \
+      --project="${PROJECT_ID}"
+  done
 }
 
 # --- 6. Pool de Workload Identity ---------------------------------------------
@@ -331,6 +361,7 @@ main() {
   crear_cuentas
   roles_plan
   roles_apply
+  crear_agentes_servicio
   crear_pool
   crear_proveedor
 

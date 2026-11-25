@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Hallazgo } from '../src/model/esquemas.ts'
+import type { HallazgoGuardado } from '../src/model/esquemas.ts'
 import type { Catalogo } from '../src/repositorios/catalogoRepositorio.ts'
 import { calcularCobertura } from '../src/rutas/resumen.ts'
 
@@ -42,7 +42,7 @@ const catalogo: Catalogo = {
   ],
 }
 
-function hallazgo(control: string | null, estado: Hallazgo['estado']): Hallazgo {
+function hallazgo(control: string | null, estado: HallazgoGuardado['estado']): HallazgoGuardado {
   return {
     id: crypto.randomUUID(),
     control,

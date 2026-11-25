@@ -223,3 +223,49 @@ cuenta de facturación.
 Y conviene no confundir lo que hace: un presupuesto de GCP **avisa, no apaga
 nada**. Lo que corta el gasto sigue siendo destruir el ambiente al terminar
 cada sesión.
+
+## 19. El agente llama a Gemini con un rol de un solo permiso
+
+**Decisión.** `app-agente` usa Gemini en Vertex AI con un rol personalizado,
+`agenteLlamarModelo`, que solo concede `aiplatform.endpoints.predict`. Lo crea
+`module "iam"`. No lleva `roles/aiplatform.user`.
+
+**Por qué.** `roles/aiplatform.user` traía 469 permisos al 20 de noviembre de
+2026: crear jobs de entrenamiento, endpoints, datasets y motores de agentes,
+entre otros. El más chico de Google que deja llamar a un modelo
+(`roles/aiplatform.expressUser`) también crea y borra datasets y sesiones. El
+agente solo necesita pedir una respuesta, y CP-17 se sostiene en que su cuenta
+no pueda crear ni cambiar nada.
+
+Para que un rol personalizado no se vuelva la puerta trasera de los roles
+prohibidos, la precondición de `module "iam"` y `CO-IAM-01` comparten una lista
+de permisos que rechazan, además de cualquier `*.setIamPolicy`:
+
+- Suplantar cuentas: `actAs`, `getAccessToken`, `signJwt` y parecidos.
+- Crear, cambiar o recuperar roles.
+- Las rutas conocidas que llegan a una cuenta con más permisos sin pedir
+  `actAs`: el proveedor de Workload Identity, Deployment Manager, Cloud Build,
+  las llaves HMAC y los metadatos de las VMs.
+
+No es una lista completa de todo lo que permite escalar en GCP; cubre lo más
+directo. Por eso las dos capas también rechazan asignar un rol personalizado
+que el mismo código no define: uno creado a mano no pasó por esa revisión.
+
+**Lo que cuesta:**
+
+- `ci-apply` necesita `roles/iam.roleAdmin` para crear el rol, porque ni
+  `roles/editor` ni los administradores de IAM incluyen `iam.roles.create`. No
+  la amplía de verdad: con `roles/resourcemanager.projectIamAdmin` ya podía
+  darse cualquier rol. **En un proyecto que ya existía, el dueño tiene que
+  volver a correr `scripts/bootstrap/gcp_pipeline.sh` (es idempotente) antes
+  del apply que crea el rol**, o el apply falla con `403 iam.roles.create`.
+- GCP no borra un rol personalizado al momento. Durante 7 días se puede
+  recuperar, y el proveedor de Terraform lo recupera solo si el ambiente se
+  vuelve a crear en ese plazo. Después queda unos 30 días más sin poder reusar
+  el id. Si dev se destruye y se recrea entre 7 y 37 días después, el apply
+  falla al crear `agenteLlamarModelo`. La salida es cambiarle el id, por
+  ejemplo `agenteLlamarModelo2`, en `environments/dev/main.tf`.
+
+**Si se cambiara** a `roles/aiplatform.user`, una credencial del agente que se
+filtrara podría lanzar trabajos que cuestan dinero y crear recursos que nadie
+revisa, y CP-17 dejaría de ser cierto en la parte de "no puede crear nada".

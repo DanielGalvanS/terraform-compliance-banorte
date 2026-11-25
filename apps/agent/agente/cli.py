@@ -5,13 +5,15 @@
 
 Códigos de salida:
     0  el agente terminó (aunque la compuerta haya bloqueado: eso lo decide ella)
-    1  el agente falló; el pipeline debe bloquear y notificar (regla segura)
+    1  el agente falló, o hay API y no se pudo registrar la decisión; el
+       pipeline debe bloquear y notificar (regla segura)
     2  la entrada no se pudo leer; también bloquea
 """
 
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import logging
 import os
@@ -82,6 +84,16 @@ def main(argv: list[str] | None = None) -> int:
         f"{len(decision.clasificaciones)} clasificación(es) -> {args.salida}",
         file=sys.stderr,
     )
+
+    # Se registra también un error_agente: que el agente falló es evidencia.
+    # Si hay API y el registro no entra, se bloquea: una decisión sin
+    # evidencia no debe dejar pasar un despliegue.
+    if args.api_url:
+        motivo = asyncio.run(acciones.registrar_en_api(decision, args.api_url))
+        if motivo is not None:
+            print(f"agente: no se registró la decisión ({motivo}); se bloquea por regla segura", file=sys.stderr)
+            return 1
+
     if decision.fallo:
         print(f"agente no disponible: se bloquea por regla segura ({decision.error})", file=sys.stderr)
         return 1

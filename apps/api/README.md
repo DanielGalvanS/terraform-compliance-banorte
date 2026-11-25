@@ -25,7 +25,8 @@ fuente de verdad es el archivo que firma Cumplimiento en el Gate 1.
 el proyecto de GCP. Mientras tanto los hallazgos viven en memoria.
 
 `GET /salud` lo dice sin rodeos: `persistencia: false` significa que lo que
-sirve la API son datos de ejemplo. Conectar Postgres es añadir una
+sirve la API son datos de ejemplo. La evidencia puede ir al bucket aunque no
+haya base: ver «Evidencia». Conectar Postgres es añadir una
 implementación de `HallazgosRepositorio`; las rutas no cambian.
 
 ## Idempotencia
@@ -45,18 +46,22 @@ de incumplimientos que luego se reporta al auditor.
 | GET | `/api/v1/resumen` | Cifras de portada |
 | GET | `/api/v1/marcos` | Marcos en alcance |
 | GET | `/api/v1/controles` | Controles y su mapeo; filtra por `?marco=` |
-| GET | `/api/v1/hallazgos` | Hallazgos, con filtros |
+| GET | `/api/v1/hallazgos` | Hallazgos, con filtros; `?recurso=` acepta la dirección con módulo. El estado considera las excepciones vigentes |
 | GET | `/api/v1/hallazgos/:id` | Un hallazgo |
 | POST | `/api/v1/hallazgos` | Registra uno; acepta `Idempotency-Key` |
 | PATCH | `/api/v1/hallazgos/:id/estado` | Cambia su estado; ver «Estados de un hallazgo» |
-| GET | `/api/v1/excepciones` | Excepciones, con filtros; el estado se deriva de la fecha |
+| GET | `/api/v1/excepciones` | Excepciones, con filtros (también `?recurso=` y `?porVencer=`); el estado y la vigencia se derivan de la fecha |
 | POST | `/api/v1/excepciones` | Solicita una; siempre nace `Pendiente` |
 | GET | `/api/v1/excepciones/:id` | Una excepción |
 | POST | `/api/v1/excepciones/:id/aprobar` | La aprueba: pasa a `Activa` |
 | POST | `/api/v1/excepciones/:id/rechazar` | La rechaza: pasa a `Rechazada` |
+| POST | `/api/v1/excepciones/:id/revocar` | La revoca: pasa a `Revocada`; solo Compliance Lead |
 | GET | `/api/v1/evidencia` | Registro de evidencia y si la cadena está íntegra; filtra por `?tipo=` y `?objetoId=` |
+| POST | `/api/v1/decisiones` | El agente registra la decisión de una ejecución; solo rol Agente |
+| GET | `/api/v1/decisiones` | Decisiones del agente; filtra por `?ejecucionId=` y `?estado=` |
+| GET | `/api/v1/decisiones/:id` | Una decisión |
 
-Siguen pendientes las decisiones del agente y las aprobaciones de despliegue.
+Siguen pendientes las aprobaciones de despliegue.
 
 ## Decidir una excepción
 
@@ -79,6 +84,34 @@ aprobar lo suyo.
 
 Cada decisión queda en el registro de evidencia.
 
+## Decisiones del agente
+
+El agente (`apps/agent`) lee hallazgos y excepciones con `GET` y, al terminar
+cada ejecución, registra su decisión con `POST /decisiones`. Es lo único que
+puede escribir: **la API registra la opinión del agente, pero no cambia
+veredictos, hallazgos ni excepciones por lo que diga**.
+
+- **Idempotente por `ejecucionId`.** El agente reintenta si la red falla. Con
+  el mismo `hashEntradas` responde 200 con lo ya registrado; con otro, 409,
+  porque dos decisiones distintas con el mismo id no pueden ser la misma
+  ejecución.
+- **La API vuelve a comprobar la coherencia** (`src/model/reglasDecisiones.ts`),
+  aunque el agente ya lo hace: el texto lo escribe un modelo que lee planes
+  editables por cualquiera.
+
+| Regla | Respuesta |
+| --- | --- |
+| Un veredicto `conforme` corresponde exactamente a `sin_violaciones` | 422 |
+| `analizado` solo con veredicto `bloqueado` y al menos una clasificación | 422 |
+| Los demás estados no llevan clasificaciones | 422 |
+| El control existe en el catálogo y la severidad es la suya | 422 |
+| «Ninguna» acción solo si hay una excepción activa para ese control y recurso | 422 |
+
+- Cada clasificación se liga al hallazgo del mismo control y recurso, si
+  existe (`hallazgoId`), prefiriendo uno abierto.
+- Cada registro deja un evento `agente.decision` en la evidencia, con el
+  `hashEntradas` que lo liga al `decision.json` completo del pipeline.
+
 ## Estados de un hallazgo
 
 `PATCH /hallazgos/:id/estado` solo acepta estas transiciones, definidas como
@@ -97,6 +130,52 @@ tabla en `src/model/reglasHallazgos.ts`:
   aprobación humana.
 - El comentario es obligatorio, de al menos 10 caracteres (**422**).
 - Cada cambio queda en el registro de evidencia con `{ de, a, comentario }`.
+- Un hallazgo cubierto por una excepción vigente **no se cambia por aquí**
+  (409): hay que revocar la excepción o esperar a que venza.
+
+## Vigencia de las excepciones
+
+Una excepción aprobada **cubre** los hallazgos del mismo control, el mismo
+ambiente y el mismo recurso (la dirección con módulo cuenta como el mismo
+recurso). Las reglas están en `src/model/reglasVigencia.ts`.
+
+**El estado del hallazgo se deriva al leer, no se guarda.** Mientras una
+excepción activa y vigente lo cubre, un hallazgo `Abierto` o `En remediación`
+se muestra como `Excepción`, con la referencia a la excepción en el campo
+`excepcion`. El día que la excepción vence, o en cuanto se revoca, vuelve solo
+a su estado. Es la misma idea que `Vencida`: no depende de un proceso
+programado que alguien pueda olvidar, y un hallazgo nunca queda marcado como
+exceptuado con la excepción ya vencida.
+
+Todo lo que lee hallazgos usa ese estado: la lista y su filtro `?estado=`, el
+detalle, el resumen y el inventario. Un hallazgo cubierto no cuenta como
+abierto.
+
+Cada excepción trae además:
+
+| Campo | Qué es |
+| --- | --- |
+| `diasRestantes` | Días hasta `venceEl`, solo si está pendiente o activa |
+| `porVencer` | Activa y a 7 días o menos de vencer; se filtra con `?porVencer=true` |
+| `hallazgosAfectados` | Hallazgos abiertos que cubre si está activa, o cubriría si se aprueba |
+
+### Revocar
+
+`POST /excepciones/:id/revocar` retira una excepción antes de que venza, por
+ejemplo porque el incumplimiento ya se corrigió.
+
+| Regla | Respuesta |
+| --- | --- |
+| Solo Compliance Lead | 403 |
+| Solo una excepción activa y vigente; una pendiente se rechaza y una vencida ya no protege nada | 409 |
+| El motivo es obligatorio, de al menos 10 caracteres | 422 |
+
+Quién revoca y por qué se guardan en `revocadaPor`, `revocadaEn` y
+`motivoRevocacion`, sin tocar `aprobadaPor`: se conserva quién la había
+aprobado. Queda el evento `excepcion.revocada` en la evidencia.
+
+No hay regla de segregación de funciones: revocar reduce el riesgo en vez de
+aceptarlo, y quien solicitó la excepción debe poder pedir que se retire.
 
 ## Evidencia
 
@@ -110,10 +189,54 @@ siempre el mismo hash). El primero se encadena a 64 ceros. Si alguien altera o
 borra un evento intermedio, su hash y los de todos los siguientes dejan de
 coincidir, y `integra` pasa a `false`.
 
-**El límite:** en memoria esto no es inmutable de verdad, porque quien tenga
-el proceso puede reescribir el arreglo. Lo que sí hace es que una alteración
-sea **detectable**. La inmutabilidad real la da el bucket con retención del
-módulo `infra/modules/logging`; esta estructura queda lista para escribir ahí.
+### Dónde vive
+
+| `EVIDENCIA_BUCKET` | Dónde | Qué garantiza |
+| --- | --- | --- |
+| Sin definir | En memoria | La alteración es **detectable**, pero no se impide y se pierde al reiniciar |
+| Nombre del bucket | El bucket con retención de `infra/modules/logging` | La alteración se **impide**, y la cadena sobrevive a reinicios |
+
+`GET /salud` lo dice: `evidencia: 'memoria'` o `'bucket'`.
+
+### En el bucket
+
+- **Cada evento es un objeto propio**, `evidencia/<secuencia en 10 dígitos>.json`,
+  con el JSON canónico. El orden de los nombres es el orden de la cadena.
+- **Nadie lo puede sobrescribir**, ni la propia API, por tres candados
+  independientes:
+  - la API crea cada objeto con `ifGenerationMatch = 0`, que en GCS significa
+    «solo si no existe»;
+  - su cuenta solo tiene `roles/storage.objectCreator`, que no borra;
+  - la retención impide borrar antes del plazo, incluso a un administrador.
+- **Varias instancias:** dos instancias de Cloud Run no pueden crear la misma
+  secuencia. La que pierde recarga la cadena y reintenta con la siguiente.
+- **`verificar` relee el bucket**, no solo el índice en memoria: detecta un
+  objeto alterado aunque la API no se haya enterado. Son tantas lecturas como
+  eventos; con volumen real habría que verificar por tramos.
+
+### Sin evidencia no hay cambio
+
+Aprobar, rechazar, revocar, cambiar el estado de un hallazgo y registrar una
+decisión del agente **escriben la evidencia antes de aplicar el cambio**. Si el
+bucket no la acepta, responden **503** y el cambio no se aplica. Un cambio sin
+evidencia es peor que la evidencia de un intento; lo segundo solo puede pasar
+si el cambio falla después de validarse, y con Postgres irá en una
+transacción.
+
+| Situación | Qué pasa |
+| --- | --- |
+| El bucket no responde al arrancar | La API no arranca: no aceptaría cambios sin poder registrarlos |
+| La cadena está alterada al arrancar | Arranca, lo deja en el log y `GET /evidencia` muestra `integra: false` |
+| Un objeto ya no es un evento legible | No se sigue encadenando: todo cambio responde 503 hasta que alguien lo revise |
+| El bucket no responde al verificar | `GET /evidencia` responde 503 |
+
+### Lo que falta
+
+- Probar contra GCP real: `almacenGcs` se prueba con un cliente falso, porque
+  aún no hay proyecto.
+- En producción, `bloquear_retencion = true` cuando Cumplimiento confirme el
+  plazo. Mientras no se bloquee, la retención la puede acortar un
+  administrador.
 
 ## Autenticación y roles
 

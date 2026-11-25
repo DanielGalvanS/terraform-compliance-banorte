@@ -11,9 +11,25 @@ locals {
 
   roles_solicitados = distinct(flatten([for c in var.cuentas : c.roles]))
   roles_vetados     = [for rol in local.roles_solicitados : rol if contains(var.roles_prohibidos, rol)]
+
+  # Un rol personalizado solo se asigna si este módulo lo define: uno creado por
+  # fuera no pasó por la revisión de permisos de abajo.
+  rutas_personalizadas = [for id, _ in var.roles_personalizados : "projects/${var.project_id}/roles/${id}"]
+  roles_ajenos = [
+    for rol in local.roles_solicitados : rol
+    if !startswith(rol, "roles/") && !contains(local.rutas_personalizadas, rol)
+  ]
+
+  permisos_vetados = distinct(flatten([
+    for id, r in var.roles_personalizados : [
+      for permiso in r.permisos : "${id}: ${permiso}"
+      if contains(var.permisos_prohibidos, permiso) || endswith(permiso, ".setIamPolicy")
+    ]
+  ]))
 }
 
-# Corta el despliegue antes de crear nada si alguien pide un rol amplio.
+# Corta el despliegue antes de crear nada si alguien pide un rol amplio, o un
+# rol personalizado con los permisos que hacen amplio a uno de esos roles.
 # La comprobación vive aquí y no en una validación de variable porque depende
 # de dos variables a la vez.
 resource "terraform_data" "verificar_roles" {
@@ -22,7 +38,27 @@ resource "terraform_data" "verificar_roles" {
       condition     = length(local.roles_vetados) == 0
       error_message = "Roles prohibidos por mínimo privilegio: ${join(", ", local.roles_vetados)}."
     }
+    precondition {
+      condition     = length(local.permisos_vetados) == 0
+      error_message = "Permisos prohibidos en un rol personalizado: ${join(", ", local.permisos_vetados)}."
+    }
+    precondition {
+      condition     = length(local.roles_ajenos) == 0
+      error_message = "Roles personalizados que este módulo no define (decláralos en roles_personalizados): ${join(", ", local.roles_ajenos)}."
+    }
   }
+}
+
+resource "google_project_iam_custom_role" "estos" {
+  for_each = var.roles_personalizados
+
+  project     = var.project_id
+  role_id     = each.key
+  title       = each.value.titulo
+  description = each.value.descripcion
+  permissions = each.value.permisos
+
+  depends_on = [terraform_data.verificar_roles]
 }
 
 resource "google_service_account" "estas" {
@@ -45,4 +81,8 @@ resource "google_project_iam_member" "estas" {
   project = var.project_id
   role    = each.value.rol
   member  = "serviceAccount:${google_service_account.estas[each.value.cuenta].email}"
+
+  # La asignación nombra al rol personalizado por su ruta, un texto que se
+  # conoce desde el plan; sin esto Terraform podría asignarlo antes de crearlo.
+  depends_on = [google_project_iam_custom_role.estos]
 }

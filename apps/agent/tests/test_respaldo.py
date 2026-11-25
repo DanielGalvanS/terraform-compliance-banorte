@@ -88,6 +88,24 @@ def test_cada_llamada_a_gemini_tiene_limite_y_pocos_reintentos():
     [
         (errors.ClientError(404, {"error": {"code": 404}}), "el modelo no existe para esta cuenta (404)"),
         (errors.ClientError(400, {"error": {"code": 400}}), "la llave o la cuenta no puede usar el modelo (400)"),
+        (
+            errors.ClientError(403, {"error": {"code": 403, "message": "PERMISSION_DENIED"}}),
+            "la llave o la cuenta no puede usar el modelo (403)",
+        ),
+        (
+            errors.ClientError(
+                403,
+                {
+                    "error": {
+                        "code": 403,
+                        "message": "Access requires an eligible paid billing account in a supported region, "
+                        "subject to our terms and policies.",
+                        "status": "PERMISSION_DENIED",
+                    }
+                },
+            ),
+            "Vertex AI exige una cuenta de facturación de pago (403)",
+        ),
         (errors.ServerError(504, {"error": {"code": 504}}), "modelo saturado o sin respuesta (504)"),
     ],
 )

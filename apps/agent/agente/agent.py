@@ -7,7 +7,9 @@ Modelo:
 - Local (antes de tener GCP): llave de Google AI Studio en GOOGLE_API_KEY, solo
   con los planes de ejemplo.
 - Con GCP: Vertex AI con GOOGLE_GENAI_USE_VERTEXAI=TRUE, GOOGLE_CLOUD_PROJECT y
-  GOOGLE_CLOUD_LOCATION, autenticado como la cuenta app-agente.
+  GOOGLE_CLOUD_LOCATION (global: los Gemini 3.x no están en us-central1),
+  autenticado como la cuenta app-agente. Requiere una cuenta de facturación
+  de pago; en la prueba gratuita de GCP Vertex responde 403.
 """
 
 from __future__ import annotations

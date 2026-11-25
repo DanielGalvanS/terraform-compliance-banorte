@@ -94,6 +94,10 @@ def _describir(error: Exception) -> str:
             return "cuota del modelo agotada (429)"
         if codigo == 404:
             return "el modelo no existe para esta cuenta (404)"
+        # Vertex AI responde así en la prueba gratuita de GCP: el proyecto y los
+        # permisos están bien, lo que falta es una cuenta de facturación de pago.
+        if codigo == 403 and "paid billing account" in (error.message or ""):
+            return "Vertex AI exige una cuenta de facturación de pago (403)"
         if codigo in (400, 401, 403):
             return f"la llave o la cuenta no puede usar el modelo ({codigo})"
         return f"error de la API de Gemini ({codigo})"

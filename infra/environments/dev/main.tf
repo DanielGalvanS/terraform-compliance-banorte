@@ -16,6 +16,10 @@ locals {
   agente_sql      = "serviceAccount:service-${data.google_project.este.number}@gcp-sa-cloud-sql.iam.gserviceaccount.com"
   agente_compute  = "serviceAccount:service-${data.google_project.este.number}@compute-system.iam.gserviceaccount.com"
   agente_secretos = "serviceAccount:service-${data.google_project.este.number}@gcp-sa-secretmanager.iam.gserviceaccount.com"
+
+  # Rol de module.iam con el único permiso que necesita el agente para llamar a
+  # Gemini en Vertex AI. Ver docs/decisiones.md, decisión 19.
+  rol_modelo_agente = "projects/${var.project_id}/roles/agenteLlamarModelo"
 }
 
 data "google_project" "este" {
@@ -37,6 +41,8 @@ resource "google_project_service" "apis" {
     "iap.googleapis.com",
     "monitoring.googleapis.com",
     "billingbudgets.googleapis.com",
+    # Gemini para el agente, con la cuenta app-agente y sin llaves.
+    "aiplatform.googleapis.com",
   ])
 
   project            = var.project_id
@@ -106,6 +112,14 @@ module "iam" {
   # Las cuentas del pipeline (ci-plan y ci-apply) no están aquí: tienen que
   # existir antes del primer plan, así que las crea
   # scripts/bootstrap/gcp_pipeline.sh. Ver docs/decisiones.md.
+  roles_personalizados = {
+    agenteLlamarModelo = {
+      titulo      = "Agente: llamar al modelo"
+      descripcion = "Solo generar respuestas con los modelos de Vertex AI; no crea ni cambia nada"
+      permisos    = ["aiplatform.endpoints.predict"]
+    }
+  }
+
   cuentas = {
     app-api = {
       descripcion = "API de cumplimiento en Cloud Run"
@@ -113,7 +127,7 @@ module "iam" {
     }
     app-agente = {
       descripcion = "Agente de IA; solo lectura, sin permiso de aplicar"
-      roles       = ["roles/viewer", "roles/logging.logWriter"]
+      roles       = ["roles/viewer", "roles/logging.logWriter", local.rol_modelo_agente]
     }
     app-pruebas = {
       descripcion = "Instancias de prueba de rendimiento"
@@ -138,7 +152,10 @@ module "secretos" {
     }
   }
 
-  depends_on = [google_project_service.apis]
+  # Como Cloud SQL: el secreto no puede crearse antes de que el agente de
+  # Secret Manager tenga permiso sobre la llave. Sin esto Terraform los crea en
+  # paralelo y el primer apply falla con "Permission denied on Cloud KMS".
+  depends_on = [google_project_service.apis, module.kms]
 }
 
 module "sql" {
@@ -189,6 +206,11 @@ module "logging" {
 
   # En dev la retención no se bloquea: es irreversible y aquí solo estorbaría.
   bloquear_retencion = false
+
+  # La API escribe la evidencia de sus decisiones (solo crear) y la relee para
+  # verificar la cadena. Con EVIDENCIA_BUCKET apuntando a este bucket.
+  escritores = { app-api = module.iam.miembros["app-api"] }
+  lectores   = { app-api = module.iam.miembros["app-api"] }
 
   depends_on = [google_project_service.apis]
 }

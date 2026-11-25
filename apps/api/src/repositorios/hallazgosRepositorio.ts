@@ -2,9 +2,10 @@ import { randomUUID } from 'node:crypto'
 import type {
   EstadoHallazgo,
   FiltroHallazgos,
-  Hallazgo,
+  HallazgoGuardado,
   NuevoHallazgo,
 } from '../model/esquemas.ts'
+import { coincideRecurso } from '../model/recursos.ts'
 
 /**
  * Acceso a hallazgos.
@@ -15,24 +16,27 @@ import type {
  * y nadie más se entera: las rutas dependen de esta interfaz.
  */
 export type HallazgosRepositorio = {
-  listar(filtro: FiltroHallazgos): Promise<Hallazgo[]>
-  obtener(id: string): Promise<Hallazgo | null>
+  listar(filtro: FiltroHallazgos): Promise<HallazgoGuardado[]>
+  obtener(id: string): Promise<HallazgoGuardado | null>
   /**
    * Crea un hallazgo. `clave` es la Idempotency-Key: si ya se registró uno
    * con la misma, se devuelve aquel en lugar de duplicarlo. El pipeline
    * reintenta, y un reintento no debe inflar el conteo de incumplimientos.
    */
-  crear(nuevo: NuevoHallazgo, clave?: string): Promise<{ hallazgo: Hallazgo; yaExistia: boolean }>
+  crear(
+    nuevo: NuevoHallazgo,
+    clave?: string,
+  ): Promise<{ hallazgo: HallazgoGuardado; yaExistia: boolean }>
   /**
    * Cambia el estado. No valida la transición: eso lo hace
    * `validarCambioEstado` antes de llamar, para que haya una sola versión de
    * las reglas.
    */
-  cambiarEstado(id: string, estado: EstadoHallazgo): Promise<Hallazgo | null>
+  cambiarEstado(id: string, estado: EstadoHallazgo): Promise<HallazgoGuardado | null>
 }
 
-export function repositorioEnMemoria(semilla: Hallazgo[] = []): HallazgosRepositorio {
-  const hallazgos = new Map<string, Hallazgo>(semilla.map((h) => [h.id, h]))
+export function repositorioEnMemoria(semilla: HallazgoGuardado[] = []): HallazgosRepositorio {
+  const hallazgos = new Map<string, HallazgoGuardado>(semilla.map((h) => [h.id, h]))
   const porClave = new Map<string, string>()
 
   return {
@@ -42,7 +46,8 @@ export function repositorioEnMemoria(semilla: Hallazgo[] = []): HallazgosReposit
           (filtro.severidad === undefined || h.severidad === filtro.severidad) &&
           (filtro.ambiente === undefined || h.ambiente === filtro.ambiente) &&
           (filtro.estado === undefined || h.estado === filtro.estado) &&
-          (filtro.control === undefined || h.control === filtro.control),
+          (filtro.control === undefined || h.control === filtro.control) &&
+          (filtro.recurso === undefined || coincideRecurso(h.recurso, filtro.recurso)),
       )
     },
 
@@ -58,7 +63,7 @@ export function repositorioEnMemoria(semilla: Hallazgo[] = []): HallazgosReposit
         }
       }
 
-      const hallazgo: Hallazgo = {
+      const hallazgo: HallazgoGuardado = {
         id: randomUUID(),
         control: nuevo.control,
         titulo: nuevo.titulo,
@@ -80,7 +85,7 @@ export function repositorioEnMemoria(semilla: Hallazgo[] = []): HallazgosReposit
       if (actual === undefined) return null
       // Objeto nuevo y no modificación en su lugar: los de la semilla los
       // comparten todas las instancias de la app.
-      const cambiado: Hallazgo = { ...actual, estado }
+      const cambiado: HallazgoGuardado = { ...actual, estado }
       hallazgos.set(id, cambiado)
       return cambiado
     },

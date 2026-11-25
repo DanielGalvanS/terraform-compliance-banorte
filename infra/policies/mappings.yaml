@@ -186,7 +186,8 @@ controles:
     titulo: Permisos de IAM excesivos
     descripcion: >-
       Ninguna cuenta debe recibir roles/owner, roles/editor ni roles que
-      permitan escalar privilegios a nivel de proyecto. Tampoco debe
+      permitan escalar privilegios a nivel de proyecto, ni un rol
+      personalizado con los permisos que los hacen amplios. Tampoco debe
       reemplazarse la política de IAM completa del proyecto.
     severidad: alta
     politica: rego/co_iam_01.rego

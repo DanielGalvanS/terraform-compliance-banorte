@@ -24,6 +24,19 @@ el marco más estricto aplicable. No antes.
   para este sink, en vez de reutilizar una compartida.
 - **Sin acceso público ni ACL por objeto.** El acceso se decide con IAM, que es
   lo que queda registrado.
+- **La API solo puede crear y leer.** `escritores` recibe
+  `roles/storage.objectCreator`, que crea objetos pero no los borra; sin
+  borrar tampoco se puede sobrescribir. `lectores` recibe
+  `roles/storage.objectViewer`, para reconstruir y verificar la cadena.
+- **Tres candados independientes** para que un evento escrito no cambie: el
+  rol (no borra), la precondición con la que la API crea cada objeto
+  (`ifGenerationMatch = 0`: solo si no existe) y la retención (nadie borra
+  antes del plazo, ni un administrador). Cualquiera de los tres basta para
+  que una sobrescritura falle.
+- **`iam_member` y no `iam_binding`.** El binding es autoritativo sobre el rol
+  y le quitaría al sink su propio `objectCreator`.
+- **Mapas y no listas.** El correo de una cuenta recién creada no se conoce
+  hasta el apply, y `for_each` necesita claves conocidas en el plan.
 
 ## Uso
 
@@ -35,6 +48,10 @@ module "logging" {
   region        = "us-central1"
   nombre_bucket = "mdc-dev-evidencia"
   etiquetas     = local.etiquetas_obligatorias
+
+  # La API escribe evidencia (solo crear) y la relee para verificarla.
+  escritores = { app-api = module.iam.miembros["app-api"] }
+  lectores   = { app-api = module.iam.miembros["app-api"] }
 
   # En producción, tras confirmar el plazo con Cumplimiento:
   # bloquear_retencion = true

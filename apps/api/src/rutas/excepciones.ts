@@ -6,11 +6,15 @@ import {
   Excepcion,
   FiltroExcepciones,
   NuevaExcepcion,
+  type HallazgoGuardado,
   type Identidad,
 } from '../model/esquemas.ts'
+import { cubre, diasRestantes, porVencer } from '../model/reglasVigencia.ts'
+import type { HallazgosRepositorio } from '../repositorios/hallazgosRepositorio.ts'
 import {
   estadoVigente,
   validarDecision,
+  validarRevocacion,
   validarSolicitud,
 } from '../model/reglasExcepciones.ts'
 import type { Catalogo } from '../repositorios/catalogoRepositorio.ts'
@@ -20,6 +24,7 @@ import type {
   ExcepcionesRepositorio,
   ExcepcionGuardada,
 } from '../repositorios/excepcionesRepositorio.ts'
+import { respuestaSinEvidencia } from './respuestas.ts'
 
 /** Error con el detalle de cada campo rechazado, no solo un mensaje suelto. */
 const ErrorValidacion = ErrorRespuesta.extend({
@@ -38,6 +43,7 @@ const CuerpoDecision = z.object({
 
 const respuestasDecision = {
   ...respuestasAuth,
+  ...respuestaSinEvidencia,
   200: Excepcion,
   404: ErrorRespuesta,
   409: ErrorRespuesta,
@@ -47,14 +53,25 @@ const respuestasDecision = {
 export function rutasExcepciones(
   catalogo: Catalogo,
   repositorio: ExcepcionesRepositorio,
+  hallazgos: HallazgosRepositorio,
   evidencia: EvidenciaRepositorio,
 ): FastifyPluginAsyncZod {
+  /** Los hallazgos que una excepción puede cubrir: los que siguen sin resolver. */
+  const hallazgosAbiertos = async () =>
+    (await hallazgos.listar({})).filter(
+      (h) => h.estado === 'Abierto' || h.estado === 'En remediación',
+    )
+
   /**
-   * Completa la excepción con los datos del control y su estado vigente.
-   * El nombre, el marco y la severidad no se guardan: se toman del catálogo
-   * al leer, para que una excepción no congele una descripción obsoleta.
+   * Completa la excepción con los datos del control, su estado vigente y su
+   * vigencia. Nada de esto se guarda: el nombre, el marco y la severidad se
+   * toman del catálogo al leer, para que una excepción no congele una
+   * descripción obsoleta, y los días restantes cambian solos cada día.
    */
-  const completar = (guardada: ExcepcionGuardada): z.infer<typeof Excepcion> => {
+  const completar = (
+    guardada: ExcepcionGuardada,
+    abiertos: readonly HallazgoGuardado[],
+  ): z.infer<typeof Excepcion> => {
     const control = catalogo.controles.find((c) => c.codigo === guardada.control)
     const { estadoGuardado, solicitanteSujeto: _, ...resto } = guardada
     return {
@@ -63,7 +80,19 @@ export function rutasExcepciones(
       marco: control?.mapeo[0]?.marco ?? '—',
       severidad: control?.severidad ?? 'Media',
       estado: estadoVigente(estadoGuardado, guardada.venceEl),
+      diasRestantes: diasRestantes(guardada),
+      porVencer: porVencer(guardada),
+      hallazgosAfectados: abiertos.filter((h) => cubre(guardada, h)).length,
     }
+  }
+
+  const listar = async (filtro: z.infer<typeof FiltroExcepciones>) => {
+    const { porVencer: soloPorVencer, ...resto } = filtro
+    const [guardadas, abiertos] = await Promise.all([repositorio.listar(resto), hallazgosAbiertos()])
+    const completas = guardadas.map((e) => completar(e, abiertos))
+    return soloPorVencer === undefined
+      ? completas
+      : completas.filter((e) => e.porVencer === (soloPorVencer === 'true'))
   }
 
   /**
@@ -98,6 +127,18 @@ export function rutasExcepciones(
       }
     }
 
+    // La evidencia va antes que el cambio: si el bucket no la acepta, lanza
+    // EvidenciaNoDisponible, la API responde 503 y la excepción queda como
+    // estaba. Un cambio sin evidencia es peor que una evidencia de un intento:
+    // lo segundo solo puede pasar si el cambio falla después de validarse, y
+    // con Postgres esto irá en una transacción.
+    await evidencia.registrar({
+      tipo: estado === 'Activa' ? 'excepcion.aprobada' : 'excepcion.rechazada',
+      objetoId: guardada.id,
+      actor: quien.nombre,
+      detalle: { codigo: guardada.codigo, comentario: comentario.trim(), sujeto: quien.sujeto },
+    })
+
     const decidida = await repositorio.decidir(id, {
       estado,
       decididaPor: quien.nombre,
@@ -108,20 +149,7 @@ export function rutasExcepciones(
     if (decidida === null) {
       return { codigo: 404 as const, cuerpo: { error: 'No existe esa excepción' } }
     }
-
-    // Se registra después de decidir, no antes: la evidencia describe lo que
-    // pasó, y una decisión que falló no pasó.
-    await evidencia.registrar({
-      tipo: estado === 'Activa' ? 'excepcion.aprobada' : 'excepcion.rechazada',
-      objetoId: decidida.id,
-      actor: quien.nombre,
-      detalle: {
-        codigo: decidida.codigo,
-        comentario: decidida.comentarioDecision ?? '',
-        sujeto: quien.sujeto,
-      },
-    })
-    return { codigo: 200 as const, cuerpo: completar(decidida) }
+    return { codigo: 200 as const, cuerpo: completar(decidida, await hallazgosAbiertos()) }
   }
 
   return async (app) => {
@@ -140,7 +168,7 @@ export function rutasExcepciones(
         },
       },
       async (peticion) => ({
-        excepciones: (await repositorio.listar(peticion.query)).map(completar),
+        excepciones: await listar(peticion.query),
       }),
     )
 
@@ -185,7 +213,7 @@ export function rutasExcepciones(
           venceEl: peticion.body.venceEl,
           planRemediacion: peticion.body.planRemediacion?.trim() || null,
         })
-        return respuesta.code(201).send(completar(guardada))
+        return respuesta.code(201).send(completar(guardada, await hallazgosAbiertos()))
       },
     )
 
@@ -208,7 +236,7 @@ export function rutasExcepciones(
         if (guardada === null) {
           return respuesta.code(404).send({ error: 'No existe esa excepción' })
         }
-        return completar(guardada)
+        return completar(guardada, await hallazgosAbiertos())
       },
     )
 
@@ -265,6 +293,55 @@ export function rutasExcepciones(
           peticion.body.comentario,
         )
         return respuesta.code(codigo).send(cuerpo)
+      },
+    )
+
+    app.post(
+      '/excepciones/:id/revocar',
+      {
+        onRequest: requiere('revocarExcepcion'),
+        schema: {
+          summary: 'Revoca una excepción activa',
+          description:
+            'Solo Compliance Lead. Solo una excepción activa y vigente (409): una pendiente ' +
+            'se rechaza y una vencida ya no protege nada. El motivo es obligatorio (422). ' +
+            'Al revocarla, los hallazgos que cubría vuelven a su estado sin que nadie los ' +
+            'toque, y quien la aprobó se conserva.',
+          tags: ['excepciones'],
+          params: ParametrosId,
+          body: CuerpoDecision,
+          response: respuestasDecision,
+        },
+      },
+      async (peticion, respuesta) => {
+        const guardada = await repositorio.obtener(peticion.params.id)
+        if (guardada === null) {
+          return respuesta.code(404).send({ error: 'No existe esa excepción' })
+        }
+        const { conflicto, motivos } = validarRevocacion(guardada, peticion.body.comentario)
+        if (conflicto !== null) return respuesta.code(409).send({ error: conflicto })
+        if (motivos.length > 0) {
+          return respuesta.code(422).send({ error: 'La revocación no cumple las reglas', motivos })
+        }
+
+        const quien = actor(peticion)
+        const motivo = peticion.body.comentario.trim()
+        // Evidencia primero, como al decidir: sin ella no se revoca.
+        await evidencia.registrar({
+          tipo: 'excepcion.revocada',
+          objetoId: guardada.id,
+          actor: quien.nombre,
+          detalle: { codigo: guardada.codigo, comentario: motivo, sujeto: quien.sujeto },
+        })
+        const revocada = await repositorio.revocar(guardada.id, {
+          revocadaPor: quien.nombre,
+          motivo,
+          revocadaEn: new Date().toISOString(),
+        })
+        if (revocada === null) {
+          return respuesta.code(404).send({ error: 'No existe esa excepción' })
+        }
+        return completar(revocada, await hallazgosAbiertos())
       },
     )
   }
