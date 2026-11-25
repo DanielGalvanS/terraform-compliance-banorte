@@ -1,0 +1,211 @@
+name: Desplegar aplicaciones
+
+# Construye las imágenes de la API y del frontend, las sube a Artifact Registry
+# y las despliega en los servicios de Cloud Run que crea Terraform
+# (infra/modules/cloud_run). Terraform crea el servicio; este workflow solo
+# cambia su imagen.
+#
+# Tres trabajos, a propósito:
+#   1. urls: lee la URL de la API con ci-plan (solo lectura). El frontend la
+#      necesita al compilar.
+#   2. construir: construye las imágenes SIN credenciales de GCP. Es el único
+#      que ejecuta código de terceros (npm), así que no debe tener nada que
+#      robar.
+#   3. desplegar: dentro del environment dev (aprobación humana), con
+#      ci-apply. Solo carga, sube y despliega las imágenes ya construidas: no
+#      compila nada.
+on:
+  workflow_dispatch:
+    inputs:
+      ambiente:
+        description: Ambiente a desplegar
+        type: choice
+        # Solo dev, igual que apply.yml: ci-apply solo acepta el environment dev.
+        options: [dev]
+        default: dev
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AMBIENTE: ${{ inputs.ambiente }}
+  # Mismos nombres que infra/environments/dev/main.tf: local.nombre = "mdc-dev"
+  # y module "registro" con nombre "contenedores".
+  REGION: us-central1
+  SERVICIO_API: api-mdc-${{ inputs.ambiente }}
+  SERVICIO_WEB: web-mdc-${{ inputs.ambiente }}
+  REPOSITORIO: contenedores
+  # La etiqueta es el commit: con etiquetas inmutables, cada imagen del
+  # registro corresponde a un solo commit.
+  ETIQUETA: ${{ github.sha }}
+
+concurrency:
+  # Un despliegue a la vez por ambiente. No se cancela el que está en curso:
+  # cortarlo a medias dejaría la API y el frontend en versiones distintas.
+  group: desplegar-${{ inputs.ambiente }}
+  cancel-in-progress: false
+
+jobs:
+  urls:
+    name: URL de la API
+    runs-on: ubuntu-24.04
+    if: vars.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
+    outputs:
+      api: ${{ steps.leer.outputs.api }}
+    steps:
+      - name: Comprobar configuración
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+        run: |
+          if [ -z "${GCP_PROJECT_ID}" ]; then
+            echo "::error title=Falta configuración::La variable de GitHub GCP_PROJECT_ID no está definida. Ver docs/compuerta.md"
+            exit 1
+          fi
+
+      - name: Autenticar en GCP (solo lectura)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT_PLAN }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      # Si el servicio no existe, falta correr "Aplicar cambios" primero.
+      - name: Leer la URL de la API
+        id: leer
+        env:
+          PROYECTO: ${{ vars.GCP_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          url="$(gcloud run services describe "${SERVICIO_API}" \
+            --project "${PROYECTO}" --region "${REGION}" \
+            --format 'value(status.url)')" || {
+            echo "::error title=Sin servicio::No existe ${SERVICIO_API}. Corre primero el workflow Aplicar cambios."
+            exit 1
+          }
+          echo "api=${url}" >> "$GITHUB_OUTPUT"
+          echo "API: ${url}"
+
+  construir:
+    name: Construir imágenes
+    runs-on: ubuntu-24.04
+    needs: urls
+    # Sin id-token: este trabajo no puede pedir credenciales de GCP.
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Construir la API
+        run: docker build -f apps/api/Dockerfile -t "api:${ETIQUETA}" .
+
+      # VITE_API_URL queda escrita en el JavaScript. Las rutas del cliente
+      # (/hallazgos, /resumen…) cuelgan del prefijo /api/v1 de la API.
+      - name: Construir el frontend
+        env:
+          URL_API: ${{ needs.urls.outputs.api }}
+        run: |
+          docker build -f apps/web/Dockerfile \
+            --build-arg "VITE_API_URL=${URL_API}/api/v1" \
+            -t "web:${ETIQUETA}" .
+
+      - name: Empaquetar las imágenes
+        run: docker save "api:${ETIQUETA}" "web:${ETIQUETA}" | gzip > imagenes.tar.gz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: imagenes-${{ github.run_id }}
+          path: imagenes.tar.gz
+          # Solo hace falta hasta que termine el despliegue.
+          retention-days: 1
+
+  desplegar:
+    name: Desplegar en ${{ inputs.ambiente }}
+    runs-on: ubuntu-24.04
+    needs: [urls, construir]
+    # Aprobación humana: los revisores obligatorios viven en el environment.
+    environment: ${{ inputs.ambiente }}
+    env:
+      PROYECTO: ${{ vars.GCP_PROJECT_ID }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: imagenes-${{ github.run_id }}
+
+      - name: Cargar las imágenes
+        run: gunzip -c imagenes.tar.gz | docker load
+
+      # ci-apply. GCP solo la deja usar dentro del environment dev.
+      - name: Autenticar en GCP (escritura)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT_APPLY }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Subir a Artifact Registry
+        run: |
+          set -euo pipefail
+          gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+          prefijo="${REGION}-docker.pkg.dev/${PROYECTO}/${REPOSITORIO}"
+          for app in api web; do
+            destino="${prefijo}/${app}:${ETIQUETA}"
+            # Las etiquetas son inmutables: si este commit ya se subió (por
+            # ejemplo, al reintentar), se despliega la imagen que ya existe.
+            if gcloud artifacts docker images describe "${destino}" > /dev/null 2>&1; then
+              echo "${destino} ya existe; se usa esa."
+            else
+              docker tag "${app}:${ETIQUETA}" "${destino}"
+              docker push "${destino}"
+            fi
+            echo "IMAGEN_${app^^}=${destino}" >> "$GITHUB_ENV"
+          done
+
+      # Solo --image: las variables de entorno, la cuenta de servicio y el
+      # escalado los define Terraform. Cambiarlos aquí sería drift.
+      # Primero la API: el frontend nuevo puede depender de ella.
+      - name: Desplegar la API
+        run: |
+          gcloud run deploy "${SERVICIO_API}" --image "${IMAGEN_API}" \
+            --project "${PROYECTO}" --region "${REGION}" --quiet
+
+      - name: Desplegar el frontend
+        run: |
+          gcloud run deploy "${SERVICIO_WEB}" --image "${IMAGEN_WEB}" \
+            --project "${PROYECTO}" --region "${REGION}" --quiet
+
+      - name: Comprobar que responden
+        env:
+          URL_API: ${{ needs.urls.outputs.api }}
+        run: |
+          set -euo pipefail
+          url_web="$(gcloud run services describe "${SERVICIO_WEB}" \
+            --project "${PROYECTO}" --region "${REGION}" --format 'value(status.url)')"
+
+          # La primera petición despierta la instancia: se reintenta.
+          curl -fsS --retry 5 --retry-delay 3 --retry-all-errors "${URL_API}/salud" > /dev/null
+          inicio="$(curl -fsS --retry 5 --retry-delay 3 --retry-all-errors "${url_web}/")"
+          if [[ "${inicio}" != *'<div id="root">'* ]]; then
+            echo "::error title=Frontend::${url_web} no sirve la aplicación"
+            exit 1
+          fi
+
+          # CORS: la API debe aceptar al frontend desplegado como origen.
+          cabeceras="$(curl -fsS -o /dev/null -D - -X OPTIONS \
+            -H "Origin: ${url_web}" \
+            -H 'Access-Control-Request-Method: GET' \
+            "${URL_API}/api/v1/hallazgos")"
+          if ! grep -qi "^access-control-allow-origin: ${url_web}" <<< "${cabeceras}"; then
+            echo "::error title=CORS::La API no acepta peticiones de ${url_web}"
+            exit 1
+          fi
+
+          {
+            echo "### Desplegado ${ETIQUETA:0:7}"
+            echo ""
+            echo "- Frontend: ${url_web}"
+            echo "- API: ${URL_API}"
+          } >> "$GITHUB_STEP_SUMMARY"

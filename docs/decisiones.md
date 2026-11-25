@@ -304,3 +304,26 @@ un proveedor de identidad de verdad.
 **Si se cambiara** a servicios privados sin resolver la identidad, el
 dashboard dejaría de poder llamar a la API desde el navegador.
 
+## 21. El despliegue construye sin credenciales y sube con ci-apply
+
+**Decisión.** El workflow `desplegar.yml` construye las imágenes en un trabajo
+sin acceso a GCP. Las sube y las despliega otro trabajo, dentro del environment
+`dev`, con la cuenta `ci-apply`.
+
+**Por qué.** Construir ejecuta código de terceros: `npm ci` instala cientos de
+paquetes. Si ese trabajo tuviera credenciales, un paquete comprometido podría
+usarlas. El trabajo con credenciales no compila nada: carga las imágenes ya
+construidas, las sube y llama a `gcloud run deploy`.
+
+Se usa `ci-apply` porque ya tiene lo necesario (`roles/editor` para subir
+imágenes y usar `app-api` y `app-web`, `roles/run.admin` para desplegar) y
+porque GCP solo la deja usar dentro del environment `dev`, que pide aprobación.
+
+**Lo que se acepta:** `ci-apply` tiene muchos más permisos de los que necesita
+un despliegue. Una cuenta propia (`ci-deploy`, con escritura solo en el
+repositorio de imágenes, `roles/run.developer` sobre los dos servicios y
+`iam.serviceAccountUser` sobre `app-api` y `app-web`) es lo correcto antes de
+qa o prod.
+
+**El despliegue solo cambia la imagen** (`gcloud run deploy --image`). Si
+cambiara variables o escalado, Terraform vería diferencias en cada plan.
