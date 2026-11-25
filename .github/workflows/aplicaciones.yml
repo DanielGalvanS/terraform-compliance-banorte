@@ -66,3 +66,59 @@ jobs:
             exit 1
           fi
           echo "Los tipos coinciden con el contrato." 
+
+  imagenes:
+    name: Imágenes de Cloud Run
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      # Solo se construyen y se prueban; publicarlas es trabajo del despliegue,
+      # que corre con aprobación en el environment dev.
+      - name: Construir la API
+        run: docker build -f apps/api/Dockerfile -t cumplimiento-api:ci .
+
+      - name: Construir el frontend
+        run: docker build -f apps/web/Dockerfile --build-arg VITE_API_URL=http://localhost:18080 -t cumplimiento-web:ci .
+
+      # Lo mismo que hará Cloud Run: arrancar con el sistema de archivos en
+      # solo lectura y responder en el 8080. Una imagen que compila pero no
+      # arranca (catálogo que no se copió, HOST en 127.0.0.1) falla aquí y no
+      # en el despliegue.
+      - name: Las imágenes arrancan y responden
+        run: |
+          set -euo pipefail
+          docker run -d --name api --read-only --tmpfs /tmp -p 18080:8080 \
+            -e ORIGENES_PERMITIDOS=http://localhost:18081 cumplimiento-api:ci
+          docker run -d --name web --read-only --tmpfs /tmp --tmpfs /var/cache/nginx \
+            -p 18081:8080 cumplimiento-web:ci
+          esperar() {
+            for _ in $(seq 1 30); do
+              curl -sf "$1" > /dev/null && return 0
+              sleep 1
+            done
+            return 1
+          }
+          esperar localhost:18080/salud || { docker logs api; exit 1; }
+          esperar localhost:18081/ || { docker logs web; exit 1; }
+          # A una variable y no a un pipe: con pipefail, grep -q puede cerrar
+          # la tubería antes que curl y hacer fallar el paso sin motivo.
+          salud="$(curl -sf localhost:18080/salud)"
+          inicio="$(curl -sf localhost:18081/)"
+          [[ "${salud}" == *'"estado":"ok"'* ]] || { echo "salud: ${salud}"; exit 1; }
+          [[ "${inicio}" == *'<div id="root">'* ]] || { docker logs web; exit 1; }
+          # La API corre sin privilegios y no puede cambiar su propio código.
+          [ "$(docker exec api id -u)" != "0" ]
+          if docker exec api test -w /app/apps/api/src/main.ts; then
+            echo "El usuario de la API puede escribir su propio código"; exit 1
+          fi
+          echo "Las dos imágenes arrancan y responden."
+
+      # Cloud Run manda SIGTERM al reciclar una instancia; la API debe cerrar
+      # en orden y no esperar a que la maten.
+      - name: La API cierra en orden con SIGTERM
+        run: |
+          set -euo pipefail
+          docker stop -t 10 api > /dev/null
+          docker logs api 2>&1 | grep -q 'SIGTERM recibida'
+          [ "$(docker inspect -f '{{.State.ExitCode}}' api)" = "0" ]
