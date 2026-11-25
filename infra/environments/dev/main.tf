@@ -296,8 +296,9 @@ module "api" {
   # y por eso queda en una sola instancia (el valor por defecto del módulo). La
   # evidencia sí va al bucket con retención.
   variables_entorno = {
-    EVIDENCIA_BUCKET    = module.logging.bucket
-    ORIGENES_PERMITIDOS = module.web.url
+    EVIDENCIA_BUCKET = module.logging.bucket
+    # Las dos URLs del frontend: el navegador manda la que se abrió.
+    ORIGENES_PERMITIDOS = join(",", module.web.urls)
     NIVEL_LOG           = "info"
   }
 

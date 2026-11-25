@@ -15,7 +15,8 @@ y, más adelante, el agente para el drift.
 - **Cero instancias sin tráfico y CPU solo por petición.** Sin uso, el servicio
   no cobra CPU ni memoria.
 - **Una instancia por defecto.** La API guarda sus datos en memoria mientras no
-  tenga base: con dos instancias, cada una vería datos distintos.
+  tenga base: con dos instancias, cada una vería datos distintos. Y como baja a
+  cero sin tráfico, al volver arranca otra vez con los datos de ejemplo.
 - **Privado por defecto.** `publico = true` da `roles/run.invoker` a
   `allUsers` y nada más (decisión 20 de `docs/decisiones.md`).
 - **Sin secretos en `variables_entorno`.** Lo que sea secreto va en Secret

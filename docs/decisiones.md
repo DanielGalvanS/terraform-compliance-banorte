@@ -292,6 +292,10 @@ organización como `mdc-dev`.
   borrar antes de que venza.
 - Por eso la API queda en una sola instancia y se apaga sola sin tráfico: el
   daño posible es acotado y lo que cobra también.
+- Apagarse sola tiene un costo: cada vez que la instancia se recicla, la API
+  vuelve a los datos de ejemplo y todas las sesiones se cierran, porque sin
+  `AUTH_SECRETO` genera un secreto nuevo al arrancar. La evidencia no se
+  pierde: está en el bucket.
 
 **Cuándo se cambia:** cuando la API tenga base de datos real. Ahí la propia
 API exige `AUTH_MODO=jwks`, y los servicios pasan a Identity-Aware Proxy o a
