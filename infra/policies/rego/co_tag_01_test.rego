@@ -55,3 +55,18 @@ test_ignora_destruccion if {
 	}]}
 	count(mensajes_de("CO-TAG-01")) == 0 with input as entrada
 }
+
+test_rechaza_servicio_de_cloud_run_sin_etiquetas if {
+	entrada := recurso("google_cloud_run_v2_service", {"name": "api"})
+	count(mensajes_de("CO-TAG-01")) == 1 with input as entrada
+}
+
+test_permite_servicio_de_cloud_run_con_etiquetas if {
+	entrada := recurso("google_cloud_run_v2_service", {"labels": etiquetas_completas})
+	count(mensajes_de("CO-TAG-01")) == 0 with input as entrada
+}
+
+test_rechaza_repositorio_de_imagenes_sin_etiquetas if {
+	entrada := recurso("google_artifact_registry_repository", {"format": "DOCKER"})
+	count(mensajes_de("CO-TAG-01")) == 1 with input as entrada
+}

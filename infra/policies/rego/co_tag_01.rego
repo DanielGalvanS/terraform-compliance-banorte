@@ -25,6 +25,8 @@ tipos_etiquetables := {
 	"google_storage_bucket",
 	"google_kms_crypto_key",
 	"google_secret_manager_secret",
+	"google_cloud_run_v2_service",
+	"google_artifact_registry_repository",
 }
 
 deny contains msg if {

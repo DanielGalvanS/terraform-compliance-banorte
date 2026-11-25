@@ -43,6 +43,9 @@ resource "google_project_service" "apis" {
     "billingbudgets.googleapis.com",
     # Gemini para el agente, con la cuenta app-agente y sin llaves.
     "aiplatform.googleapis.com",
+    # La API y el frontend en Cloud Run, con sus imágenes en Artifact Registry.
+    "run.googleapis.com",
+    "artifactregistry.googleapis.com",
   ])
 
   project            = var.project_id
@@ -132,6 +135,12 @@ module "iam" {
     app-pruebas = {
       descripcion = "Instancias de prueba de rendimiento"
       roles       = ["roles/logging.logWriter", "roles/monitoring.metricWriter"]
+    }
+    # Solo sirve archivos estáticos: no necesita leer ni escribir nada en GCP.
+    # Existe para que Cloud Run no use la cuenta por defecto, que es editor.
+    app-web = {
+      descripcion = "Frontend en Cloud Run; sin acceso a datos"
+      roles       = ["roles/logging.logWriter"]
     }
   }
 
@@ -238,3 +247,60 @@ module "costos" {
 
   depends_on = [google_project_service.apis]
 }
+
+# --- Aplicaciones en Cloud Run ------------------------------------------------
+#
+# Terraform crea los servicios con una imagen de arranque; la imagen real la
+# publica y la despliega el workflow de despliegue, y Terraform no la vuelve a
+# tocar (ver modules/cloud_run). Los dos servicios son públicos: el acceso lo
+# controla el login de la API (decisión 20 de docs/decisiones.md).
+
+module "registro" {
+  source = "../../modules/registro"
+
+  project_id = var.project_id
+  region     = var.region
+  nombre     = "contenedores"
+  etiquetas  = local.etiquetas
+
+  depends_on = [google_project_service.apis]
+}
+
+module "web" {
+  source = "../../modules/cloud_run"
+
+  project_id              = var.project_id
+  region                  = var.region
+  nombre                  = "web-${local.nombre}"
+  cuenta_servicio         = module.iam.cuentas["app-web"]
+  etiquetas               = local.etiquetas
+  publico                 = true
+  proteger_contra_borrado = false
+  memoria                 = "256Mi"
+
+  depends_on = [google_project_service.apis]
+}
+
+module "api" {
+  source = "../../modules/cloud_run"
+
+  project_id              = var.project_id
+  region                  = var.region
+  nombre                  = "api-${local.nombre}"
+  cuenta_servicio         = module.iam.cuentas["app-api"]
+  etiquetas               = local.etiquetas
+  publico                 = true
+  proteger_contra_borrado = false
+
+  # Sin DATABASE_URL todavía: la API guarda hallazgos y excepciones en memoria,
+  # y por eso queda en una sola instancia (el valor por defecto del módulo). La
+  # evidencia sí va al bucket con retención.
+  variables_entorno = {
+    EVIDENCIA_BUCKET    = module.logging.bucket
+    ORIGENES_PERMITIDOS = module.web.url
+    NIVEL_LOG           = "info"
+  }
+
+  depends_on = [google_project_service.apis]
+}
+

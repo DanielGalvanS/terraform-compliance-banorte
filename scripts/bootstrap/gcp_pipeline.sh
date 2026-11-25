@@ -211,7 +211,8 @@ roles_apply() {
     roles/secretmanager.admin \
     roles/servicenetworking.networksAdmin \
     roles/logging.configWriter \
-    roles/iam.roleAdmin; do
+    roles/iam.roleAdmin \
+    roles/run.admin; do
     rol_en_proyecto "${CUENTA_APPLY}" "${rol}"
   done
   # roles/logging.configWriter: roles/editor no incluye logging.sinks.create y
@@ -221,6 +222,9 @@ roles_apply() {
   # Vertex AI. No amplía de verdad a ci-apply: con projectIamAdmin ya podía
   # darse cualquier rol. Lo que vigila los permisos del rol es la precondición
   # del módulo (decisión 19 de docs/decisiones.md).
+  # roles/run.admin: roles/editor crea servicios de Cloud Run pero no incluye
+  # run.services.setIamPolicy, que hace falta para dejarlos públicos
+  # (decisión 20).
   rol_en_bucket_estado "${CUENTA_APPLY}" roles/storage.objectUser
 }
 

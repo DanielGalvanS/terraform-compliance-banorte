@@ -14,3 +14,5 @@ Un directorio por módulo. Cada uno expone `main.tf`, `variables.tf`,
 | `compute` | listo      | VM de pruebas, sin IP pública, acceso por IAP    |
 | `logging` | listo      | Sinks de auditoría y retención                   |
 | `costos`  | listo      | Presupuesto mensual y avisos de gasto por correo |
+| `registro`| listo      | Artifact Registry para las imágenes, con limpieza |
+| `cloud_run`| listo     | Un servicio de Cloud Run con su cuenta y acceso  |

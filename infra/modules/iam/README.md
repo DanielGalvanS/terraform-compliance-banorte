@@ -32,6 +32,7 @@ Cuentas de servicio con permisos acotados.
 | `app-api` | La API de cumplimiento | Lectura de la base y los secretos que use |
 | `app-agente` | El agente de IA | Solo lectura, más un rol personalizado que solo llama a Gemini en Vertex AI; sin permiso de aplicar |
 | `app-pruebas` | Instancias de prueba de rendimiento | Escritura de logs y métricas |
+| `app-web` | El frontend en Cloud Run | Solo escritura de logs: sirve archivos estáticos |
 
 Las cuentas del pipeline (`ci-plan` y `ci-apply`) **no** las crea este módulo.
 Tienen que existir antes del primer plan, así que las crea
