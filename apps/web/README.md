@@ -71,3 +71,18 @@ contradicen la tabla.
 `features/auth` encapsula el acceso. `authRepository` acepta cualquier
 credencial no vacía y devuelve la identidad de demostración: es el único
 archivo que hay que cambiar para integrar el proveedor de identidad real.
+
+## Imagen para Cloud Run
+
+```bash
+docker build -f apps/web/Dockerfile --build-arg VITE_API_URL=https://<url-de-la-api> -t cumplimiento-web .
+docker run --rm -p 8080:8080 cumplimiento-web
+```
+
+El build de Vite servido por nginx sin privilegios en el puerto 8080.
+`VITE_API_URL` se escribe en el JavaScript al compilar: otra API exige otra
+imagen, y sin ella el frontend usa sus datos de ejemplo. La navegación va por
+el hash (`#/hallazgos`), así que solo existe `/` y cualquier otra ruta responde
+404. `index.html` se sirve sin caché y `/assets/` con caché de un año, porque
+sus nombres cambian con cada versión. nginx comprime con gzip y añade las
+cabeceras de `cabeceras.inc` a todas las respuestas.
