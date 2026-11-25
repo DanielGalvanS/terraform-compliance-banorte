@@ -27,3 +27,24 @@ output "cuentas_de_servicio" {
   description = "Correos de las cuentas creadas."
   value       = module.iam.cuentas
 }
+
+output "repositorio_imagenes" {
+  description = "Prefijo de las imágenes de contenedor."
+  value       = module.registro.url
+}
+
+output "url_api" {
+  description = "URL pública de la API en Cloud Run."
+  value       = module.api.url
+}
+
+output "url_web" {
+  description = "URL pública del frontend en Cloud Run."
+  value       = module.web.url
+}
+
+output "servicios_cloud_run" {
+  description = "Nombres de los servicios, para gcloud run deploy."
+  value       = { api = module.api.nombre, web = module.web.nombre }
+}
+

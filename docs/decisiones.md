@@ -269,3 +269,38 @@ que el mismo código no define: uno creado a mano no pasó por esa revisión.
 **Si se cambiara** a `roles/aiplatform.user`, una credencial del agente que se
 filtrara podría lanzar trabajos que cuestan dinero y crear recursos que nadie
 revisa, y CP-17 dejaría de ser cierto en la parte de "no puede crear nada".
+
+## 20. La API y el frontend en Cloud Run son públicos; el acceso lo da el login
+
+**Decisión.** Los servicios `api-mdc-dev` y `web-mdc-dev` dan `roles/run.invoker`
+a `allUsers`. Quién puede ver y hacer qué lo decide la API con su login y sus
+roles, no Cloud Run.
+
+**Por qué.** El frontend corre en el navegador: si Cloud Run exigiera
+identidad de Google en cada llamada, el navegador tendría que conseguir un
+token de Google antes de llamar a la API, y eso es un proveedor de identidad
+que el proyecto todavía no tiene. La alternativa que restringe el acceso a
+ciertas cuentas, Identity-Aware Proxy, está por probarse en un proyecto sin
+organización como `mdc-dev`.
+
+**Lo que se acepta:**
+
+- Mientras la API corre con `AUTH_MODO=local`, sus usuarios de demostración
+  tienen una contraseña conocida. Cualquiera que tenga la URL puede entrar con
+  ellos. Los datos son de ejemplo y viven en memoria, pero lo que esos usuarios
+  registren llega al bucket de evidencia, que tiene retención: no se puede
+  borrar antes de que venza.
+- Por eso la API queda en una sola instancia y se apaga sola sin tráfico: el
+  daño posible es acotado y lo que cobra también.
+- Apagarse sola tiene un costo: cada vez que la instancia se recicla, la API
+  vuelve a los datos de ejemplo y todas las sesiones se cierran, porque sin
+  `AUTH_SECRETO` genera un secreto nuevo al arrancar. La evidencia no se
+  pierde: está en el bucket.
+
+**Cuándo se cambia:** cuando la API tenga base de datos real. Ahí la propia
+API exige `AUTH_MODO=jwks`, y los servicios pasan a Identity-Aware Proxy o a
+un proveedor de identidad de verdad.
+
+**Si se cambiara** a servicios privados sin resolver la identidad, el
+dashboard dejaría de poder llamar a la API desde el navegador.
+

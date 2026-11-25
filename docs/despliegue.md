@@ -74,6 +74,8 @@ datos, que son los que mueven la factura:
 | 2 × `e2-micro` | En `us-central1` una entra en la capa gratuita; la segunda no |
 | KMS | Por llave activa y por operación. Marginal |
 | Bucket de evidencia | Por almacenamiento. Marginal al principio |
+| Cloud Run (API y frontend) | Por petición: sin tráfico quedan en cero instancias y no cobran CPU ni memoria |
+| Artifact Registry | Por almacenamiento de imágenes. Se conservan las de los últimos 30 días y siempre las 5 más recientes por aplicación |
 
 **Apaga lo que no uses.** El ambiente de dev no necesita estar encendido entre
 sesiones de trabajo. Las reglas del equipo para cuidar el crédito están en
