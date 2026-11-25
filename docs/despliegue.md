@@ -61,6 +61,35 @@ corrige lo que señale el veredicto.
 La primera ejecución tarda varios minutos. Cloud SQL es lo más lento, entre 5 y
 10 minutos.
 
+## Paso 4: desplegar las aplicaciones
+
+Terraform crea los servicios de Cloud Run con una imagen de ejemplo de Google.
+La API y el frontend reales los sube el workflow **Desplegar aplicaciones**
+(`.github/workflows/desplegar.yml`):
+
+1. Actions → **Desplegar aplicaciones** → **Run workflow** sobre `main`.
+2. El workflow construye las dos imágenes y se pausa en el environment `dev`.
+   Al aprobar, las sube a Artifact Registry con el commit como etiqueta y
+   despliega primero la API y después el frontend.
+3. Al final comprueba que la API responde en `/salud`, que el frontend sirve
+   la aplicación y que la API acepta al frontend como origen (CORS). Las URLs
+   quedan en el resumen del run.
+
+Antes hay que haber corrido **Aplicar cambios** al menos una vez: sin los
+servicios, el workflow se detiene y lo dice.
+
+El despliegue cambia **solo la imagen**. Las variables de entorno, la cuenta
+de servicio y el escalado siguen en Terraform; si hace falta cambiarlos, se
+cambian en `infra/environments/dev/main.tf`. Volver a una versión anterior es
+correr el workflow sobre ese commit, o desde la consola: Cloud Run → el
+servicio → Revisiones → mandar el tráfico a la revisión anterior.
+
+**Aplicar cambios** y **Desplegar aplicaciones** comparten un grupo de
+concurrencia y nunca corren a la vez. Si corrieran juntos, un plan hecho antes
+de un despliegue regresaría la imagen vieja al aplicarse. Terraform no vigila
+la imagen (`ignore_changes`), pero al cambiar cualquier otra cosa del servicio
+reenvía la que tenía al planear.
+
 ## Lo que cuesta
 
 No pongo cifras porque los precios cambian y prefiero no inventarlas. Usa la

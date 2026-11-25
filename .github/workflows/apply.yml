@@ -36,7 +36,9 @@ env:
 concurrency:
   # Un despliegue a la vez por ambiente: dos applies simultáneos se pelean por
   # el bloqueo del estado y dejan recursos a medias.
-  group: apply-${{ inputs.ambiente }}
+  # El mismo grupo que desplegar.yml: si un despliegue cambiara la imagen
+  # mientras este plan espera aprobación, el apply la regresaría a la vieja.
+  group: despliegue-${{ inputs.ambiente }}
   cancel-in-progress: false
 
 jobs:
