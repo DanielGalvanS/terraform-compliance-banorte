@@ -84,6 +84,12 @@ cambian en `infra/environments/dev/main.tf`. Volver a una versión anterior es
 correr el workflow sobre ese commit, o desde la consola: Cloud Run → el
 servicio → Revisiones → mandar el tráfico a la revisión anterior.
 
+**Aplicar cambios** y **Desplegar aplicaciones** comparten un grupo de
+concurrencia y nunca corren a la vez. Si corrieran juntos, un plan hecho antes
+de un despliegue regresaría la imagen vieja al aplicarse. Terraform no vigila
+la imagen (`ignore_changes`), pero al cambiar cualquier otra cosa del servicio
+reenvía la que tenía al planear.
+
 ## Lo que cuesta
 
 No pongo cifras porque los precios cambian y prefiero no inventarlas. Usa la

@@ -42,9 +42,12 @@ env:
   ETIQUETA: ${{ github.sha }}
 
 concurrency:
-  # Un despliegue a la vez por ambiente. No se cancela el que está en curso:
-  # cortarlo a medias dejaría la API y el frontend en versiones distintas.
-  group: desplegar-${{ inputs.ambiente }}
+  # El mismo grupo que apply.yml: un apply y un despliegue nunca corren a la
+  # vez. Si un plan se hiciera antes de un despliegue y se aplicara después,
+  # Terraform volvería a poner la imagen vieja (ver docs/despliegue.md). No se
+  # cancela el que está en curso: cortarlo a medias dejaría la API y el
+  # frontend en versiones distintas.
+  group: despliegue-${{ inputs.ambiente }}
   cancel-in-progress: false
 
 jobs:
@@ -85,6 +88,12 @@ jobs:
             echo "::error title=Sin servicio::No existe ${SERVICIO_API}. Corre primero el workflow Aplicar cambios."
             exit 1
           }
+          # Sin URL, el frontend quedaría compilado contra "/api/v1" y esa
+          # imagen se reutilizaría en cada intento de este commit.
+          if [ -z "${url}" ]; then
+            echo "::error title=Sin URL::${SERVICIO_API} existe pero no tiene URL todavía."
+            exit 1
+          fi
           echo "api=${url}" >> "$GITHUB_OUTPUT"
           echo "API: ${url}"
 
@@ -118,6 +127,10 @@ jobs:
         with:
           name: imagenes-${{ github.run_id }}
           path: imagenes.tar.gz
+          # "Re-run all jobs" vuelve a subirlo con el mismo nombre. No se le
+          # agrega el intento al nombre: "Re-run failed jobs" de solo el
+          # despliegue ya no lo encontraría.
+          overwrite: true
           # Solo hace falta hasta que termine el despliegue.
           retention-days: 1
 
