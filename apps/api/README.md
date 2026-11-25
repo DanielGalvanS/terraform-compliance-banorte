@@ -316,3 +316,21 @@ en `localStorage`: un script inyectado en la página podría leer
 entrar. `/sesion` devuelve también los permisos del rol, y la pantalla oculta
 lo que no se puede hacer sin copiar la tabla; la API lo vuelve a comprobar de
 todos modos.
+
+## Imagen para Cloud Run
+
+```bash
+docker build -f apps/api/Dockerfile -t cumplimiento-api .   # desde la raíz del repo
+docker run --rm -p 8080:8080 cumplimiento-api
+```
+
+Se construye desde la raíz porque necesita el lockfile del monorepo y el
+catálogo de la compuerta, que se copia dentro de la imagen
+(`RUTA_CATALOGO=/app/infra/policies/mappings.yaml`). Escucha en `0.0.0.0:8080`,
+corre como el usuario `node` y aguanta el sistema de archivos en solo lectura.
+`node` arranca directo, sin `npm`, para que la señal `SIGTERM` de Cloud Run le
+llegue y la API cierre en orden.
+
+El job **Imágenes de Cloud Run** del workflow `aplicaciones.yml` la construye,
+la arranca y comprueba `/salud` y el cierre con `SIGTERM` en cada PR. No la
+publica: eso lo hace el despliegue.

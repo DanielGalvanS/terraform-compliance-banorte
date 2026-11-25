@@ -155,3 +155,19 @@ def test_la_cli_no_imprime_el_rastro_de_adk(tmp_path):
     assert corrida.returncode == 1
     assert "Traceback" not in corrida.stderr
     assert "modelo saturado o sin respuesta (503)" in corrida.stderr
+
+
+def test_sin_credenciales_lo_dice_y_no_prueba_el_respaldo(veredicto_violaciones, plan_violaciones):
+    sin_llave = ValueError("No API key was provided. Please pass a valid API key.")
+    respaldo = ModeloFalso(model="respaldo", peticiones=[])
+
+    decision = analizar(
+        veredicto_violaciones,
+        plan_violaciones,
+        modelo=ModeloFalso(model="principal", excepcion=sin_llave, peticiones=[]),
+        respaldo=respaldo,
+    )
+
+    assert decision.estado == "error_agente"
+    assert decision.error.startswith("principal: no hay credenciales de Gemini: define GOOGLE_API_KEY")
+    assert respaldo.turnos == 0

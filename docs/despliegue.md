@@ -78,7 +78,8 @@ datos, que son los que mueven la factura:
 | Artifact Registry | Por almacenamiento de imágenes. Se conservan las de los últimos 30 días y siempre las 5 más recientes por aplicación |
 
 **Apaga lo que no uses.** El ambiente de dev no necesita estar encendido entre
-sesiones de trabajo.
+sesiones de trabajo. Las reglas del equipo para cuidar el crédito están en
+[costos.md](costos.md).
 
 ### Presupuesto y avisos
 

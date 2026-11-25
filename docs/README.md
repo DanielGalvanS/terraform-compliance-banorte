@@ -6,6 +6,7 @@
 | [decisiones.md](decisiones.md) | Por qué está hecho así y qué pasaría si se cambiara |
 | [compuerta.md](compuerta.md) | Cómo se bloquea un cambio y qué falta configurar en GitHub |
 | [despliegue.md](despliegue.md) | Cómo levantarlo desde cero y cómo destruirlo |
+| [costos.md](costos.md) | Cuándo se enciende dev, qué cuesta y qué hacer con cada aviso del presupuesto |
 | [casos-de-prueba.md](casos-de-prueba.md) | Dónde se demuestra cada caso del reto |
 | [rendimiento.md](rendimiento.md) | Cómo se miden las pruebas y sus resultados |
 

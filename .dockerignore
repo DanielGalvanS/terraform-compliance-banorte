@@ -1,0 +1,26 @@
+# El contexto de las imágenes es la raíz del repositorio. Lo que no está aquí
+# no llega a Docker: ni dependencias locales ni nada que pueda llevar valores
+# reales.
+**/node_modules
+**/dist
+.git
+.github
+**/.terraform
+**/*.tfstate*
+**/*.tfvars
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/*credentials*.json
+**/service-account*.json
+**/.venv
+**/__pycache__
+apps/agent
+docs
+scripts
+infra/environments
+infra/modules
+infra/pipelines
+infra/policies/fixtures
+infra/policies/rego
