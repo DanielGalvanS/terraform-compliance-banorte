@@ -49,10 +49,17 @@ resource "google_cloud_run_v2_service" "este" {
   lifecycle {
     # La imagen la cambia el despliegue (gcloud run deploy) en cada versión.
     # Si Terraform la vigilara, cada plan querría volver a la imagen inicial.
+    #
+    # `scaling` es el escalado a nivel de servicio, distinto de
+    # `template.scaling`, que sí controla este módulo. Cloud Run lo devuelve
+    # lleno (min_instance_count = 0, manual_instance_count = 0) aunque no se
+    # declare; sin ignorarlo, cada plan quiere borrarlo y el post-check del
+    # apply lo reporta como drift.
     ignore_changes = [
       template[0].containers[0].image,
       client,
       client_version,
+      scaling,
     ]
   }
 }
