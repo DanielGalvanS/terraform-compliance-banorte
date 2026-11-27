@@ -79,7 +79,7 @@ y comprueba su huella SHA-256 antes de hacerlo.
 | Frontend | Listo; 4 de 9 pantallas conectadas a la API |
 | API REST | Catálogo, hallazgos, resumen, excepciones e inventario, en memoria |
 | Agente de IA | Pendiente |
-| Detección de drift programada | Pendiente |
+| Detección de drift programada | Cada hora con `drift.yml` (ver [compuerta.md](compuerta.md)) |
 | Notificación y aprobación por Slack | Pendiente |
 | Escalamiento a tickets de Jira | Pendiente |
 
