@@ -47,6 +47,8 @@ export type CredencialesApi =
 export type SesionApi =
   paths['/sesion']['post']['responses'][200]['content']['application/json']
 
+export type YoApi = paths['/yo']['get']['responses'][200]['content']['application/json']
+
 /**
  * Token de la sesión. Vive en memoria y no en localStorage: un script inyectado
  * en la página podría leer localStorage y llevárselo. El costo es que al
@@ -165,4 +167,5 @@ export const clienteApi = {
   listarEvidencia: (señal?: AbortSignal) =>
     pedir<RespuestaEvidencia>('/evidencia', señal),
   iniciarSesion: (credenciales: CredencialesApi) => enviar<SesionApi>('/sesion', credenciales),
+  yo: (señal?: AbortSignal) => pedir<YoApi>('/yo', señal),
 }

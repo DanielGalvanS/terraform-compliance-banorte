@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { hayApi } from '@/shared/api'
 import { Button, Icon } from '@/shared/ui'
-import { authRepository } from '../api/authRepository'
+import { authRepository, ErrorIdentidad, SinRol } from '../api/authRepository'
 import { useAuth } from '../state/AuthProvider'
 
 export function LoginForm() {
@@ -23,8 +23,10 @@ export function LoginForm() {
           ? 'Correo o contraseña incorrectos.'
           : 'Ingresa tu correo institucional y contraseña.',
       )
-    } catch {
-      setError('No se pudo contactar con la API. Intenta de nuevo.')
+    } catch (causa) {
+      // Estos dos traen un mensaje pensado para quien está entrando.
+      if (causa instanceof SinRol || causa instanceof ErrorIdentidad) setError(causa.message)
+      else setError('No se pudo contactar con la API. Intenta de nuevo.')
     } finally {
       setEnviando(false)
     }
@@ -97,18 +99,21 @@ export function LoginForm() {
           </>
         )}
 
-        <div className="demo-access">
-          <Icon name="shield" size={15} />
-          <span>
-            <strong>Acceso de demostración</strong>
-            <small>
-              {hayApi
-                ? 'Elige un rol para probar sus permisos. La contraseña de todos es «demo».'
-                : 'Las credenciales ya están cargadas para el prototipo.'}
-            </small>
-          </span>
-        </div>
-        {hayApi && (
+        {/* Con el acceso real no hay usuarios de demostración que ofrecer. */}
+        {authRepository.modo !== 'identity-platform' && (
+          <div className="demo-access">
+            <Icon name="shield" size={15} />
+            <span>
+              <strong>Acceso de demostración</strong>
+              <small>
+                {hayApi
+                  ? 'Elige un rol para probar sus permisos. La contraseña de todos es «demo».'
+                  : 'Las credenciales ya están cargadas para el prototipo.'}
+              </small>
+            </span>
+          </div>
+        )}
+        {authRepository.modo === 'demo-api' && (
           <div className="demo-roles" role="group" aria-label="Entrar con un rol de demostración">
             {authRepository.demoAccounts.map((cuenta) => (
               <button
