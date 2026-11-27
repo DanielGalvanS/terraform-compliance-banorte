@@ -56,3 +56,8 @@ output "identidad" {
     audiencia = local.identidad.audiencia
   }
 }
+
+output "urls_web" {
+  description = "URLs del frontend, separadas por comas. Las usa scripts/identidad/crear_usuarios.sh para restringir la llave del navegador."
+  value       = join(",", module.web.urls)
+}
