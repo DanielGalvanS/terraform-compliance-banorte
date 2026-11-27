@@ -33,6 +33,7 @@ validación por debajo de los 5 minutos que exige el reto.
 | `secretos.yml` | Todo PR | Escaneo de secretos con gitleaks | No |
 | `plan.yml` | PR que toca `infra/` | `terraform plan` real, veredicto y comentario en el PR | Sí |
 | `apply.yml` | A mano, por ambiente | Plan, aprobación humana y despliegue | Sí |
+| `drift.yml` | Cada hora y a mano | Compara la nube con `main` y falla si no coinciden (drift) | Sí |
 
 `plan.yml` se salta solo mientras no exista la variable
 `GCP_WORKLOAD_IDENTITY_PROVIDER`. Así el repositorio no se llena de ejecuciones
@@ -219,6 +220,43 @@ despliegue, el apply se detiene.
 Después del apply se corre `terraform plan -detailed-exitcode`. Un plan vacío
 significa que la nube quedó como dice el código. Cualquier diferencia es drift
 inmediato y el despliegue se marca como fallido.
+
+## Drift cada hora
+
+`drift.yml` repite esa misma verificación cada hora (minuto 17) sobre `dev`,
+con `ci-plan`, de solo lectura. Cubre RF-03 del reto. Nunca corrige nada: si
+la nube no coincide con `main`, la corrida falla, el resumen lista los recursos
+y el reporte queda como artefacto (`drift-reporte.json`, 90 días).
+
+| Resultado | Qué significa | Qué hacer |
+| --- | --- | --- |
+| ✅ Sin drift | La nube es lo que dice `main` | Nada |
+| ⛔ Drift | Alguien cambió algo a mano, o hay un PR de infra fusionado sin aplicar | Revertir con **Aplicar cambios**, o llevar el cambio a un PR si es correcto |
+| ⚠️ Error | El plan no corrió (por ejemplo, el estado bloqueado por un apply en curso) | Volver a correrlo; no dice nada sobre drift |
+
+Decisiones:
+
+- **Plan normal, no `-refresh-only`.** El plan normal respeta los
+  `ignore_changes` de los módulos. Con `-refresh-only`, cada despliegue de
+  Cloud Run (que cambia la imagen fuera de Terraform) saldría como drift.
+- **Un PR fusionado sin aplicar cuenta como drift.** `main` es la fuente de
+  verdad; mientras la nube no la refleje, hay una diferencia que reportar.
+- **No detecta recursos creados a mano que Terraform no administra.** Solo
+  vigila lo que está en el estado. Por eso la regla del equipo es que nada se
+  crea en la consola.
+- GitHub puede retrasar los `schedule` varios minutos y apaga los programados
+  tras 60 días sin actividad en el repositorio.
+
+### Probarlo
+
+1. **Actions → Drift → Run workflow**: debe salir ✅ sin drift.
+2. Cambiar algo a mano en la consola sobre un recurso administrado, por
+   ejemplo agregar una etiqueta a `vm-mdc-dev-01` (Compute Engine → la VM →
+   Editar → Etiquetas).
+3. **Run workflow** otra vez, o esperar a la siguiente hora: debe salir ⛔ y
+   listar `module.compute.google_compute_instance.estas["vm-mdc-dev-01"]`.
+4. Revertir con **Aplicar cambios** y comprobar que la siguiente corrida vuelve
+   a ✅.
 
 ## El frontend también se comprueba
 
