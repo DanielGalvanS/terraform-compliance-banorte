@@ -83,6 +83,81 @@ describe('verificador jwks', () => {
     const token = await firmar({ name: 'Roberto Silva', rol: 'Aprobador' }, 'https://otro.idp')
     expect(await verificador().verificar(token)).toBeNull()
   })
+  describe('con la forma de un ID token de Identity Platform', () => {
+    // Identity Platform emite con iss = securetoken.google.com/<proyecto> y
+    // aud = <proyecto>, y agrega los claims personalizados (aquí, rol) junto
+    // a los suyos (email, firebase, auth_time…).
+    const PROYECTO = 'proyecto-demo'
+    const EMISOR_IDP = `https://securetoken.google.com/${PROYECTO}`
+
+    const tokenIdp = (claims: Record<string, unknown>) =>
+      new SignJWT({
+        email: 'aprobador@banorte.mx',
+        email_verified: true,
+        auth_time: Math.floor(Date.now() / 1000),
+        firebase: { identities: { email: ['aprobador@banorte.mx'] }, sign_in_provider: 'password' },
+        ...claims,
+      })
+        .setProtectedHeader({ alg: 'RS256', kid: 'llave-1' })
+        .setSubject('uid-3f9a')
+        .setIssuer(EMISOR_IDP)
+        .setAudience(PROYECTO)
+        .setIssuedAt()
+        .setExpirationTime('1h')
+        .sign(privateKey)
+
+    const verificadorIdp = () => verificadorJwks({ url, emisor: EMISOR_IDP, audiencia: PROYECTO })
+
+    it('lee el rol del claim personalizado y el correo', async () => {
+      const token = await tokenIdp({ name: 'Roberto Silva', rol: 'Aprobador' })
+      expect(await verificadorIdp().verificar(token)).toEqual({
+        sujeto: 'uid-3f9a',
+        nombre: 'Roberto Silva',
+        rol: 'Aprobador',
+        email: 'aprobador@banorte.mx',
+      })
+    })
+
+    it('sin displayName, el nombre es el correo', async () => {
+      const identidad = await verificadorIdp().verificar(await tokenIdp({ rol: 'Aprobador' }))
+      expect(identidad?.nombre).toBe('aprobador@banorte.mx')
+    })
+
+    it('un usuario sin rol asignado no tiene permisos', async () => {
+      expect(await verificadorIdp().verificar(await tokenIdp({ name: 'Roberto Silva' }))).toBeNull()
+    })
+
+    it('un token de otro proyecto no sirve', async () => {
+      const otro = verificadorJwks({ url, emisor: EMISOR_IDP, audiencia: 'otro-proyecto' })
+      expect(await otro.verificar(await tokenIdp({ rol: 'Aprobador' }))).toBeNull()
+    })
+
+    it('con la API en modo jwks: /yo responde y /sesion no existe', async () => {
+      const app = await construirApp({
+        config: configDePrueba({
+          AUTH_MODO: 'jwks',
+          AUTH_JWKS_URL: url,
+          AUTH_EMISOR: EMISOR_IDP,
+          AUTH_AUDIENCIA: PROYECTO,
+        }),
+      })
+      const token = await tokenIdp({ name: 'Roberto Silva', rol: 'Aprobador' })
+      const yo = await app.inject(conToken({ method: 'GET', url: `${PREFIJO}/yo` }, token))
+      expect(yo.statusCode).toBe(200)
+      expect(yo.json()).toMatchObject({
+        usuario: { nombre: 'Roberto Silva', email: 'aprobador@banorte.mx', rol: 'Aprobador' },
+      })
+      expect(yo.json().permisos).toContain('decidirExcepcion')
+
+      const demo = await app.inject({
+        method: 'POST',
+        url: `${PREFIJO}/sesion`,
+        payload: { email: 'compliance@banorte.mx', password: 'demo' },
+      })
+      expect(demo.statusCode).toBe(404)
+      await app.close()
+    })
+  })
 })
 
 describe('configuración de autenticación', () => {
@@ -190,6 +265,29 @@ describe('rutas protegidas', () => {
   })
 })
 
+describe('/yo en modo local', () => {
+  it('devuelve el usuario del token, con su correo, y sus permisos', async () => {
+    const app = await construirApp({ config: configDePrueba() })
+    const sesion = await app.inject({
+      method: 'POST',
+      url: `${PREFIJO}/sesion`,
+      payload: { email: 'auditor@banorte.mx', password: 'demo' },
+    })
+    const r = await app.inject(conToken({ method: 'GET', url: `${PREFIJO}/yo` }, sesion.json().token))
+    expect(r.json()).toEqual({
+      usuario: { nombre: 'Lucía Ramos', email: 'auditor@banorte.mx', rol: 'Auditor' },
+      permisos: ['leer'],
+    })
+    await app.close()
+  })
+
+  it('sin token responde 401', async () => {
+    const app = await construirApp({ config: configDePrueba() })
+    expect((await app.inject({ method: 'GET', url: `${PREFIJO}/yo` })).statusCode).toBe(401)
+    await app.close()
+  })
+})
+
 describe('sesión de demostración', () => {
   let app: Awaited<ReturnType<typeof construirApp>>
 
@@ -202,7 +300,7 @@ describe('sesión de demostración', () => {
     app.inject({ method: 'POST', url: `${PREFIJO}/sesion`, payload: { email, password } })
 
   it('entrega un token con el rol del usuario y sus permisos', async () => {
-    const r = await entrar('roberto.silva@banco.mx')
+    const r = await entrar('aprobador@banorte.mx')
     expect(r.statusCode).toBe(200)
     expect(r.json().usuario).toMatchObject({ nombre: 'Roberto Silva', rol: 'Aprobador' })
     expect(r.json().permisos).toContain('decidirExcepcion')
@@ -210,7 +308,7 @@ describe('sesión de demostración', () => {
   })
 
   it('el token sirve contra la API con los permisos de su rol', async () => {
-    const auditora = (await entrar('lucia.ramos@banco.mx')).json().token
+    const auditora = (await entrar('auditor@banorte.mx')).json().token
     const leer = await app.inject(conToken({ method: 'GET', url: `${PREFIJO}/hallazgos` }, auditora))
     expect(leer.statusCode).toBe(200)
     const solicitar = await app.inject(
@@ -220,16 +318,16 @@ describe('sesión de demostración', () => {
   })
 
   it('ignora mayúsculas y espacios en el correo', async () => {
-    expect((await entrar('  Ana.Martinez@Banco.MX ')).statusCode).toBe(200)
+    expect((await entrar('  Compliance@Banorte.MX ')).statusCode).toBe(200)
   })
 
   it('una contraseña incorrecta responde 401', async () => {
-    expect((await entrar('ana.martinez@banco.mx', 'otra')).statusCode).toBe(401)
+    expect((await entrar('compliance@banorte.mx', 'otra')).statusCode).toBe(401)
   })
 
   it('un correo desconocido responde 401 con el mismo mensaje', async () => {
-    const desconocido = await entrar('nadie@banco.mx')
-    const malaContrasena = await entrar('ana.martinez@banco.mx', 'otra')
+    const desconocido = await entrar('nadie@banorte.mx')
+    const malaContrasena = await entrar('compliance@banorte.mx', 'otra')
     expect(desconocido.statusCode).toBe(401)
     expect(desconocido.json().error).toBe(malaContrasena.json().error)
   })
@@ -246,7 +344,7 @@ describe('sesión de demostración', () => {
     const r = await jwks.inject({
       method: 'POST',
       url: `${PREFIJO}/sesion`,
-      payload: { email: 'ana.martinez@banco.mx', password: 'demo' },
+      payload: { email: 'compliance@banorte.mx', password: 'demo' },
     })
     expect(r.statusCode).toBe(404)
     await jwks.close()

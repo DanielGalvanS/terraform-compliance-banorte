@@ -18,6 +18,10 @@ RUN npm ci --workspace compliance-ops-web --ignore-scripts
 COPY apps/web apps/web
 ARG VITE_API_URL=""
 ENV VITE_API_URL=${VITE_API_URL}
+# Llave del navegador de Identity Platform. No es un secreto (termina en el
+# JavaScript, restringida a esta URL); sin ella, el acceso es el de demostración.
+ARG VITE_IDP_API_KEY=""
+ENV VITE_IDP_API_KEY=${VITE_IDP_API_KEY}
 RUN npm run build --workspace compliance-ops-web
 
 # nginx sin privilegios: corre como usuario 101 y escucha en 8080, el puerto
