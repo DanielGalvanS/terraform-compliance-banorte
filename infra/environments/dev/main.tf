@@ -46,6 +46,10 @@ resource "google_project_service" "apis" {
     # La API y el frontend en Cloud Run, con sus imágenes en Artifact Registry.
     "run.googleapis.com",
     "artifactregistry.googleapis.com",
+    # Login real: Identity Platform emite los tokens que verifica la API, y la
+    # llave de API del navegador se crea con gcloud (scripts/identidad).
+    "identitytoolkit.googleapis.com",
+    "apikeys.googleapis.com",
   ])
 
   project            = var.project_id
@@ -281,6 +285,62 @@ module "web" {
   depends_on = [google_project_service.apis]
 }
 
+# Identity Platform: el proveedor de identidad de la API (AUTH_MODO=jwks).
+#
+# Solo correo y contraseña, y sin registro público: los usuarios los da de alta
+# un administrador con scripts/identidad/crear_usuarios.sh, que también les
+# asigna su rol como claim personalizado. Si cualquiera pudiera registrarse,
+# tendría cuenta aunque sin rol, y la API no le daría ningún permiso; aun así,
+# no hay razón para abrir la puerta.
+#
+# Este recurso no se puede destruir de verdad: Identity Platform, una vez
+# activado en un proyecto, no se apaga. Un destroy solo lo saca del estado.
+resource "google_identity_platform_config" "este" {
+  project = var.project_id
+
+  sign_in {
+    allow_duplicate_emails = false
+
+    email {
+      enabled           = true
+      password_required = true
+    }
+  }
+
+  client {
+    permissions {
+      disabled_user_signup   = true
+      disabled_user_deletion = true
+    }
+  }
+
+  depends_on = [google_project_service.apis]
+}
+
+locals {
+  # Los ID tokens de Identity Platform: emisor y audiencia por proyecto, y las
+  # llaves públicas de Google para verificarlos.
+  identidad = {
+    jwks      = "https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"
+    emisor    = "https://securetoken.google.com/${var.project_id}"
+    audiencia = var.project_id
+  }
+
+  # Mientras login_real sea false, la API sigue con los usuarios de
+  # demostración. Se cambia a true cuando ya existen los usuarios y la llave
+  # del navegador (ver docs/despliegue.md): si cambiara antes, nadie podría
+  # entrar.
+  #
+  # tomap en los dos lados: una condición necesita el mismo tipo en ambos, y un
+  # objeto con cuatro claves no es del mismo tipo que {}.
+  autenticacion_api = var.login_real ? tomap({
+    AUTH_MODO      = "jwks"
+    AUTH_JWKS_URL  = local.identidad.jwks
+    AUTH_EMISOR    = local.identidad.emisor
+    AUTH_AUDIENCIA = local.identidad.audiencia
+  }) : tomap({})
+}
+
 module "api" {
   source = "../../modules/cloud_run"
 
@@ -295,12 +355,12 @@ module "api" {
   # Sin DATABASE_URL todavía: la API guarda hallazgos y excepciones en memoria,
   # y por eso queda en una sola instancia (el valor por defecto del módulo). La
   # evidencia sí va al bucket con retención.
-  variables_entorno = {
+  variables_entorno = merge(local.autenticacion_api, {
     EVIDENCIA_BUCKET = module.logging.bucket
     # Las dos URLs del frontend: el navegador manda la que se abrió.
     ORIGENES_PERMITIDOS = join(",", module.web.urls)
     NIVEL_LOG           = "info"
-  }
+  })
 
   depends_on = [google_project_service.apis]
 }

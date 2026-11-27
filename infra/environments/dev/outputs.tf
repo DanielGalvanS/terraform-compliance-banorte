@@ -48,3 +48,11 @@ output "servicios_cloud_run" {
   value       = { api = module.api.nombre, web = module.web.nombre }
 }
 
+
+output "identidad" {
+  description = "Emisor y audiencia de los tokens de Identity Platform que acepta la API."
+  value = {
+    emisor    = local.identidad.emisor
+    audiencia = local.identidad.audiencia
+  }
+}
