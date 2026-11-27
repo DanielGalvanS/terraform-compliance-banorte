@@ -15,12 +15,20 @@ export type Verificador = {
 export const EMISOR_LOCAL = 'compliance-ops-local'
 export const AUDIENCIA_API = 'compliance-ops-api'
 
-/** Lee la identidad de los claims. Un token sin rol válido no autoriza nada. */
+/**
+ * Lee la identidad de los claims. Un token sin rol válido no autoriza nada.
+ *
+ * Identity Platform pone en `name` el displayName del usuario, y si nadie lo
+ * llenó no manda el claim. Entonces se usa el correo: el nombre es lo que
+ * queda en la evidencia, y un correo identifica mejor que nada.
+ */
 function identidadDe(claims: JWTPayload): Identidad | null {
+  const email = typeof claims['email'] === 'string' ? claims['email'] : undefined
   const resultado = Identidad.safeParse({
     sujeto: claims.sub,
-    nombre: claims['name'],
+    nombre: claims['name'] ?? email,
     rol: claims['rol'],
+    ...(email === undefined ? {} : { email }),
   })
   return resultado.success ? resultado.data : null
 }
@@ -50,7 +58,11 @@ export async function emitirTokenLocal(
   identidad: Identidad,
   duracion: string = '8h',
 ): Promise<string> {
-  return new SignJWT({ name: identidad.nombre, rol: identidad.rol })
+  return new SignJWT({
+    name: identidad.nombre,
+    rol: identidad.rol,
+    ...(identidad.email === undefined ? {} : { email: identidad.email }),
+  })
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject(identidad.sujeto)
     .setIssuer(EMISOR_LOCAL)

@@ -52,7 +52,11 @@ export function rutasSesion(secreto: string): FastifyPluginAsyncZod {
         }
         const { sujeto, nombre, rol } = usuario
         return {
-          token: await emitirTokenLocal(secreto, { sujeto, nombre, rol }, DURACION_SESION),
+          token: await emitirTokenLocal(
+            secreto,
+            { sujeto, nombre, rol, email: usuario.email },
+            DURACION_SESION,
+          ),
           usuario: { nombre, email: usuario.email, rol, iniciales: usuario.iniciales },
           permisos: [...PERMISOS[rol]],
         }
