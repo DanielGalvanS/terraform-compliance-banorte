@@ -305,6 +305,21 @@ resource "google_identity_platform_config" "este" {
       enabled           = true
       password_required = true
     }
+
+    # Google crea este bloque al activar Identity Platform. Si no se declara,
+    # cada plan quiere quitarlo y la verificación posterior al apply nunca
+    # queda limpia. Se declara en vez de ignorarlo: así el drift avisa si
+    # alguien activa el acceso por teléfono desde la consola.
+    phone_number {
+      enabled            = false
+      test_phone_numbers = {}
+    }
+  }
+
+  # Lo mismo: Google lo crea con estos valores. Sin inquilinos, un solo
+  # directorio de usuarios para toda la plataforma.
+  multi_tenant {
+    allow_tenants = false
   }
 
   client {
