@@ -51,7 +51,7 @@ export function LoginForm() {
               onChange={(event) =>
                 setCredentials((current) => ({ ...current, email: event.target.value }))
               }
-              placeholder="nombre@banco.mx"
+              placeholder="nombre@banorte.mx"
               autoComplete="username"
             />
           </label>

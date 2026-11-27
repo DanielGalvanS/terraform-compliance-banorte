@@ -284,10 +284,10 @@ con la contraseña `demo`:
 
 | Correo | Rol |
 | --- | --- |
-| `ana.martinez@banco.mx` | Compliance Lead |
-| `roberto.silva@banco.mx` | Aprobador |
-| `carlos.vega@banco.mx` | Desarrollador |
-| `lucia.ramos@banco.mx` | Auditor |
+| `compliance@banorte.mx` | Compliance Lead |
+| `aprobador@banorte.mx` | Aprobador |
+| `desarrollador@banorte.mx` | Desarrollador |
+| `auditor@banorte.mx` | Auditor |
 
 **Esto no es seguridad**: la contraseña es pública y sirve para elegir con qué
 rol probar. Por eso:

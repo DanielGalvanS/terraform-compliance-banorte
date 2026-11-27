@@ -202,7 +202,7 @@ describe('sesión de demostración', () => {
     app.inject({ method: 'POST', url: `${PREFIJO}/sesion`, payload: { email, password } })
 
   it('entrega un token con el rol del usuario y sus permisos', async () => {
-    const r = await entrar('roberto.silva@banco.mx')
+    const r = await entrar('aprobador@banorte.mx')
     expect(r.statusCode).toBe(200)
     expect(r.json().usuario).toMatchObject({ nombre: 'Roberto Silva', rol: 'Aprobador' })
     expect(r.json().permisos).toContain('decidirExcepcion')
@@ -210,7 +210,7 @@ describe('sesión de demostración', () => {
   })
 
   it('el token sirve contra la API con los permisos de su rol', async () => {
-    const auditora = (await entrar('lucia.ramos@banco.mx')).json().token
+    const auditora = (await entrar('auditor@banorte.mx')).json().token
     const leer = await app.inject(conToken({ method: 'GET', url: `${PREFIJO}/hallazgos` }, auditora))
     expect(leer.statusCode).toBe(200)
     const solicitar = await app.inject(
@@ -220,16 +220,16 @@ describe('sesión de demostración', () => {
   })
 
   it('ignora mayúsculas y espacios en el correo', async () => {
-    expect((await entrar('  Ana.Martinez@Banco.MX ')).statusCode).toBe(200)
+    expect((await entrar('  Compliance@Banorte.MX ')).statusCode).toBe(200)
   })
 
   it('una contraseña incorrecta responde 401', async () => {
-    expect((await entrar('ana.martinez@banco.mx', 'otra')).statusCode).toBe(401)
+    expect((await entrar('compliance@banorte.mx', 'otra')).statusCode).toBe(401)
   })
 
   it('un correo desconocido responde 401 con el mismo mensaje', async () => {
-    const desconocido = await entrar('nadie@banco.mx')
-    const malaContrasena = await entrar('ana.martinez@banco.mx', 'otra')
+    const desconocido = await entrar('nadie@banorte.mx')
+    const malaContrasena = await entrar('compliance@banorte.mx', 'otra')
     expect(desconocido.statusCode).toBe(401)
     expect(desconocido.json().error).toBe(malaContrasena.json().error)
   })
@@ -246,7 +246,7 @@ describe('sesión de demostración', () => {
     const r = await jwks.inject({
       method: 'POST',
       url: `${PREFIJO}/sesion`,
-      payload: { email: 'ana.martinez@banco.mx', password: 'demo' },
+      payload: { email: 'compliance@banorte.mx', password: 'demo' },
     })
     expect(r.statusCode).toBe(404)
     await jwks.close()
