@@ -1,0 +1,202 @@
+name: Drift
+
+# Detección de drift (DEV-45, RF-03 del reto): cada hora compara la nube real
+# contra el código de main con un terraform plan de solo lectura. Si el plan
+# quiere cambiar algo, la nube ya no es lo que dice el código y el workflow
+# falla.
+#
+# Se usa un plan normal y no -refresh-only a propósito: el plan normal respeta
+# los ignore_changes de los módulos (por ejemplo la imagen de Cloud Run, que
+# cambia el workflow Desplegar aplicaciones), y -refresh-only los reportaría
+# como drift en cada despliegue.
+#
+# Consecuencia: un PR de infra fusionado pero todavía no aplicado también sale
+# como diferencia. Es correcto para cumplimiento (main es la fuente de verdad)
+# y se resuelve corriendo Aplicar cambios.
+#
+# Qué NO detecta: recursos creados a mano que Terraform no administra (por
+# ejemplo una regla de firewall nueva hecha en la consola). Solo vigila lo que
+# está en el estado.
+on:
+  schedule:
+    # Minuto 17 y no 0: a la hora en punto GitHub encola muchos workflows y
+    # el inicio se retrasa más.
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # Workload Identity Federation: credenciales temporales de ci-plan, sin llaves.
+  id-token: write
+
+env:
+  TERRAFORM_VERSION: '1.16.4'
+  AMBIENTE: dev
+
+concurrency:
+  # Una revisión a la vez. No se comparte el grupo con apply.yml: una corrida
+  # de drift encolada podría cancelar un apply pendiente.
+  group: drift-dev
+  cancel-in-progress: false
+
+jobs:
+  drift:
+    name: Drift del ambiente dev
+    runs-on: ubuntu-24.04
+    if: vars.GCP_WORKLOAD_IDENTITY_PROVIDER != ''
+    env:
+      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+      TF_VAR_project_id: ${{ vars.GCP_PROJECT_ID }}
+      TF_VAR_bucket_evidencia: ${{ vars.BUCKET_EVIDENCIA }}
+      TF_VAR_centro_costos: ${{ vars.CENTRO_COSTOS }}
+    steps:
+      - name: Comprobar configuración
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+          BUCKET_EVIDENCIA: ${{ vars.BUCKET_EVIDENCIA }}
+          CENTRO_COSTOS: ${{ vars.CENTRO_COSTOS }}
+        run: |
+          faltan=0
+          for nombre in GCP_PROJECT_ID TF_STATE_BUCKET BUCKET_EVIDENCIA CENTRO_COSTOS; do
+            if [ -z "${!nombre}" ]; then
+              echo "::error title=Falta configuración::La variable de GitHub ${nombre} no está definida (Settings → Secrets and variables → Actions → Variables). Ver docs/compuerta.md"
+              faltan=1
+            fi
+          done
+          exit "${faltan}"
+
+      # Igual que plan.yml: las opcionales solo se exportan si traen valor.
+      - name: Variables opcionales de Terraform
+        env:
+          CUENTA_FACTURACION: ${{ vars.CUENTA_FACTURACION }}
+          CORREOS_ALERTAS_COSTO: ${{ vars.CORREOS_ALERTAS_COSTO }}
+        run: |
+          if [ -n "${CUENTA_FACTURACION}" ]; then
+            echo "TF_VAR_cuenta_facturacion=${CUENTA_FACTURACION}" >> "$GITHUB_ENV"
+          fi
+          if [ -n "${CORREOS_ALERTAS_COSTO}" ]; then
+            echo "TF_VAR_correos_alertas_costo=${CORREOS_ALERTAS_COSTO}" >> "$GITHUB_ENV"
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      # ci-plan: solo lectura. Este workflow nunca corrige el drift; lo
+      # reporta y la corrección entra por PR o por Aplicar cambios.
+      - name: Autenticar en GCP (solo lectura)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT_PLAN }}
+
+      - name: terraform init
+        working-directory: infra/environments/${{ env.AMBIENTE }}
+        run: |
+          terraform init -input=false -no-color \
+            -backend-config="bucket=${TF_STATE_BUCKET}" \
+            -backend-config="prefix=mdc/${AMBIENTE}"
+
+      # -detailed-exitcode: 0 = sin diferencias, 1 = error, 2 = diferencias.
+      # Se separan el error y el drift para no confundir un problema del
+      # pipeline (por ejemplo el estado bloqueado por un apply en curso) con
+      # un cambio en la nube.
+      - name: Comparar la nube con el código
+        id: plan
+        working-directory: infra/environments/${{ env.AMBIENTE }}
+        run: |
+          set -uo pipefail
+          estado=0
+          terraform plan -detailed-exitcode -out=drift.bin \
+            -input=false -no-color -lock-timeout=5m || estado=$?
+          echo "estado=${estado}" >> "$GITHUB_OUTPUT"
+          if [ "${estado}" -ne 1 ]; then
+            terraform show -json drift.bin > drift.json
+          fi
+          exit 0
+
+      - name: Reporte
+        id: reporte
+        env:
+          ESTADO: ${{ steps.plan.outputs.estado }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, datetime
+
+          estado = int(os.environ["ESTADO"])
+          ruta = f"infra/environments/{os.environ['AMBIENTE']}/drift.json"
+          cambios, externos = [], []
+          if estado != 1 and os.path.exists(ruta):
+              plan = json.load(open(ruta))
+              cambios = [
+                  {"recurso": rc["address"], "acciones": rc["change"]["actions"]}
+                  for rc in plan.get("resource_changes", [])
+                  if rc["change"]["actions"] not in (["no-op"], ["read"])
+              ]
+              # Lo que Terraform vio cambiar fuera de él. Solo informativo:
+              # incluye atributos ignorados a propósito (imagen de Cloud Run).
+              externos = sorted({rd["address"] for rd in plan.get("resource_drift", [])})
+
+          resultado = {0: "sin_drift", 2: "drift"}.get(estado, "error")
+          reporte = {
+              "ambiente": os.environ["AMBIENTE"],
+              "resultado": resultado,
+              "cambios": cambios,
+              "cambiados_fuera_de_terraform": externos,
+              "commit": os.environ["GITHUB_SHA"],
+              "ejecucion": os.environ["GITHUB_RUN_ID"],
+              "evento": os.environ["GITHUB_EVENT_NAME"],
+              "fecha": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+          }
+          json.dump(reporte, open("drift-reporte.json", "w"), indent=2, ensure_ascii=False)
+
+          titulos = {
+              "sin_drift": "✅ Sin drift: la nube coincide con el código de main",
+              "drift": "⛔ Drift: la nube no coincide con el código de main",
+              "error": "⚠️ Error: no se pudo comparar (ver el paso anterior)",
+          }
+          lineas = [f"### {titulos[resultado]}", ""]
+          if cambios:
+              lineas += ["| Recurso | Lo que Terraform haría |", "| --- | --- |"]
+              lineas += [f"| `{c['recurso']}` | {', '.join(c['acciones'])} |" for c in cambios]
+              lineas += ["", "Si alguien lo cambió a mano, se revierte con **Aplicar cambios**. "
+                         "Si el cambio es correcto, entra por PR. Si es un PR de infra ya "
+                         "fusionado y sin aplicar, basta con correr **Aplicar cambios**."]
+          if externos:
+              lineas += ["", "<details><summary>Cambiados fuera de Terraform (incluye ignorados a propósito)</summary>", ""]
+              lineas += [f"- `{a}`" for a in externos]
+              lineas += ["", "</details>"]
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as resumen:
+              resumen.write("\n".join(lineas) + "\n")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as salida:
+              salida.write(f"resultado={resultado}\n")
+          PY
+
+      - name: Publicar evidencia
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: drift-${{ env.AMBIENTE }}-${{ github.run_id }}
+          path: |
+            drift-reporte.json
+            infra/environments/${{ env.AMBIENTE }}/drift.json
+          if-no-files-found: ignore
+          retention-days: 90
+
+      # Al final, para que el reporte y la evidencia se publiquen siempre. Una
+      # corrida fallida es la alerta: GitHub la marca en rojo y avisa por
+      # correo.
+      - name: Resultado
+        env:
+          RESULTADO: ${{ steps.reporte.outputs.resultado }}
+        run: |
+          case "${RESULTADO}" in
+            sin_drift) echo "Sin drift." ;;
+            drift) echo "::error title=Drift en ${AMBIENTE}::La nube no coincide con el código de main. Ver el resumen de la corrida."; exit 1 ;;
+            *) echo "::error title=Drift sin revisar::El plan falló; no se sabe si hay drift."; exit 1 ;;
+          esac
