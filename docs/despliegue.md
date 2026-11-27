@@ -90,6 +90,45 @@ de un despliegue regresaría la imagen vieja al aplicarse. Terraform no vigila
 la imagen (`ignore_changes`), pero al cambiar cualquier otra cosa del servicio
 reenvía la que tenía al planear.
 
+## Paso 5: activar el login real
+
+Mientras `login_real` sea `false`, la API desplegada acepta a los usuarios de
+demostración con la contraseña pública `demo`. **Cualquiera en internet puede
+entrar**, así que este paso no es opcional fuera de una demo.
+
+El orden importa: si la API pasa a Identity Platform antes de que existan los
+usuarios y la llave del navegador, nadie puede entrar.
+
+1. **Aplicar cambios** (con `login_real` todavía en `false`). Habilita Identity
+   Platform y la API sigue con la demo.
+2. Crear los usuarios y la llave del navegador. Lo corre alguien con permisos
+   de administrador sobre el proyecto; pide una contraseña por usuario nuevo y
+   nunca la escribe en disco:
+
+   ```bash
+   cd infra/environments/dev
+   PROJECT_ID=TU-PROYECTO WEB_URL="$(terraform output -raw urls_web)" \
+     ../../../scripts/identidad/crear_usuarios.sh
+   ```
+
+   Crea `compliance@`, `aprobador@`, `desarrollador@` y `auditor@banorte.mx`,
+   cada uno con su rol, y la llave `web-login`.
+3. Copiar el valor de la llave en la variable de GitHub **`IDP_API_KEY`**
+   (Settings → Secrets and variables → Actions → Variables). El script dice
+   cómo verlo. Es una variable y no un secreto: termina en el JavaScript
+   público, restringida a Identity Platform y a la URL del frontend.
+4. Un pull request que cambie `login_real` a `true` en
+   `infra/environments/dev/variables.tf`, y **Aplicar cambios**. Desde ese
+   momento la API solo acepta tokens de Identity Platform y `/sesion` responde
+   404.
+5. **Desplegar aplicaciones**, para que el frontend se compile con la llave.
+   Entre el paso 4 y este, el frontend desplegado todavía muestra la pantalla
+   de demostración y no puede entrar: conviene correrlos seguidos.
+
+Para comprobarlo: entrar con `aprobador@banorte.mx` y ver que `demo` ya no
+funciona. Un usuario sin rol puede autenticarse en Identity Platform, pero la
+API no le da ningún permiso.
+
 ## Lo que cuesta
 
 No pongo cifras porque los precios cambian y prefiero no inventarlas. Usa la

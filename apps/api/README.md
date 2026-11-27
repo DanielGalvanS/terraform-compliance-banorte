@@ -272,10 +272,23 @@ así que cambiar de modo no toca ninguna ruta.
 | `AUTH_MODO` | Quién firma los tokens | Para qué |
 | --- | --- | --- |
 | `local` (por defecto) | La propia API, con HS256 y `AUTH_SECRETO` | Desarrollo y pruebas |
-| `jwks` | El proveedor de identidad; se verifican con sus llaves públicas (`AUTH_JWKS_URL`, `AUTH_EMISOR`, `AUTH_AUDIENCIA`) | Cualquier ambiente real |
+| `jwks` | Identity Platform; se verifican con sus llaves públicas (`AUTH_JWKS_URL`, `AUTH_EMISOR`, `AUTH_AUDIENCIA`) | Cualquier ambiente real |
 
-En modo `jwks` el rol sale del claim `rol`. Un token sin ese claim no tiene
-permisos: no se supone un rol por defecto.
+En modo `jwks` el rol sale del claim personalizado `rol`, que asigna
+`scripts/identidad/crear_usuarios.sh`. Un token sin ese claim no tiene
+permisos: no se supone un rol por defecto. El nombre que queda en la evidencia
+es el `displayName` del usuario o, si no tiene, su correo.
+
+`GET /api/v1/yo` devuelve el usuario del token y sus permisos en los dos
+modos. Con Identity Platform la pantalla inicia sesión con el proveedor y
+pregunta ahí qué puede mostrar.
+
+En dev, la API pasa a `jwks` con `login_real = true` en Terraform. El orden
+para hacerlo sin dejar a nadie fuera está en `docs/despliegue.md` («Paso 5»).
+
+**Pendiente:** el agente y el pipeline todavía no llaman a la API desplegada.
+Cuando lo hagan, sus tokens serán los de su cuenta de servicio (de Google, sin
+claim `rol`) y habrá que mapear cada cuenta a su rol.
 
 ### Modo local: usuarios de demostración
 
