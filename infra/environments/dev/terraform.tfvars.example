@@ -15,3 +15,7 @@ centro_costos    = "cc-0000"
 # presupuesto_mensual   = 50
 # moneda_facturacion    = "USD"
 # correos_alertas_costo = ["equipo@example.com"]
+
+# Login real con Identity Platform. Déjalo en false hasta crear los usuarios y
+# la llave del navegador con scripts/identidad/crear_usuarios.sh.
+# login_real = true

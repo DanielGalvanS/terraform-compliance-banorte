@@ -44,6 +44,7 @@ import { rutasExcepciones } from './rutas/excepciones.ts'
 import { rutasRecursos } from './rutas/recursos.ts'
 import { rutasHallazgos } from './rutas/hallazgos.ts'
 import { rutasResumen } from './rutas/resumen.ts'
+import { rutasIdentidad } from './rutas/identidad.ts'
 import { rutasSesion } from './rutas/sesion.ts'
 
 export const PREFIJO = '/api/v1'
@@ -202,6 +203,7 @@ export async function construirApp({
   if (config.AUTH_MODO === 'local') {
     await app.register(rutasSesion(secreto), { prefix: PREFIJO })
   }
+  await app.register(rutasIdentidad(), { prefix: PREFIJO })
   await app.register(rutasCatalogo(catalogo), { prefix: PREFIJO })
   await app.register(rutasHallazgos(repositorio, repositorioExcepciones, repositorioEvidencia), {
     prefix: PREFIJO,

@@ -112,12 +112,19 @@ jobs:
 
       # VITE_API_URL queda escrita en el JavaScript. Las rutas del cliente
       # (/hallazgos, /resumen…) cuelgan del prefijo /api/v1 de la API.
+      #
+      # VITE_IDP_API_KEY es la llave del navegador de Identity Platform, que
+      # crea scripts/identidad/crear_usuarios.sh. Es una variable y no un
+      # secreto de GitHub porque termina en el JavaScript público. Mientras no
+      # exista, el frontend usa el acceso de demostración.
       - name: Construir el frontend
         env:
           URL_API: ${{ needs.urls.outputs.api }}
+          IDP_API_KEY: ${{ vars.IDP_API_KEY }}
         run: |
           docker build -f apps/web/Dockerfile \
             --build-arg "VITE_API_URL=${URL_API}/api/v1" \
+            --build-arg "VITE_IDP_API_KEY=${IDP_API_KEY}" \
             -t "web:${ETIQUETA}" .
 
       - name: Empaquetar las imágenes

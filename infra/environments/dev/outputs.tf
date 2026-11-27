@@ -48,3 +48,16 @@ output "servicios_cloud_run" {
   value       = { api = module.api.nombre, web = module.web.nombre }
 }
 
+
+output "identidad" {
+  description = "Emisor y audiencia de los tokens de Identity Platform que acepta la API."
+  value = {
+    emisor    = local.identidad.emisor
+    audiencia = local.identidad.audiencia
+  }
+}
+
+output "urls_web" {
+  description = "URLs del frontend, separadas por comas. Las usa scripts/identidad/crear_usuarios.sh para restringir la llave del navegador."
+  value       = join(",", module.web.urls)
+}

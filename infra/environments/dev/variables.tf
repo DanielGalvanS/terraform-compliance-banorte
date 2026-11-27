@@ -60,3 +60,16 @@ variable "correos_alertas_costo" {
   type        = list(string)
   default     = []
 }
+
+variable "login_real" {
+  description = <<-DESC
+    La API verifica los tokens de Identity Platform (AUTH_MODO=jwks) en vez de
+    aceptar los usuarios de demostración.
+
+    Se activa DESPUÉS de crear los usuarios y la llave del navegador con
+    scripts/identidad/crear_usuarios.sh: si se activa antes, nadie puede
+    entrar. Ver docs/despliegue.md.
+  DESC
+  type        = bool
+  default     = false
+}

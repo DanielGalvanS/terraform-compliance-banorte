@@ -43,6 +43,7 @@ export const Identidad = z.object({
   sujeto: z.string().min(1).describe('Identificador estable de la persona o el servicio'),
   nombre: z.string().min(1).describe('Nombre que queda en la evidencia'),
   rol: Rol,
+  email: z.string().optional().describe('Correo de la persona; los servicios no lo traen'),
 })
 
 export const Marco = z.object({

@@ -21,4 +21,5 @@ export type {
   RespuestaRecursos,
   RespuestaResumen,
   SesionApi,
+  YoApi,
 } from './cliente'

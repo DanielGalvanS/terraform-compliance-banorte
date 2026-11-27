@@ -190,6 +190,119 @@
         }
       }
     },
+    "/yo": {
+      "get": {
+        "summary": "El usuario del token y sus permisos",
+        "tags": [
+          "sesión"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "usuario": {
+                      "type": "object",
+                      "properties": {
+                        "nombre": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "type": "string"
+                        },
+                        "rol": {
+                          "type": "string",
+                          "enum": [
+                            "Compliance Lead",
+                            "Aprobador",
+                            "Desarrollador",
+                            "Auditor",
+                            "Agente",
+                            "Pipeline"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "nombre",
+                        "rol"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "permisos": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "leer",
+                          "solicitarExcepcion",
+                          "decidirExcepcion",
+                          "revocarExcepcion",
+                          "cambiarEstadoHallazgo",
+                          "registrarHallazgo",
+                          "registrarDecision"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "usuario",
+                    "permisos"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "detalle": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "detalle": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/marcos": {
       "get": {
         "summary": "Marcos regulatorios en alcance",

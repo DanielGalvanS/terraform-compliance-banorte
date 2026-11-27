@@ -3,7 +3,7 @@ import type { User } from '../model'
 /** Demo identity returned by the prototype sign-in. */
 export const demoUser: User = {
   name: 'Ana Martínez',
-  email: 'ana.martinez@banco.mx',
+  email: 'compliance@banorte.mx',
   role: 'Compliance Lead',
   initials: 'AM',
   permissions: null,
@@ -15,10 +15,10 @@ export const demoUser: User = {
  * precargar el correo al elegir un rol en la pantalla de acceso.
  */
 export const demoAccounts = [
-  { email: 'ana.martinez@banco.mx', role: 'Compliance Lead' },
-  { email: 'roberto.silva@banco.mx', role: 'Aprobador' },
-  { email: 'carlos.vega@banco.mx', role: 'Desarrollador' },
-  { email: 'lucia.ramos@banco.mx', role: 'Auditor' },
+  { email: 'compliance@banorte.mx', role: 'Compliance Lead' },
+  { email: 'aprobador@banorte.mx', role: 'Aprobador' },
+  { email: 'desarrollador@banorte.mx', role: 'Desarrollador' },
+  { email: 'auditor@banorte.mx', role: 'Auditor' },
 ] as const
 
 /**
@@ -30,6 +30,6 @@ export const demoAccounts = [
  * secretos del pipeline la marcara, y que alguien creyera que significa algo.
  */
 export const demoCredentials = {
-  email: 'ana.martinez@banco.mx',
+  email: 'compliance@banorte.mx',
   password: 'demo',
 }
